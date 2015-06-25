@@ -1,13 +1,15 @@
 title:                  λbje
 description:            Thoughts on programming
-github_username:        codebje
 logo:                   site-logo.png
 #url:              http://bje.id.au
 
 # Owner/author information
 owner:
-  name:           Byron Ellacott
-  avatar:         bio-photo.jpg
+  name:         Byron Ellacott
+  avatar:       bio-photo.jpg
+  github:       codebje
+  twitter:      codebje
+  linkedin:     codebje
 
 highlighter: pygments
 markdown:    kramdown
