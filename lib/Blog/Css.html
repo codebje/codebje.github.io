@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - Css</title>
+    <link rel="stylesheet" type="text/css" href="../../css/main.css" />
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../../">λbje :: IO [Opinion]</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../../about.html">About</a>
+            <a class="page-link" href="../../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <h1 id="css-definitions-for-the-site">CSS definitions for the site</h1>
+<p>This site’s CSS is generated using <a href="http://fvisser.nl/clay/">Clay</a>. This file is the literate Haskell source of the syntax highlighting code, with markdown typesetting and bird tracks for the code, pretty much as you see here. One minor issue is that <code>#</code> can’t be used for headings, as GHC interprets it as a pragma and refuses to parse the file.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="ot">{-# LANGUAGE OverloadedStrings #-}</span></code></pre></div>
+<p>OverloadedStrings is pretty much essential for working with Clay, as Clay expects a Text value rather than a String in every location you’d expect to provide character data.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">module</span> <span class="dt">Blog.Css</span> (
+<span class="ot">&gt;</span>     syntax
+<span class="ot">&gt;</span> ) <span class="kw">where</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Clay</span>
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Data.Monoid</span> ((&lt;&gt;))
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Prelude</span> <span class="kw">hiding</span> ((**), span)</code></pre></div>
+<p>Because Clay’s Selectors are monoids, they can be <code class="sourceCode haskell"><span class="ot">`mappend`</span></code>ed together. I prefer the <code class="sourceCode haskell"><span class="fu">&lt;&gt;</span></code> alias, because what’s Haskell without a bunch of line noise scattered randomly throughout?</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; syntax ::</span> <span class="dt">Css</span>
+<span class="ot">&gt;</span> syntax <span class="fu">=</span> <span class="kw">do</span></code></pre></div>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     <span class="co">-- reset</span>
+<span class="ot">&gt;</span>     ((table <span class="fu">&lt;&gt;</span> tr <span class="fu">&lt;&gt;</span> td) <span class="fu">#</span> <span class="st">&quot;.sourceCode&quot;</span>) <span class="fu">&lt;&gt;</span>
+<span class="ot">&gt;</span>       td <span class="fu">#</span> <span class="st">&quot;.lineNumbers&quot;</span> <span class="fu">&lt;&gt;</span>
+<span class="ot">&gt;</span>       table <span class="fu">#</span> <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">**</span> pre <span class="fu">?</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>         margin          nil nil nil nil
+<span class="ot">&gt;</span>         padding         nil nil nil nil
+<span class="ot">&gt;</span>         border          none nil black
+<span class="ot">&gt;</span>         verticalAlign   baseline</code></pre></div>
+<p>Resets suck. Shadow DOM support is growing, but resets are still needed to work around browser default styles anyway.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     td <span class="fu">#</span> <span class="st">&quot;.lineNumbers&quot;</span> <span class="fu">?</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>         borderRight     solid (px <span class="dv">1</span>) <span class="st">&quot;#aaaaaa&quot;</span>
+<span class="ot">&gt;</span>         textAlign       <span class="fu">$</span> alignSide sideRight
+<span class="ot">&gt;</span>         color           <span class="st">&quot;#aaaaaa&quot;</span>
+<span class="ot">&gt;</span>         paddingRight    <span class="fu">$</span> px <span class="dv">5</span>
+<span class="ot">&gt;</span>         paddingLeft     <span class="fu">$</span> px <span class="dv">5</span></code></pre></div>
+<p>Pandoc’s line numbering is good, in that it produces a table of two cells. This lets a user copy and paste code without the line numbers. Anyway, I like the look of it. I’m not sure how to line number literate Haskell, though.</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     td <span class="fu">#</span> <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">?</span> paddingLeft (px <span class="dv">5</span>)
+<span class="ot">&gt;</span>     <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">**</span> span <span class="fu">?</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>         fontFamily [<span class="st">&quot;Source Code Pro&quot;</span>] [monospace]
+<span class="ot">&gt;</span>         <span class="st">&quot;.kw&quot;</span> <span class="fu">&amp;</span> (color <span class="st">&quot;#000000&quot;</span> <span class="fu">*&gt;</span> fontWeight bold)  <span class="co">-- keyword</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.dt&quot;</span> <span class="fu">&amp;</span> (color <span class="st">&quot;#445588&quot;</span> <span class="fu">*&gt;</span> fontWeight bold)  <span class="co">-- data type</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.dv&quot;</span> <span class="fu">&amp;</span> color <span class="st">&quot;#009999&quot;</span>                       <span class="co">-- decimal value</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.bn&quot;</span> <span class="fu">&amp;</span> color <span class="st">&quot;#009999&quot;</span>                       <span class="co">-- base N</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.fl&quot;</span> <span class="fu">&amp;</span> color <span class="st">&quot;#009999&quot;</span>                       <span class="co">-- float</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.ch&quot;</span> <span class="fu">&amp;</span> color <span class="st">&quot;#d01040&quot;</span>                       <span class="co">-- character</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.st&quot;</span> <span class="fu">&amp;</span> color <span class="st">&quot;#d01040&quot;</span>                       <span class="co">-- string</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.co&quot;</span> <span class="fu">&amp;</span> (color <span class="st">&quot;#999988&quot;</span> <span class="fu">*&gt;</span> fontStyle italic) <span class="co">-- comment</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.ot&quot;</span> <span class="fu">&amp;</span> color <span class="st">&quot;#555555&quot;</span>                       <span class="co">-- other token</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.at&quot;</span> <span class="fu">&amp;</span> (color red <span class="fu">*&gt;</span> fontWeight bold)        <span class="co">-- alert token</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.fu&quot;</span> <span class="fu">&amp;</span> (color <span class="st">&quot;#990000&quot;</span> <span class="fu">*&gt;</span> fontWeight bold)  <span class="co">-- function</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.re&quot;</span> <span class="fu">&amp;</span> color <span class="st">&quot;#000000&quot;</span>                       <span class="co">-- region marker</span>
+<span class="ot">&gt;</span>         <span class="st">&quot;.er&quot;</span> <span class="fu">&amp;</span> (color red <span class="fu">*&gt;</span> fontWeight bold)        <span class="co">-- error token</span></code></pre></div>
+<p>This is the meat of the syntax highlighting. The <code>highlighting-kate</code> package seems quite anemic on the range of syntax it can detect and differentiate, but on the flip side that means there’s fewer items to colourise. This particular scheme is a very loose interpretation of the <code>github</code> style from Richard Leland’s <a href="https://github.com/richleland/pygments-css/">set of pygments styles</a>.</p>
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </body>
+</html>

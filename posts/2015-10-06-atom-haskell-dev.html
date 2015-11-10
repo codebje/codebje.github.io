@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - Developing Haskell using Atom</title>
+    <link rel="stylesheet" type="text/css" href="../css/main.css" />
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../">λbje :: IO [Opinion]</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../about.html">About</a>
+            <a class="page-link" href="../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  <h1 class="post-title">Developing Haskell using Atom</h1>
+  <p class="post-meta">October  6, 2015 • bje</p>
+</header>
+
+<article class="post-content">
+  <p>I’m picking up pace on Haskell development, with useless early versions of two packages now on github:</p>
+<ul>
+<li><a href="https://github.com/codebje/hakyll-site/">hakyll-site</a> - a bare-bones static site generator using Hakyll</li>
+<li><a href="https://github.com/codebje/hask-mrt/">hask-mrt</a> - A parser for multi-router toolkit (MRT) export files</li>
+</ul>
+<p>This article outlines the tool chain I’m now using to do this development.</p>
+<!--more-->
+<h2 id="building-code-build-status">Building code <a href="https://travis-ci.org/codebje/hakyll-site"><img src="https://travis-ci.org/codebje/hakyll-site.svg?branch=master" alt="Build Status" /></a></h2>
+<p>You can start to get a sense of how I do this by looking at those two repositories, where right off the bat you’ll see that I’m using <a href="https://www.stackage.org/">stack</a> for building, and where possible using <a href="https://travis-ci.org/codebje/">Travis CI</a> to test my builds.</p>
+<p>Using stack frees me from the cabal sandbox concerns of whether the environment is applied appropriately, particularly for tools invoked other than directly from a shell prompt where I need to take care to ensure the path is right. It also gives me the stable set of packages, but this isn’t the full Hackage, and already I’ve noticed a few packages missing.</p>
+<p>The blog itself is run using a trio of Docker containers: an nginx server to spit out the content, a builder image which pulls the latest git version, rebuilds the site executable as necessary, rebuilds the site itself, and copies it into place, on the third image, a data container. A git <code>post-receive</code> hook triggers the site rebuild container, so blog updates are always just one push away.</p>
+<h2 id="writing-code">Writing code</h2>
+<p>The major change for me, though, is that I’m using <a href="https://atom.io/">Atom</a> as my editor. I’ve been a <a href="http://www.vim.org/">vim</a> user for a few decades now, and while developing Haskell code in vim works well enough that I’m comfortable doing it via ssh, a number of Atom packages make development just that little bit nicer.</p>
+<p>First, I often use some Markdown somewhere, and as <code>hakyll-site</code> might suggest, I also often wind up generating web sites. Atom has excellent support for HTML, CSS, less, JavaScript, and with the <a href="https://atom.io/packages/markdown-preview-plus">markdown-preview-plus</a> package, <a href="http://pandoc.org/">pandoc</a> Markdown support including LaTeX math.</p>
+<p>Second, I rely heavily on <a href="https://hackage.haskell.org/package/hlint">hlint</a> to make me a better Haskell developer, and too much time developing Java has made me fond of autocompletion. To satisfy these needs, and the additional bonus of showing expression types on mouse hover (mitigating my most common use of the REPL: type composition), <a href="https://atom.io/packages/ide-haskell">ide-haskell</a> and its supporting packages really shines.</p>
+<h2 id="making-it-work">Making it work</h2>
+<p>To make ide-haskell work well, you need to install <a href="https://hackage.haskell.org/package/ghc-mod">ghc-mod</a>, and to work with stack that means version 5.4.0.0. I installed using the Mac homebrew version of Cabal, and given stack tends to prefer my system GHC over installing its own copy, this leaves me with an appropriately linked set of tools. I also installed <a href="https://hackage.haskell.org/package/stylish-haskell">stylish-haskell</a> to clean up my indenting and import lists via the IDE.</p>
+<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">stack</span> install ghc-mod
+… <span class="kw">time</span> passes …
+$ <span class="kw">stack</span> install stylish-haskell
+… <span class="kw">much</span> more time passes …</code></pre></div>
+<p>The full set of packages I’m currently making use of are:</p>
+<dl>
+<dt><a href="https://github.com/atom-haskell/autocomplete-haskell">autocomplete-haskell</a></dt>
+<dd>Auto-completion tied to ghc-mod, so it actually knows my code
+</dd>
+<dt><a href="https://atom.io/packages/haskell-ghc-mod">haskell-ghc-mod</a></dt>
+<dd>The autocompletion and ide backend provider. Configuration is mostly about managing paths correctly, now that both this package and ghc-mod fully support stack projects.
+</dd>
+<dt><a href="https://atom.io/packages/ide-haskell">ide-haskell</a></dt>
+<dd>Errors, warnings, lints, hover-over type information, and code clean-up. The linting, in particular, is a real winner.
+</dd>
+<dt><a href="https://atom.io/packages/language-haskell">language-haskell</a></dt>
+<dd>Syntax highlighting for Haskell and cabal files. A requirement for most of the other packages, too.
+</dd>
+<dt><a href="https://atom.io/packages/markdown-preview-plus">markdown-preview-plus</a></dt>
+<dd>The thing that’s showing me my typos in real-time as I make them working on this article. Regrettably, there is no linter available for writing style.
+</dd>
+<dt><a href="https://atom.io/packages/hard-wrap">hard-wrap</a></dt>
+<dd>On demand word-wrap for text or Markdown files. I’m not big on soft wrap, and hard-wrap does the job perfectly for me.
+</dd>
+</dl>
+<p>Configuration overall is pretty straightforward. Atom ties into git flawlessly, to the point that issuing a <code>git mv</code> from a shell results in Atom’s editor pane reflecting the new file name, without losing my cursor position in any open files.</p>
+<h2 id="being-productive">Being productive</h2>
+<p>My <a href="https://github.com/codebje/vimrc/">vim setup</a> is reasonably complex, and my familiarity with the modal editing gives me plenty of technical efficiency for making changes. But when I write code, I don’t really need technical efficiency so much as I need cognitive efficiency - linting, type checking, quick access to docs, and of course REPL behaviours tend to weigh much more than how rapidly I can indent 20 lines. Atom gives me that cognitive assistance for a wide range of tasks, in one place.</p>
+<p>My current project at work involves prototyping a user interface for a new system, and this means some Haskell to generate a static site, some Markdown for the straight up descriptive text, some HTML for the interface prototypes, and a lot of SVG for the shiny new bits. Atom’s made all of that pretty much seamless, with the one minor down side that so far I don’t have a great setup for previewing SVG as I edit it - which is potentially a new project to embark on.</p>
+<p>Oh, <a href="https://atom.io/packages/svg-preview">never mind</a>. Time to install a new package.</p>
+</article>
+
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'xn--bje-syc';
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </body>
+</html>

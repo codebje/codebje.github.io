@@ -1,0 +1,464 @@
+
+body,
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+hr,
+dl,
+dd,
+ol,
+ul,
+figure
+{
+  margin  : 0 0 0 0;
+  padding : 0 0 0 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+p,
+blockquote,
+pre,
+ul,
+ol,
+dl,
+figure
+{
+  margin-bottom : 15px;
+}
+
+body
+{
+  font-family      : "Open Sans", sans-serif;
+  font-size        : 16px;
+  line-height      : 1.5;
+  font-weight      : 400;
+  color            : rgb(33,33,33);
+  background-color : rgb(255,255,255);
+}
+
+img
+{
+  max-width      : 100%;
+  vertical-align : middle;
+}
+
+ul,
+ol,
+dd
+{
+  margin-left : 30px;
+}
+
+li > ul,
+li > ol
+{
+  margin-bottom : 0;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6
+{
+  font-weight : 300;
+  font-family : "Montserrat", sans-serif;
+}
+
+a
+{
+  color           : hsl(200,18.2979%,61.0784%);
+  text-decoration : none;
+}
+
+a:visited
+{
+  color : rgb(96,125,139);
+}
+
+a:hover
+{
+  color           : rgb(33,33,33);
+  text-decoration : underline;
+}
+
+.wrapper
+{
+  max-width     : 740px;
+  margin-right  : auto;
+  margin-left   : auto;
+  padding-right : 30px;
+  padding-left  : 30px;
+}
+
+.wrapper:after
+{
+  content : "";
+  display : table;
+  clear   : both;
+}
+
+@media screen and (max-width: 800px)
+{
+.wrapper
+{
+  max-width     : 770px;
+  padding-right : 15px;
+  padding-left  : 15px;
+}
+
+}
+.site-header
+{
+  border-top    : solid 5px hsl(66,69.9571%,69.3137%);
+  border-bottom : solid 1px rgb(182,182,182);
+  min-height    : 55px;
+  position      : relative;
+}
+
+.site-title
+{
+  font-size      : 26px;
+  line-height    : 56px;
+  letter-spacing : -1px;
+  margin-bottom  : 0;
+  float          : left;
+  color          : rgb(33,33,33);
+}
+
+.site-title:visited
+{
+  color : rgb(33,33,33);
+}
+
+.site-nav
+{
+  float       : right;
+  line-height : 56px;
+}
+
+.site-nav .menu-icon
+{
+  display : none;
+}
+
+.site-nav .page-link
+{
+  color       : rgb(33,33,33);
+  line-height : 1.5;
+}
+
+.site-nav .page-link:not(:first-child)
+{
+  margin-left : 20px;
+}
+
+@media screen and (max-width: 600px)
+{
+.site-nav
+{
+  position         : absolute;
+  top              : 9px;
+  right            : 30px;
+  background-color : rgb(255,255,255);
+  border           : solid 1px rgb(182,182,182);
+  border-radius    : 5px 5px 5px 5px;
+  text-align       : right;
+}
+
+.site-nav .menu-icon
+{
+  display     : block;
+  float       : right;
+  width       : 36px;
+  height      : 26px;
+  line-height : 0;
+  padding-top : 10px;
+  text-align  : center;
+}
+
+.site-nav .menu-icon > svg
+{
+  width  : 18px;
+  height : 15px;
+}
+
+.site-nav .menu-icon > svg path
+{
+  fill : rgb(96,125,139);
+}
+
+.site-nav .trigger
+{
+  clear   : both;
+  display : none;
+}
+
+
+.site-nav:hover .trigger
+{
+  display        : block;
+  padding-bottom : 5px;
+}
+
+.site-nav .page-link
+{
+  display : block;
+  padding : 5px 10px 5px 10px;
+}
+
+}
+s,
+strike,
+del
+{
+  color : hsl(0,0.0000%,62.9412%);
+}
+
+table
+{
+  -webkit-box-shadow : 0 1px 3px rgba(0, 0, 0, 0.12),0 1px 2px rgba(0, 0, 0, 0.24);
+  -moz-box-shadow    : 0 1px 3px rgba(0, 0, 0, 0.12),0 1px 2px rgba(0, 0, 0, 0.24);
+  -ms-box-shadow     : 0 1px 3px rgba(0, 0, 0, 0.12),0 1px 2px rgba(0, 0, 0, 0.24);
+  -o-box-shadow      : 0 1px 3px rgba(0, 0, 0, 0.12),0 1px 2px rgba(0, 0, 0, 0.24);
+  box-shadow         : 0 1px 3px rgba(0, 0, 0, 0.12),0 1px 2px rgba(0, 0, 0, 0.24);
+  margin             : 1rem auto 1.5rem auto;
+  color              : rgb(33,33,33);
+  width              : 100%;
+  border-collapse    : collapse;
+}
+
+table td
+{
+  padding : 0.2rem 0.8rem 0.2rem 0.8rem;
+}
+
+table th
+{
+  padding : 0.4rem 0.8rem 0.4rem 0.8rem;
+}
+
+table tr
+{
+  -webkit-transition : background-color 0.3s ease 0.0s;
+  -moz-transition    : background-color 0.3s ease 0.0s;
+  -ms-transition     : background-color 0.3s ease 0.0s;
+  -o-transition      : background-color 0.3s ease 0.0s;
+  transition         : background-color 0.3s ease 0.0s;
+}
+
+table tr:hover
+{
+  background-color : rgb(240,244,195);
+}
+
+table thead
+{
+  border-bottom : solid 1px rgba(0, 0, 0, 0.12);
+}
+
+footer
+{
+  border-top     : solid 1px rgb(182,182,182);
+  padding-top    : 15px;
+  padding-bottom : 15px;
+}
+
+.footer-wrapper
+{
+  margin     : 0 auto 0 auto;
+  text-align : center;
+  font-size  : 10px;
+}
+
+.social-media-list
+{
+  margin-bottom : 15px;
+}
+
+.social-media-list a
+{
+  color   : rgb(96,125,139);
+  padding : 4px 8px 4px 8px;
+}
+
+.social-media-list a:hover
+{
+  color : hsl(200,18.2979%,61.0784%);
+}
+
+.footnotes
+{
+  font-size : 12px;
+}
+
+.footnotes ol,
+.footnotes p
+{
+  margin-bottom : 0;
+}
+
+.page-content
+{
+  padding : 30px 0 30px 0;
+}
+
+.page-heading
+{
+  font-size : 20px;
+}
+
+.post-header
+{
+  margin-bottom : 30px;
+}
+
+.post-title
+{
+  font-size      : 36px;
+  letter-spacing : -1px;
+  line-height    : 1;
+}
+
+.post-meta
+{
+  font-size : 14px;
+  color     : rgb(96,125,139);
+}
+
+.post-content
+{
+  margin-bottom : 30px;
+}
+
+.post-content h2
+{
+  font-size : 28px;
+}
+
+.post-content h3
+{
+  font-size : 22px;
+}
+
+.post-content h4
+{
+  font-size : 18px;
+}
+
+table.sourceCode,
+tr.sourceCode,
+td.sourceCode,
+td.lineNumbers,
+table.sourceCode pre
+{
+  margin         : 0 0 0 0;
+  padding        : 0 0 0 0;
+  border         : none 0 rgb(0,0,0);
+  vertical-align : baseline;
+}
+
+td.lineNumbers
+{
+  border-right  : solid 1px rgb(170,170,170);
+  text-align    : right;
+  color         : rgb(170,170,170);
+  padding-right : 5px;
+  padding-left  : 5px;
+}
+
+td.sourceCode
+{
+  padding-left : 5px;
+}
+
+.sourceCode span
+{
+  font-family : "Source Code Pro", monospace;
+}
+
+.sourceCode span.kw
+{
+  color       : rgb(0,0,0);
+  font-weight : bold;
+}
+
+.sourceCode span.dt
+{
+  color       : rgb(68,85,136);
+  font-weight : bold;
+}
+
+.sourceCode span.dv
+{
+  color : rgb(0,153,153);
+}
+
+.sourceCode span.bn
+{
+  color : rgb(0,153,153);
+}
+
+.sourceCode span.fl
+{
+  color : rgb(0,153,153);
+}
+
+.sourceCode span.ch
+{
+  color : rgb(208,16,64);
+}
+
+.sourceCode span.st
+{
+  color : rgb(208,16,64);
+}
+
+.sourceCode span.co
+{
+  color      : rgb(153,153,136);
+  font-style : italic;
+}
+
+.sourceCode span.ot
+{
+  color : rgb(85,85,85);
+}
+
+.sourceCode span.at
+{
+  color       : rgb(255,0,0);
+  font-weight : bold;
+}
+
+.sourceCode span.fu
+{
+  color       : rgb(153,0,0);
+  font-weight : bold;
+}
+
+.sourceCode span.re
+{
+  color : rgb(0,0,0);
+}
+
+.sourceCode span.er
+{
+  color       : rgb(255,0,0);
+  font-weight : bold;
+}
+
+
+/* Generated with Clay, http://fvisser.nl/clay */
