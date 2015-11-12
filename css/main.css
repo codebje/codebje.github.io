@@ -79,13 +79,13 @@ h6
 
 a
 {
-  color           : rgb(178,223,219);
+  color           : rgb(83,109,254);
   text-decoration : none;
 }
 
 a:visited
 {
-  color : rgb(0,150,136);
+  color : rgb(83,109,254);
 }
 
 a:hover
@@ -291,7 +291,7 @@ footer
 
 .social-media-list a
 {
-  color   : rgb(0,150,136);
+  color   : rgb(83,109,254);
   padding : 4px 8px 4px 8px;
 }
 
@@ -325,6 +325,12 @@ footer
 .post-header
 {
   margin-bottom : 30px;
+}
+
+.post-logo
+{
+  float  : right;
+  height : 36px;
 }
 
 .post-title
