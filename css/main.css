@@ -79,13 +79,13 @@ h6
 
 a
 {
-  color           : hsl(200,18.2979%,61.0784%);
+  color           : rgb(178,223,219);
   text-decoration : none;
 }
 
 a:visited
 {
-  color : rgb(96,125,139);
+  color : rgb(0,150,136);
 }
 
 a:hover
@@ -122,30 +122,31 @@ a:hover
 }
 .site-header
 {
-  border-top    : solid 5px hsl(66,69.9571%,69.3137%);
-  border-bottom : solid 1px rgb(182,182,182);
-  min-height    : 55px;
-  position      : relative;
+  border-top       : solid 5px rgb(0,121,107);
+  background-color : rgb(0,150,136);
+  min-height       : 65px;
+  position         : relative;
 }
 
 .site-title
 {
-  font-size      : 26px;
+  font-size      : 34px;
   line-height    : 56px;
   letter-spacing : -1px;
   margin-bottom  : 0;
   float          : left;
-  color          : rgb(33,33,33);
+  color          : rgb(255,255,255);
 }
 
 .site-title:visited
 {
-  color : rgb(33,33,33);
+  color : rgb(255,255,255);
 }
 
 .site-nav
 {
   float       : right;
+  font-size   : 22px;
   line-height : 56px;
 }
 
@@ -156,7 +157,7 @@ a:hover
 
 .site-nav .page-link
 {
-  color       : rgb(33,33,33);
+  color       : rgb(178,223,219);
   line-height : 1.5;
 }
 
@@ -197,7 +198,7 @@ a:hover
 
 .site-nav .menu-icon > svg path
 {
-  fill : rgb(96,125,139);
+  fill : rgb(0,150,136);
 }
 
 .site-nav .trigger
@@ -224,7 +225,7 @@ s,
 strike,
 del
 {
-  color : hsl(0,0.0000%,62.9412%);
+  color : rgb(114,114,114);
 }
 
 table
@@ -261,7 +262,7 @@ table tr
 
 table tr:hover
 {
-  background-color : rgb(240,244,195);
+  background-color : rgb(178,223,219);
 }
 
 table thead
@@ -290,13 +291,13 @@ footer
 
 .social-media-list a
 {
-  color   : rgb(96,125,139);
+  color   : rgb(0,150,136);
   padding : 4px 8px 4px 8px;
 }
 
 .social-media-list a:hover
 {
-  color : hsl(200,18.2979%,61.0784%);
+  color : rgb(178,223,219);
 }
 
 .footnotes
@@ -312,7 +313,8 @@ footer
 
 .page-content
 {
-  padding : 30px 0 30px 0;
+  padding    : 30px 0 30px 0;
+  text-align : justify;
 }
 
 .page-heading
@@ -335,7 +337,7 @@ footer
 .post-meta
 {
   font-size : 14px;
-  color     : rgb(96,125,139);
+  color     : rgb(0,150,136);
 }
 
 .post-content
@@ -364,6 +366,7 @@ td.sourceCode,
 td.lineNumbers,
 table.sourceCode pre
 {
+  font-family    : "Source Code Pro", monospace;
   margin         : 0 0 0 0;
   padding        : 0 0 0 0;
   border         : none 0 rgb(0,0,0);
@@ -384,10 +387,6 @@ td.sourceCode
   padding-left : 5px;
 }
 
-.sourceCode span
-{
-  font-family : "Source Code Pro", monospace;
-}
 
 .sourceCode span.kw
 {

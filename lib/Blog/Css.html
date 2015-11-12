@@ -52,6 +52,7 @@
 <span class="ot">&gt;</span>     ((table <span class="fu">&lt;&gt;</span> tr <span class="fu">&lt;&gt;</span> td) <span class="fu">#</span> <span class="st">&quot;.sourceCode&quot;</span>) <span class="fu">&lt;&gt;</span>
 <span class="ot">&gt;</span>       td <span class="fu">#</span> <span class="st">&quot;.lineNumbers&quot;</span> <span class="fu">&lt;&gt;</span>
 <span class="ot">&gt;</span>       table <span class="fu">#</span> <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">**</span> pre <span class="fu">?</span> <span class="kw">do</span>
+<span class="ot">&gt;</span>         fontFamily      [<span class="st">&quot;Source Code Pro&quot;</span>] [monospace]
 <span class="ot">&gt;</span>         margin          nil nil nil nil
 <span class="ot">&gt;</span>         padding         nil nil nil nil
 <span class="ot">&gt;</span>         border          none nil black
@@ -66,7 +67,6 @@
 <p>Pandoc’s line numbering is good, in that it produces a table of two cells. This lets a user copy and paste code without the line numbers. Anyway, I like the look of it. I’m not sure how to line number literate Haskell, though.</p>
 <div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     td <span class="fu">#</span> <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">?</span> paddingLeft (px <span class="dv">5</span>)
 <span class="ot">&gt;</span>     <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">**</span> span <span class="fu">?</span> <span class="kw">do</span>
-<span class="ot">&gt;</span>         fontFamily [<span class="st">&quot;Source Code Pro&quot;</span>] [monospace]
 <span class="ot">&gt;</span>         <span class="st">&quot;.kw&quot;</span> <span class="fu">&amp;</span> (color <span class="st">&quot;#000000&quot;</span> <span class="fu">*&gt;</span> fontWeight bold)  <span class="co">-- keyword</span>
 <span class="ot">&gt;</span>         <span class="st">&quot;.dt&quot;</span> <span class="fu">&amp;</span> (color <span class="st">&quot;#445588&quot;</span> <span class="fu">*&gt;</span> fontWeight bold)  <span class="co">-- data type</span>
 <span class="ot">&gt;</span>         <span class="st">&quot;.dv&quot;</span> <span class="fu">&amp;</span> color <span class="st">&quot;#009999&quot;</span>                       <span class="co">-- decimal value</span>
