@@ -94,6 +94,21 @@ a:hover
   text-decoration : underline;
 }
 
+a.plain
+{
+  color : inherit;
+}
+
+a.plain:visited
+{
+  color : inherit;
+}
+
+a.plain:hover
+{
+  color : inherit;
+}
+
 .wrapper
 {
   max-width     : 740px;
@@ -342,8 +357,10 @@ footer
 
 .post-meta
 {
-  font-size : 14px;
-  color     : rgb(0,150,136);
+  font-size   : 14px;
+  font-weight : 300;
+  font-family : "Montserrat", sans-serif;
+  color       : rgb(0,150,136);
 }
 
 .post-content
