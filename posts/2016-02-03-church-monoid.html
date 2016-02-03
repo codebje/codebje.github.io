@@ -44,7 +44,8 @@
 </header>
 
 <article class="post-content">
-  <p>The following shows how a Church encoding can be derivied from an abstract data type, and intuitively but not rigorously demonstrates their equivalence.</p>
+  <p>This article shows how a Church encoding can be derivied from an abstract data type, and intuitively but not rigorously demonstrates their equivalence.</p>
+<!--more-->
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE GADTs, RankNTypes #-}</span></code></pre></div>
 <p>We start out by defining a sum type for a monoid, with empty, embed, and append operations. To ease the transformation to Church encoding, we use <code>GADTs</code> to give explicit type signatures to the three constructors.</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">MonoidAST</span> a <span class="kw">where</span>
@@ -58,7 +59,7 @@
     <span class="ot">-&gt;</span> r             <span class="co">-- ≡ MEmpty</span>
     <span class="ot">-&gt;</span> (r <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="co">-- ≡ MAppend</span>
     <span class="ot">-&gt;</span> r }</code></pre></div>
-<p>The <code>mrun</code> function will take a Church encoded monoid and the functions for each interpretation, and produce a monoidal value. If we consider <code>CEMonoid Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline"><em>a</em></span> and <span class="math inline"><em>r</em></span> are not necessarily the same type. We could execute a monoid which first transforms the integer value to something else, such as <code>mrun _ show &quot;&quot; (++)</code>.</p>
+<p>The <code>mrun</code> function will take a Church encoded monoid and the functions for each interpretation, and produce a monoidal value. If we consider <code>CEMonoid  Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline"><em>a</em></span> and <span class="math inline"><em>r</em></span> are not necessarily the same type. We could execute a monoid which first transforms the integer value to something else, such as <code>mrun _ show &quot;&quot; (++)</code>.</p>
 <p>Now we have a way to execute a monoid, but not to construct one. We provide functions for constructors, effectively taking the lower-case of the ADT’s constructors:</p>
 <div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">membed' a <span class="fu">=</span> <span class="dt">CEMonoid</span> <span class="fu">$</span> \ d _ _ <span class="ot">-&gt;</span> d a
 mempty' <span class="fu">=</span> <span class="dt">CEMonoid</span> <span class="fu">$</span> \ _ e _ <span class="ot">-&gt;</span> e
