@@ -383,7 +383,7 @@ footer
   font-size : 18px;
 }
 
-.sourceCode pre
+.sourceCode code
 {
   font-family    : "Source Code Pro", monospace;
   margin         : 0 0 15px 0;
