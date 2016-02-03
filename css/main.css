@@ -383,16 +383,13 @@ footer
   font-size : 18px;
 }
 
-table.sourceCode,
-tr.sourceCode,
-td.sourceCode,
-td.lineNumbers,
-table.sourceCode pre
+.sourceCode pre
 {
   font-family    : "Source Code Pro", monospace;
   margin         : 0 0 0 0;
   padding        : 0 0 0 0;
-  border         : none 0 rgb(0,0,0);
+  border         : solid 1px rgb(221,221,221);
+  background     : rgb(238,238,238);
   vertical-align : baseline;
 }
 

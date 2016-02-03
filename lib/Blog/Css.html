@@ -46,27 +46,27 @@
 <span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Data.Monoid</span> ((&lt;&gt;))
 <span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Prelude</span> <span class="kw">hiding</span> ((**), span)</code></pre></div>
 <p>Because Clay’s Selectors are monoids, they can be <code class="sourceCode haskell"><span class="ot">`mappend`</span></code>ed together. I prefer the <code class="sourceCode haskell"><span class="fu">&lt;&gt;</span></code> alias, because what’s Haskell without a bunch of line noise scattered randomly throughout?</p>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> codeBackground,<span class="ot"> codeBorder ::</span> <span class="dt">Color</span>
+<span class="ot">&gt;</span> codeBackground <span class="fu">=</span> <span class="st">&quot;#eeeeee&quot;</span>
+<span class="ot">&gt;</span> codeBorder     <span class="fu">=</span> <span class="st">&quot;#dddddd&quot;</span></code></pre></div>
 <div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; syntax ::</span> <span class="dt">Css</span>
 <span class="ot">&gt;</span> syntax <span class="fu">=</span> <span class="kw">do</span></code></pre></div>
-<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     <span class="co">-- reset</span>
-<span class="ot">&gt;</span>     ((table <span class="fu">&lt;&gt;</span> tr <span class="fu">&lt;&gt;</span> td) <span class="fu">#</span> <span class="st">&quot;.sourceCode&quot;</span>) <span class="fu">&lt;&gt;</span>
-<span class="ot">&gt;</span>       td <span class="fu">#</span> <span class="st">&quot;.lineNumbers&quot;</span> <span class="fu">&lt;&gt;</span>
-<span class="ot">&gt;</span>       table <span class="fu">#</span> <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">**</span> pre <span class="fu">?</span> <span class="kw">do</span>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">**</span> pre <span class="fu">?</span> <span class="kw">do</span>
 <span class="ot">&gt;</span>         fontFamily      [<span class="st">&quot;Source Code Pro&quot;</span>] [monospace]
 <span class="ot">&gt;</span>         margin          nil nil nil nil
 <span class="ot">&gt;</span>         padding         nil nil nil nil
-<span class="ot">&gt;</span>         border          none nil black
+<span class="ot">&gt;</span>         border          solid (px <span class="dv">1</span>) codeBorder
+<span class="ot">&gt;</span>         background      codeBackground
 <span class="ot">&gt;</span>         verticalAlign   baseline</code></pre></div>
-<p>Resets suck. Shadow DOM support is growing, but resets are still needed to work around browser default styles anyway.</p>
 <div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     td <span class="fu">#</span> <span class="st">&quot;.lineNumbers&quot;</span> <span class="fu">?</span> <span class="kw">do</span>
 <span class="ot">&gt;</span>         borderRight     solid (px <span class="dv">1</span>) <span class="st">&quot;#aaaaaa&quot;</span>
 <span class="ot">&gt;</span>         textAlign       <span class="fu">$</span> alignSide sideRight
 <span class="ot">&gt;</span>         color           <span class="st">&quot;#aaaaaa&quot;</span>
 <span class="ot">&gt;</span>         paddingRight    <span class="fu">$</span> px <span class="dv">5</span>
-<span class="ot">&gt;</span>         paddingLeft     <span class="fu">$</span> px <span class="dv">5</span></code></pre></div>
+<span class="ot">&gt;</span>         paddingLeft     <span class="fu">$</span> px <span class="dv">5</span>
+<span class="ot">&gt;</span>     td <span class="fu">#</span> <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">?</span> paddingLeft (px <span class="dv">5</span>)</code></pre></div>
 <p>Pandoc’s line numbering is good, in that it produces a table of two cells. This lets a user copy and paste code without the line numbers. Anyway, I like the look of it. I’m not sure how to line number literate Haskell, though.</p>
-<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     td <span class="fu">#</span> <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">?</span> paddingLeft (px <span class="dv">5</span>)
-<span class="ot">&gt;</span>     <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">**</span> span <span class="fu">?</span> <span class="kw">do</span>
+<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">**</span> span <span class="fu">?</span> <span class="kw">do</span>
 <span class="ot">&gt;</span>         <span class="st">&quot;.kw&quot;</span> <span class="fu">&amp;</span> (color <span class="st">&quot;#000000&quot;</span> <span class="fu">*&gt;</span> fontWeight bold)  <span class="co">-- keyword</span>
 <span class="ot">&gt;</span>         <span class="st">&quot;.dt&quot;</span> <span class="fu">&amp;</span> (color <span class="st">&quot;#445588&quot;</span> <span class="fu">*&gt;</span> fontWeight bold)  <span class="co">-- data type</span>
 <span class="ot">&gt;</span>         <span class="st">&quot;.dv&quot;</span> <span class="fu">&amp;</span> color <span class="st">&quot;#009999&quot;</span>                       <span class="co">-- decimal value</span>
