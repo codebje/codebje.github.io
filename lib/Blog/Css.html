@@ -41,24 +41,28 @@
 <p>OverloadedStrings is pretty much essential for working with Clay, as Clay expects a Text value rather than a String in every location you’d expect to provide character data.</p>
 <div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">module</span> <span class="dt">Blog.Css</span> (
 <span class="ot">&gt;</span>     syntax
-<span class="ot">&gt;</span> ) <span class="kw">where</span></code></pre></div>
-<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Clay</span>
+<span class="ot">&gt;</span> ) <span class="kw">where</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Clay</span>
 <span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Data.Monoid</span> ((&lt;&gt;))
 <span class="ot">&gt;</span> <span class="kw">import </span><span class="dt">Prelude</span> <span class="kw">hiding</span> ((**), span)</code></pre></div>
 <p>Because Clay’s Selectors are monoids, they can be <code class="sourceCode haskell"><span class="ot">`mappend`</span></code>ed together. I prefer the <code class="sourceCode haskell"><span class="fu">&lt;&gt;</span></code> alias, because what’s Haskell without a bunch of line noise scattered randomly throughout?</p>
 <div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span> codeBackground,<span class="ot"> codeBorder ::</span> <span class="dt">Color</span>
 <span class="ot">&gt;</span> codeBackground <span class="fu">=</span> <span class="st">&quot;#eeeeee&quot;</span>
-<span class="ot">&gt;</span> codeBorder     <span class="fu">=</span> <span class="st">&quot;#dddddd&quot;</span></code></pre></div>
-<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt; syntax ::</span> <span class="dt">Css</span>
-<span class="ot">&gt;</span> syntax <span class="fu">=</span> <span class="kw">do</span></code></pre></div>
-<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">**</span> pre <span class="fu">?</span> <span class="kw">do</span>
+<span class="ot">&gt;</span> codeBorder     <span class="fu">=</span> <span class="st">&quot;#dddddd&quot;</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt; syntax ::</span> <span class="dt">Css</span>
+<span class="ot">&gt;</span> syntax <span class="fu">=</span> <span class="kw">do</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>     <span class="st">&quot;.sourceCode&quot;</span> <span class="fu">**</span> pre <span class="fu">?</span> <span class="kw">do</span>
 <span class="ot">&gt;</span>         fontFamily      [<span class="st">&quot;Source Code Pro&quot;</span>] [monospace]
-<span class="ot">&gt;</span>         margin          nil nil nil nil
+<span class="ot">&gt;</span>         margin          nil nil (px <span class="dv">15</span>) nil
 <span class="ot">&gt;</span>         padding         nil nil nil nil
+<span class="ot">&gt;</span>         verticalAlign   baseline
 <span class="ot">&gt;</span>         border          solid (px <span class="dv">1</span>) codeBorder
 <span class="ot">&gt;</span>         background      codeBackground
-<span class="ot">&gt;</span>         verticalAlign   baseline</code></pre></div>
-<div class="sourceCode"><pre class="sourceCode literate literatehaskell"><code class="sourceCode literatehaskell"><span class="ot">&gt;</span>     td <span class="fu">#</span> <span class="st">&quot;.lineNumbers&quot;</span> <span class="fu">?</span> <span class="kw">do</span>
+<span class="ot">&gt;</span> 
+<span class="ot">&gt;</span>     td <span class="fu">#</span> <span class="st">&quot;.lineNumbers&quot;</span> <span class="fu">?</span> <span class="kw">do</span>
 <span class="ot">&gt;</span>         borderRight     solid (px <span class="dv">1</span>) <span class="st">&quot;#aaaaaa&quot;</span>
 <span class="ot">&gt;</span>         textAlign       <span class="fu">$</span> alignSide sideRight
 <span class="ot">&gt;</span>         color           <span class="st">&quot;#aaaaaa&quot;</span>
