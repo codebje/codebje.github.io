@@ -383,7 +383,7 @@ footer
   font-size : 18px;
 }
 
-.sourceCode code
+.sourceCode pre
 {
   font-family    : "Source Code Pro", monospace;
   margin         : 0 0 15px 0;
@@ -391,6 +391,11 @@ footer
   vertical-align : baseline;
   border         : solid 1px rgb(221,221,221);
   background     : rgb(238,238,238);
+}
+
+.sourceCode code
+{
+  font-family : "Source Code Pro", monospace;
 }
 
 td.lineNumbers
