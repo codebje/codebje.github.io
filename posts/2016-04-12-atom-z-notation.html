@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - Z specification with Atom</title>
+    <link rel="stylesheet" type="text/css" href="../css/main.css" />
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../">λbje :: IO [Opinion]</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../about.html">About</a>
+            <a class="page-link" href="../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../images/z-atom.svg">
+  
+  <h1 class="post-title">Z specification with Atom</h1>
+  <p class="post-meta">April 12, 2016 • bje</p>
+</header>
+
+<article class="post-content">
+  <p>Z notation is a formal specification language based on typed set theory and predicate logic. With this relatively simple mathematical grounding, Z is a useful pedagogic introduction to formal methods, and a useful formal method to apply when consumers of the output aren’t already trained for it.</p>
+<p>However, the development of Z mostly involves tools which are rather dated. This article shows how to use Atom as a modern Z authoring studio, for small to medium specifications.</p>
+<!--more-->
+<h2 id="essential-ingredients-latex">Essential ingredients: LaTeX</h2>
+<p>Z notation is primarily authored in LaTeX, so the first step is writing effective LaTeX in Atom.</p>
+<p>There are two approaches to this. One is to use Markdown for prose, and embed LaTeX directly, using [Pandoc] to produce PDF output. The downside of this is that Pandoc has no straightforward way to require a LaTeX package, and so including <code>oz.sty</code> or an equivalent means writing a custom preamble.</p>
+<p>The second approach is the one I favour: write in LaTeX, use the <a href="https://atom.io/packages/latextools">latextools</a> package to build PDF output, and use the <a href="https://atom.io/packages/pdf-view">pdf-view</a> package to preview the PDF in a side-by-side panel.</p>
+<h2 id="essential-ingredients-type-checking">Essential ingredients: type checking</h2>
+<p>Z notation is machine checkable; the syntax and types can be verified automatically. However, <a href="https://en.wikipedia.org/wiki/Z_notation#Tools">the tools</a> to do this aren’t always kept up to date: the most current is <a href="https://sourceforge.net/projects/czt/">CZT</a>, the Community Z Tools, many others are either now broken links, or ten years out of date.</p>
+<p>Using CZT isn’t a great experience, particularly for beginners. It offers an Eclipse-based IDE, with a project concept and file naming requirements in conflict with LaTeX naming requirements.</p>
+<p>CZT also offers a command line typechecker, and so I created an Atom package, <a href="https://atom.io/packages/linter-czt">linter-czt</a>, to invoke that typechecker as a service provider for the <a href="https://atom.io/packages/linter">linter</a> package.</p>
+<h2 id="usage-of-linter-czt">Usage of linter-czt</h2>
+<p>Because it’s not a good idea to typecheck all LaTeX files, the CZT linter package introduces a new grammar for Z specifications, with scope <code>text.tex.latex.zed</code>. You can either select the <code>LaTeX Z</code> grammar from the grammar selection list (click on <code>LaTeX</code> in the status bar for a .tex file), follow the CZT approach and name your file with a <code>.zed</code> notation, or put <code>% !Z-notation</code> as the first line in your file.</p>
+<p>Interpreting messages is not made any easier by the wrapper of a modern editor over a dated typechecker, so there’s no substitute for experience and understanding when it comes to writing meaningful Z.</p>
+<p>The CZT distribution requires a Java 8 runtime, and a binary is included in the Atom package, with a patch to provide better location information applied.</p>
+<p>Install all packages using either <code>apm</code> or the GUI settings install tab.</p>
+</article>
+
+<div id="disqus_thread"></div>
+<script type="text/javascript">
+    var disqus_shortname = 'xn--bje-syc';
+    (function() {
+        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
+        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
+        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
+    })();
+</script>
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </body>
+</html>
