@@ -2,10 +2,11 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width initial-scale=1" />
+    <meta name="viewport" content="width=device-width initial-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>λbje - Z specification with Atom</title>
-    <link rel="stylesheet" type="text/css" href="../css/main.css" />
+    <link rel="stylesheet" type="text/css" href="../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../css/animation.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
@@ -13,7 +14,7 @@
   <body>
     <header class="site-header">
       <div class="wrapper">
-        <a class="site-title" href="../">λbje :: IO [Opinion]</a>
+        <a class="site-title" href="../">Typed out</a>
 
         <nav class="site-nav">
           <a href="#" class="menu-icon">
@@ -47,6 +48,10 @@
   <p>Z notation is a formal specification language based on typed set theory and predicate logic. With this relatively simple mathematical grounding, Z is a useful pedagogic introduction to formal methods, and a useful formal method to apply when consumers of the output aren’t already trained for it.</p>
 <p>However, the development of Z mostly involves tools which are rather dated. This article shows how to use Atom as a modern Z authoring studio, for small to medium specifications.</p>
 <!--more-->
+<div class="figure">
+<img src="../images/linter-czt.png" />
+
+</div>
 <h2 id="essential-ingredients-latex">Essential ingredients: LaTeX</h2>
 <p>Z notation is primarily authored in LaTeX, so the first step is writing effective LaTeX in Atom.</p>
 <p>There are two approaches to this. One is to use Markdown for prose, and embed LaTeX directly, using [Pandoc] to produce PDF output. The downside of this is that Pandoc has no straightforward way to require a LaTeX package, and so including <code>oz.sty</code> or an equivalent means writing a custom preamble.</p>
