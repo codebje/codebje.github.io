@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="200px" height="200px" viewBox="0 0 340 340" version="1.1">
+<svg xmlns="http://www.w3.org/2000/svg" width="500px" height="500px" viewBox="0 0 340 340" version="1.1">
     <rect x="0" y="0" width="100%" height="100%" fill="#fff"/>
 <g transform="scale(2.5) translate(2 10)" opacity="0.6">
 <path
@@ -15,8 +15,16 @@
 <g transform="scale(-0.12, 0.12) translate(-2100,750)" opacity="0">
 <path fill="#7aa38f" d="M94 0V47L694 1263H417Q370 1263 345 1253T297 1220T253 1147T208 1012H110V1365H1157V1316L557 102H821Q888 102 920 114T974 153T1012 228T1053 377H1151V0H94ZM1010 1277H827L241 88H424L1010 1277Z"/>
 </g>
-<path fill="#7aa38f" opacity="1" d="
-    M 80 105 v -30 h 200 v 30 l -105 145 h 105 v 30 h -145 v -30 l 105 -145 Z
-    M 140 280 h -60 v -30 l 105 -145 h 40 l -105 145 h 20 Z
+<g transform="translate(170,180) scale(0.8)">
+<path fill="#00796B" opacity="1" d="
+    M -100 -75 v -30 h 200 v 30 Z
+    M -100 100 v -30 h 200 v 30 Z
+    M -100 -75 v 30 h 20 q 0 -30 20 -30 Z
+    M  100 70 v -30 h -20 q 0 30 -20 30 Z
     "/>
+<path fill="#009688" d="
+    M -100 70 l 105 -145 h 40 l -105 145 h 20 Z
+    M -45 70 l 105 -145 h 40 l -105 145 h 20 Z
+    "/>
+</g>
 </svg>
