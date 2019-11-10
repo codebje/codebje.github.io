@@ -8,8 +8,65 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2019-07-05T00:00:00Z</updated>
+    <updated>2019-11-10T00:00:00Z</updated>
     <entry>
+    <title>The TRS-20 - a homebrew Z80 machine</title>
+    <link href="https://bje.id.au/blog/posts/2019-11-10-trs20-ideas.html" />
+    <id>https://bje.id.au/blog/posts/2019-11-10-trs20-ideas.html</id>
+    <published>2019-11-10T00:00:00Z</published>
+    <updated>2019-11-10T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>My first computer was a TRS-80 Model I, a device that was first sold before I was born. Some time after I was born, I got my hands on one, starting my 30-odd year journey in computing.</p>
+<p>For the sake of nostalgia, I’m embarking on a journey to build a homebrew Z80-based machine, loosely based on the TRS-80 Model I. The build will take place in 2020, and so the machine will be called the TRS-20.</p>
+<!--more-->
+<p>The Model I is not a particularly high bar to reach, these days. It had 4KB of memory, a cassette drive for storage, and a monochrome video display capable of 64 characters over 16 rows - selected to fill exactly 1024 bytes of video memory. In graphics mode, each character cell becomes a 2x3 grid of addressable pixels. My Model I was a low-end model, with no expansions of note. Wikipedia can provide a <a href="trs80">thorough background</a> on the original compter.</p>
+<figure>
+<img src="/images/trs80-model1.jpg" alt="" /><figcaption>The TRS-80 Model I. Image by <a href="https://www.flickr.com/photos/eevblog/14761087591/">Dave Jones</a>.</figcaption>
+</figure>
+<p>The basics of my computer are set by my inspiration: I’ll be using a processor from the Z80 family, it will have RAM and ROM occupying the same 64K space, and peripherals will mostly also steal a bit of memory space instead of using the Z80’s (originally absurdly limited) I/O space.</p>
+<p>I will use a Z180 processor, most likely the <a href="s180">Z8S180</a>. This is not perfectly compatible with the original Z80, though I anticipate being able to manage the incompatibilities in the glue logic for the sake of running original TRS-80 software.</p>
+<p>I will need to design a series of boards, roughly broken down along these lines:</p>
+<ol type="1">
+<li>A motherboard or CPU board.</li>
+<li>A ROM and RAM board.</li>
+<li>An I/O board for USB keyboard input.</li>
+<li>A video display board for VGA or HDMI output.</li>
+<li>Development and debugging</li>
+<li>External storage</li>
+</ol>
+<p>The constraints on the system are a total budget target of AUD400, the use of the free edition of Eagle PCB software, and only parts I can solder with a reasonable extrapolation of my current abilities. These constraints limit me to a maximum board size of 100x100mm, to through-hole and the larger SMD parts where all solder surfaces are accessible to an iron, and to avoiding the need for costly new tools.</p>
+<p>The first round of spending will largely be experimental - DIP adapter boards to try my hand at soldering TSSOP logic chips and TSOP SRAM chips, an STM32F401 to try as a USB Host for keyboard input, and a now quite aged Altera EPM7128S CPLD chip for video signal generation. Adding in a 20x4 character LED board for debug output takes me up to around $50, an eight of my budget spent without any actual board progress, so I’ll round the spend up to $50 with a cheap Z8018010VSC processor, a 10MHz Z180 in a PLCC68 package, because mounting my CPU in a socket feels like a good plan.</p>
+<table style="width:74%;">
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 18%" />
+<col style="width: 15%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Total spent</th>
+<th style="text-align: center;">Boards built</th>
+<th style="text-align: center;">Processor</th>
+<th style="text-align: center;">Bus</th>
+<th style="text-align: center;">RAM</th>
+<th style="text-align: center;">ROM</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">$0 of $400</td>
+<td style="text-align: center;">0 of ~ 6</td>
+<td style="text-align: center;">Z81S80-33</td>
+<td style="text-align: center;">TBD</td>
+<td style="text-align: center;">TBD</td>
+<td style="text-align: center;">TBD</td>
+</tr>
+</tbody>
+</table>]]></summary>
+</entry>
+<entry>
     <title>Bluetooth Arcade Joystick</title>
     <link href="https://bje.id.au/blog/posts/2019-07-05-ble-joystick.html" />
     <id>https://bje.id.au/blog/posts/2019-07-05-ble-joystick.html</id>
@@ -27,7 +84,7 @@
 <p>The key documents to obtain from the BT SIG are the HID over GATT profile (HOGP), the core Bluetooth specification 4.2 or later, and the supplement to the core specification (the CSS document), version 8 or later. The HOGP spec needs the most attention, while the other two mostly have tables and definitions to refer to.</p>
 <h2 id="ble-on-esp32-with-bluedroid">BLE on ESP32 with Bluedroid</h2>
 <p>The library is driven by callbacks with event codes. Setup of a BLE server happens in stages as various events are triggered, which is sort of documented in the <a href="https://github.com/espressif/esp-idf/blob/master/examples/bluetooth/bluedroid/ble/gatt_server/tutorial/Gatt_Server_Example_Walkthrough.md">walkthroughs</a>. The primary sequence is:</p>
-<ol style="list-style-type: decimal">
+<ol type="1">
 <li><p>Set up the Bluetooth stack.</p>
 <p>This process involves enabling NVRAM, initialising and enabling the BT controller, initialising and enabling the Bluedroid application stack, registering callbacks for GAP and GATTS events, and finally registering an application. This application registration triggers our first event, <code>ESP_GATTS_REG_EVT</code>.</p></li>
 <li><p>Construct advertising data and begin advertising.</p>
@@ -58,7 +115,7 @@
 <h2 id="construction">Construction</h2>
 <p>I’ve provided supplier links to most parts, but everything’s pretty generic here, so find your own options as you please. Some parts I had hanging around, so not everything has a link, but nothing is hard to find. Construction is easy, most of the work in this project was in the software.</p>
 <p><strong>Bill of Materials</strong></p>
-<ol style="list-style-type: decimal">
+<ol type="1">
 <li>A zero-delay USB <a href="https://www.aliexpress.com/item/1886491368.html">joystick kit</a></li>
 <li>An acrylic <a href="https://www.aliexpress.com/item/32947858378.html">case</a> - I chose a clear case to expose the guts with pride</li>
 <li>An ESP32 dev board (DOIT devkit v1, 36-pin variant; most boards will work)</li>
@@ -87,10 +144,7 @@
     <summary type="html"><![CDATA[<p>Z notation is a formal specification language based on typed set theory and predicate logic. With this relatively simple mathematical grounding, Z is a useful pedagogic introduction to formal methods, and a useful formal method to apply when consumers of the output aren’t already trained for it.</p>
 <p>However, the development of Z mostly involves tools which are rather dated. This article shows how to use Atom as a modern Z authoring studio, for small to medium specifications.</p>
 <!--more-->
-<div class="figure">
-<img src="/images/linter-czt.png" />
-
-</div>
+<p><img src="/images/linter-czt.png" /></p>
 <h2 id="essential-ingredients-latex">Essential ingredients: LaTeX</h2>
 <p>Z notation is primarily authored in LaTeX, so the first step is writing effective LaTeX in Atom.</p>
 <p>There are two approaches to this. One is to use Markdown for prose, and embed LaTeX directly, using [Pandoc] to produce PDF output. The downside of this is that Pandoc has no straightforward way to require a LaTeX package, and so including <code>oz.sty</code> or an equivalent means writing a custom preamble.</p>
@@ -113,28 +167,28 @@
     <updated>2016-02-03T00:00:00Z</updated>
     <summary type="html"><![CDATA[<p>This article shows how a Church encoding can be derivied from an abstract data type, and intuitively but not rigorously demonstrates their equivalence.</p>
 <!--more-->
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="ot">{-# LANGUAGE GADTs, RankNTypes #-}</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1"></a><span class="ot">{-# LANGUAGE GADTs, RankNTypes #-}</span></span></code></pre></div>
 <p>We start out by defining a sum type for a monoid, with empty, embed, and append operations. To ease the transformation to Church encoding, we use <code>GADTs</code> to give explicit type signatures to the three constructors.</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">data</span> <span class="dt">MonoidAST</span> a <span class="kw">where</span>
-    <span class="dt">MEmbed</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a
-    <span class="dt">MEmpty</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a
-    <span class="dt">MAppend</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1"></a><span class="kw">data</span> <span class="dt">MonoidAST</span> a <span class="kw">where</span></span>
+<span id="cb2-2"><a href="#cb2-2"></a>    <span class="dt">MEmbed</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</span>
+<span id="cb2-3"><a href="#cb2-3"></a>    <span class="dt">MEmpty</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a</span>
+<span id="cb2-4"><a href="#cb2-4"></a>    <span class="dt">MAppend</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</span></code></pre></div>
 <p>A Church encoding represents the interpretation of a data structure; for each construction in the type, the Church encoding will require a function to interpret that construction. Thus, the Church encoding of the above structure can be obtained by replacing <code>MonoidAST a</code> with a type variable <span class="math inline"><em>r</em></span>, and describing a function which takes one function for each of the ADT constructors, finally returning an <span class="math inline"><em>r</em></span> :</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">newtype</span> <span class="dt">CEMonoid</span> a <span class="fu">=</span> <span class="dt">CEMonoid</span> { mrun <span class="ot">::</span>
-    forall r<span class="fu">.</span>        <span class="co">-- ≡ MonoidAST</span>
-    (a <span class="ot">-&gt;</span> r)         <span class="co">-- ≡ MEmbed</span>
-    <span class="ot">-&gt;</span> r             <span class="co">-- ≡ MEmpty</span>
-    <span class="ot">-&gt;</span> (r <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="co">-- ≡ MAppend</span>
-    <span class="ot">-&gt;</span> r }</code></pre></div>
-<p>The <code>mrun</code> function will take a Church encoded monoid and the functions for each interpretation, and produce a monoidal value. If we consider <code>CEMonoid  Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline"><em>a</em></span> and <span class="math inline"><em>r</em></span> are not necessarily the same type. We could execute a monoid which first transforms the integer value to something else, such as <code>mrun _ show &quot;&quot; (++)</code>.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1"></a><span class="kw">newtype</span> <span class="dt">CEMonoid</span> a <span class="ot">=</span> <span class="dt">CEMonoid</span> {<span class="ot"> mrun ::</span></span>
+<span id="cb3-2"><a href="#cb3-2"></a>    <span class="kw">forall</span> r<span class="op">.</span>        <span class="co">-- ≡ MonoidAST</span></span>
+<span id="cb3-3"><a href="#cb3-3"></a>    (a <span class="ot">-&gt;</span> r)         <span class="co">-- ≡ MEmbed</span></span>
+<span id="cb3-4"><a href="#cb3-4"></a>    <span class="ot">-&gt;</span> r             <span class="co">-- ≡ MEmpty</span></span>
+<span id="cb3-5"><a href="#cb3-5"></a>    <span class="ot">-&gt;</span> (r <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="co">-- ≡ MAppend</span></span>
+<span id="cb3-6"><a href="#cb3-6"></a>    <span class="ot">-&gt;</span> r }</span></code></pre></div>
+<p>The <code>mrun</code> function will take a Church encoded monoid and the functions for each interpretation, and produce a monoidal value. If we consider <code>CEMonoid  Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline"><em>a</em></span> and <span class="math inline"><em>r</em></span> are not necessarily the same type. We could execute a monoid which first transforms the integer value to something else, such as <code>mrun _ show "" (++)</code>.</p>
 <p>Now we have a way to execute a monoid, but not to construct one. We provide functions for constructors, effectively taking the lower-case of the ADT’s constructors:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">membed&#39; a <span class="fu">=</span> <span class="dt">CEMonoid</span> <span class="fu">$</span> \ d _ _ <span class="ot">-&gt;</span> d a
-mempty&#39; <span class="fu">=</span> <span class="dt">CEMonoid</span> <span class="fu">$</span> \ _ e _ <span class="ot">-&gt;</span> e
-mappend&#39; a b <span class="fu">=</span> <span class="dt">CEMonoid</span> <span class="fu">$</span> \ d e f <span class="ot">-&gt;</span> f (mrun a d e f) (mrun b d e f)</code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1"></a>membed&#39; a <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ d _ _ <span class="ot">-&gt;</span> d a</span>
+<span id="cb4-2"><a href="#cb4-2"></a>mempty&#39; <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ _ e _ <span class="ot">-&gt;</span> e</span>
+<span id="cb4-3"><a href="#cb4-3"></a>mappend&#39; a b <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ d e f <span class="ot">-&gt;</span> f (mrun a d e f) (mrun b d e f)</span></code></pre></div>
 <p>To demonstrate the equivalence of these constructors to the ADT’s value constructors, we can inspect the types of the functions and observe their similarity to the ADT:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="fu">:</span>t mempty&#39;
-<span class="fu">:</span>t membed&#39;
-<span class="fu">:</span>t mappend&#39;</code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1"></a><span class="op">:</span>t mempty&#39;</span>
+<span id="cb5-2"><a href="#cb5-2"></a><span class="op">:</span>t membed&#39;</span>
+<span id="cb5-3"><a href="#cb5-3"></a><span class="op">:</span>t mappend&#39;</span></code></pre></div>
 <style>/* Styles used for the Hoogle display in the pager */
 .hoogle-doc {
 display: block;
@@ -385,17 +439,17 @@ font-weight: bold;
 </style>
 <p><span class="get-type">mappend’ :: forall a. CEMonoid a -&gt; CEMonoid a -&gt; CEMonoid a</span></p>
 <p>Now we have all the elements in place to create and run a few monoids:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span class="kw">let</span> mon <span class="fu">=</span> membed&#39; <span class="dv">5</span> <span class="ot">`mappend&#39;`</span> membed&#39; <span class="dv">3</span> <span class="kw">in</span>
-    (mrun mon id <span class="dv">0</span> (<span class="fu">+</span>), mrun mon id <span class="dv">1</span> (<span class="fu">*</span>), mrun mon show <span class="st">&quot;&quot;</span> (<span class="fu">++</span>))</code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1"></a><span class="kw">let</span> mon <span class="ot">=</span> membed&#39; <span class="dv">5</span> <span class="ot">`mappend&#39;`</span> membed&#39; <span class="dv">3</span> <span class="kw">in</span></span>
+<span id="cb6-2"><a href="#cb6-2"></a>    (mrun mon <span class="fu">id</span> <span class="dv">0</span> (<span class="op">+</span>), mrun mon <span class="fu">id</span> <span class="dv">1</span> (<span class="op">*</span>), mrun mon <span class="fu">show</span> <span class="st">&quot;&quot;</span> (<span class="op">++</span>))</span></code></pre></div>
 <pre><code>(8,15,&quot;53&quot;)</code></pre>
 <p>When transforming to the Church encoding, at the type level we exchanged a definition of how to construct the type for a definition of how to interpret the type, and needed to provide functions to construct values in the type.</p>
 <p>Conversely, the ADT describes at the type level how to construct values, and so needs a function to interpret those values:</p>
-<div class="sourceCode"><pre class="sourceCode haskell"><code class="sourceCode haskell">runM <span class="dt">MEmpty</span> d e f <span class="fu">=</span> e
-runM (<span class="dt">MEmbed</span> a) d e f <span class="fu">=</span> d a
-runM (<span class="dt">MAppend</span> a b) d e f <span class="fu">=</span> f (runM a d e f) (runM b d e f)
-<span class="fu">:</span>t runM
-<span class="kw">let</span> mon <span class="fu">=</span> <span class="dt">MEmbed</span> <span class="dv">3</span> <span class="ot">`MAppend`</span> <span class="dt">MEmbed</span> <span class="dv">5</span> <span class="kw">in</span>
-    (runM mon id <span class="dv">0</span> (<span class="fu">+</span>), runM mon id <span class="dv">1</span> (<span class="fu">*</span>), runM mon show <span class="st">&quot;&quot;</span> (<span class="fu">++</span>))</code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1"></a>runM <span class="dt">MEmpty</span> d e f <span class="ot">=</span> e</span>
+<span id="cb8-2"><a href="#cb8-2"></a>runM (<span class="dt">MEmbed</span> a) d e f <span class="ot">=</span> d a</span>
+<span id="cb8-3"><a href="#cb8-3"></a>runM (<span class="dt">MAppend</span> a b) d e f <span class="ot">=</span> f (runM a d e f) (runM b d e f)</span>
+<span id="cb8-4"><a href="#cb8-4"></a><span class="op">:</span>t runM</span>
+<span id="cb8-5"><a href="#cb8-5"></a><span class="kw">let</span> mon <span class="ot">=</span> <span class="dt">MEmbed</span> <span class="dv">3</span> <span class="ot">`MAppend`</span> <span class="dt">MEmbed</span> <span class="dv">5</span> <span class="kw">in</span></span>
+<span id="cb8-6"><a href="#cb8-6"></a>    (runM mon <span class="fu">id</span> <span class="dv">0</span> (<span class="op">+</span>), runM mon <span class="fu">id</span> <span class="dv">1</span> (<span class="op">*</span>), runM mon <span class="fu">show</span> <span class="st">&quot;&quot;</span> (<span class="op">++</span>))</span></code></pre></div>
 <style>/* Styles used for the Hoogle display in the pager */
 .hoogle-doc {
 display: block;
@@ -504,10 +558,10 @@ font-weight: bold;
 <p>Second, I rely heavily on <a href="https://hackage.haskell.org/package/hlint">hlint</a> to make me a better Haskell developer, and too much time developing Java has made me fond of autocompletion. To satisfy these needs, and the additional bonus of showing expression types on mouse hover (mitigating my most common use of the REPL: type composition), <a href="https://atom.io/packages/ide-haskell">ide-haskell</a> and its supporting packages really shines.</p>
 <h2 id="making-it-work">Making it work</h2>
 <p>To make ide-haskell work well, you need to install <a href="https://hackage.haskell.org/package/ghc-mod">ghc-mod</a>, and to work with stack that means version 5.4.0.0. I installed using the Mac homebrew version of Cabal, and given stack tends to prefer my system GHC over installing its own copy, this leaves me with an appropriately linked set of tools. I also installed <a href="https://hackage.haskell.org/package/stylish-haskell">stylish-haskell</a> to clean up my indenting and import lists via the IDE.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">stack</span> install ghc-mod
-… <span class="kw">time</span> passes …
-$ <span class="kw">stack</span> install stylish-haskell
-… <span class="kw">much</span> more time passes …</code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1"></a>$ <span class="ex">stack</span> install ghc-mod</span>
+<span id="cb1-2"><a href="#cb1-2"></a>… <span class="bu">time</span> passes …</span>
+<span id="cb1-3"><a href="#cb1-3"></a>$ <span class="ex">stack</span> install stylish-haskell</span>
+<span id="cb1-4"><a href="#cb1-4"></a>… <span class="ex">much</span> more time passes …</span></code></pre></div>
 <p>The full set of packages I’m currently making use of are:</p>
 <dl>
 <dt><a href="https://github.com/atom-haskell/autocomplete-haskell">autocomplete-haskell</a></dt>
@@ -547,76 +601,76 @@ $ <span class="kw">stack</span> install stylish-haskell
 <table>
 <thead>
 <tr class="header">
-<th align="right">Quantitative</th>
-<th align="center">Ordinal</th>
-<th align="left">Nominal</th>
+<th style="text-align: right;">Quantitative</th>
+<th style="text-align: center;">Ordinal</th>
+<th style="text-align: left;">Nominal</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td align="right">Position</td>
-<td align="center">Position</td>
-<td align="left">Position</td>
+<td style="text-align: right;">Position</td>
+<td style="text-align: center;">Position</td>
+<td style="text-align: left;">Position</td>
 </tr>
 <tr class="even">
-<td align="right">Length</td>
-<td align="center">Density</td>
-<td align="left">Hue</td>
+<td style="text-align: right;">Length</td>
+<td style="text-align: center;">Density</td>
+<td style="text-align: left;">Hue</td>
 </tr>
 <tr class="odd">
-<td align="right">Angle</td>
-<td align="center">Saturation</td>
-<td align="left">Texture</td>
+<td style="text-align: right;">Angle</td>
+<td style="text-align: center;">Saturation</td>
+<td style="text-align: left;">Texture</td>
 </tr>
 <tr class="even">
-<td align="right">Slope</td>
-<td align="center">Hue</td>
-<td align="left">Connection</td>
+<td style="text-align: right;">Slope</td>
+<td style="text-align: center;">Hue</td>
+<td style="text-align: left;">Connection</td>
 </tr>
 <tr class="odd">
-<td align="right">Area</td>
-<td align="center">Texture</td>
-<td align="left">Containment</td>
+<td style="text-align: right;">Area</td>
+<td style="text-align: center;">Texture</td>
+<td style="text-align: left;">Containment</td>
 </tr>
 <tr class="even">
-<td align="right">Volume</td>
-<td align="center">Connection</td>
-<td align="left">Density</td>
+<td style="text-align: right;">Volume</td>
+<td style="text-align: center;">Connection</td>
+<td style="text-align: left;">Density</td>
 </tr>
 <tr class="odd">
-<td align="right">Density</td>
-<td align="center">Containment</td>
-<td align="left">Saturation</td>
+<td style="text-align: right;">Density</td>
+<td style="text-align: center;">Containment</td>
+<td style="text-align: left;">Saturation</td>
 </tr>
 <tr class="even">
-<td align="right">Saturation</td>
-<td align="center">Length</td>
-<td align="left">Shape</td>
+<td style="text-align: right;">Saturation</td>
+<td style="text-align: center;">Length</td>
+<td style="text-align: left;">Shape</td>
 </tr>
 <tr class="odd">
-<td align="right">Hue</td>
-<td align="center">Angle</td>
-<td align="left">Length</td>
+<td style="text-align: right;">Hue</td>
+<td style="text-align: center;">Angle</td>
+<td style="text-align: left;">Length</td>
 </tr>
 <tr class="even">
-<td align="right"><del>Texture</del></td>
-<td align="center">Slope</td>
-<td align="left">Angle</td>
+<td style="text-align: right;"><del>Texture</del></td>
+<td style="text-align: center;">Slope</td>
+<td style="text-align: left;">Angle</td>
 </tr>
 <tr class="odd">
-<td align="right"><del>Connection</del></td>
-<td align="center">Area</td>
-<td align="left">Slope</td>
+<td style="text-align: right;"><del>Connection</del></td>
+<td style="text-align: center;">Area</td>
+<td style="text-align: left;">Slope</td>
 </tr>
 <tr class="even">
-<td align="right"><del>Containment</del></td>
-<td align="center">Volume</td>
-<td align="left">Area</td>
+<td style="text-align: right;"><del>Containment</del></td>
+<td style="text-align: center;">Volume</td>
+<td style="text-align: left;">Area</td>
 </tr>
 <tr class="odd">
-<td align="right"><del>Shape</del></td>
-<td align="center"><del>Shape</del></td>
-<td align="left">Volume</td>
+<td style="text-align: right;"><del>Shape</del></td>
+<td style="text-align: center;"><del>Shape</del></td>
+<td style="text-align: left;">Volume</td>
 </tr>
 </tbody>
 </table>
@@ -629,30 +683,30 @@ $ <span class="kw">stack</span> install stylish-haskell
     <id>https://bje.id.au/blog/posts/2015-07-24-ghcjs-on-osx.html</id>
     <published>2015-07-24T00:00:00Z</published>
     <updated>2015-07-24T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>Assuming that you’ve installed GHC using Homebrew, the following steps will install GHCJS for you. These instructions perform a global install, but you can do a sandbox install by dropping the <code>--global</code> argument and ensuring your sandbox <code>bin</code> directory is higher on your <code class="sourceCode bash"><span class="ot">$PATH</span></code> than any other cabal binary paths. You can likewise do a user install without <code>--global</code> and ensuring your user cabal <code>bin</code> directory is higher on your <code class="sourceCode bash"><span class="ot">$PATH</span></code> than the homebrew cabal’s <code>bin</code> directory.</p>
+    <summary type="html"><![CDATA[<p>Assuming that you’ve installed GHC using Homebrew, the following steps will install GHCJS for you. These instructions perform a global install, but you can do a sandbox install by dropping the <code>--global</code> argument and ensuring your sandbox <code>bin</code> directory is higher on your <code class="sourceCode bash"><span class="va">$PATH</span></code> than any other cabal binary paths. You can likewise do a user install without <code>--global</code> and ensuring your user cabal <code>bin</code> directory is higher on your <code class="sourceCode bash"><span class="va">$PATH</span></code> than the homebrew cabal’s <code>bin</code> directory.</p>
 <p>I went global.</p>
 <!--more-->
 <h3 id="upgrade-your-cabal-and-cabal-install-versions">Upgrade your Cabal and cabal-install versions</h3>
 <p>GHCJS expects cabal-install 1.22.6.0, and Cabal 1.22.4.0. Homebrew’s most recent version of GHC will leave you with version 1.22.2.0 of both.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">cabal</span> update
-<span class="kw">cabal</span> install --global Cabal
-<span class="kw">cabal</span> install --global cabal-install</code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1"></a><span class="ex">cabal</span> update</span>
+<span id="cb1-2"><a href="#cb1-2"></a><span class="ex">cabal</span> install --global Cabal</span>
+<span id="cb1-3"><a href="#cb1-3"></a><span class="ex">cabal</span> install --global cabal-install</span></code></pre></div>
 <p>The order of these two installs is important; if you don’t build Cabal 1.22.4.0 before attempting to install cabal-install, you’ll just link against the old system version. You can verify that all is well with:</p>
 <pre><code>$ cabal --version
 cabal-install version 1.22.6.0
 using version 1.22.4.0 of the Cabal library</code></pre>
 <h3 id="enure-youre-happy-alex.">Enure you’re happy, Alex.</h3>
 <p>GHCJS has two dependencies you’ll need to manually install: happy and alex.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">cabal</span> install --global happy alex</code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1"></a><span class="ex">cabal</span> install --global happy alex</span></code></pre></div>
 <h3 id="install-ghcjs">Install GHCJS</h3>
 <p>GHCJS has two git repositories, and no hackage packages. You must git clone and install.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">git</span> clone https://github.com/ghcjs/ghcjs-prim.git
-<span class="kw">git</span> clone https://github.com/ghcjs/ghcjs.git
-<span class="kw">cabal</span> install --global ./ghcjs-prim ./ghcjs</code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1"></a><span class="fu">git</span> clone https://github.com/ghcjs/ghcjs-prim.git</span>
+<span id="cb4-2"><a href="#cb4-2"></a><span class="fu">git</span> clone https://github.com/ghcjs/ghcjs.git</span>
+<span id="cb4-3"><a href="#cb4-3"></a><span class="ex">cabal</span> install --global ./ghcjs-prim ./ghcjs</span></code></pre></div>
 <p>Many dependencies. Perhaps use <code>-j</code> to speed it up.</p>
 <h3 id="boot-ghcjs-libraries">Boot GHCJS libraries</h3>
-<p>You’ll need a lot of base libraries rebuilt for GHCJS, and <code>ghcjs-boot</code> will do that for you. If you don’t already have <code>nodejs</code> installed, <code class="sourceCode bash"><span class="kw">brew</span> install</code> it before doing this.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">ghcjs-boot</span> --dev --ghcjs-boot-dev-branch ghc-7.10</code></pre></div>
+<p>You’ll need a lot of base libraries rebuilt for GHCJS, and <code>ghcjs-boot</code> will do that for you. If you don’t already have <code>nodejs</code> installed, <code class="sourceCode bash"><span class="ex">brew</span> install</code> it before doing this.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1"></a><span class="ex">ghcjs-boot</span> --dev --ghcjs-boot-dev-branch ghc-7.10</span></code></pre></div>
 <p>You need to build to the 7.10 development branch, assuming your local install of GHC is 7.10.1 or so. This installs into your user directory, and doesn’t appear to support global or sandbox installs.</p>
 <p>But once it’s done, you can compile Haskell for the Web.</p>]]></summary>
 </entry>

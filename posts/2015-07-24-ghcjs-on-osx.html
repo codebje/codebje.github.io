@@ -46,43 +46,34 @@
 </header>
 
 <article class="post-content">
-  <p>Assuming that you’ve installed GHC using Homebrew, the following steps will install GHCJS for you. These instructions perform a global install, but you can do a sandbox install by dropping the <code>--global</code> argument and ensuring your sandbox <code>bin</code> directory is higher on your <code class="sourceCode bash"><span class="ot">$PATH</span></code> than any other cabal binary paths. You can likewise do a user install without <code>--global</code> and ensuring your user cabal <code>bin</code> directory is higher on your <code class="sourceCode bash"><span class="ot">$PATH</span></code> than the homebrew cabal’s <code>bin</code> directory.</p>
+  <p>Assuming that you’ve installed GHC using Homebrew, the following steps will install GHCJS for you. These instructions perform a global install, but you can do a sandbox install by dropping the <code>--global</code> argument and ensuring your sandbox <code>bin</code> directory is higher on your <code class="sourceCode bash"><span class="va">$PATH</span></code> than any other cabal binary paths. You can likewise do a user install without <code>--global</code> and ensuring your user cabal <code>bin</code> directory is higher on your <code class="sourceCode bash"><span class="va">$PATH</span></code> than the homebrew cabal’s <code>bin</code> directory.</p>
 <p>I went global.</p>
 <!--more-->
 <h3 id="upgrade-your-cabal-and-cabal-install-versions">Upgrade your Cabal and cabal-install versions</h3>
 <p>GHCJS expects cabal-install 1.22.6.0, and Cabal 1.22.4.0. Homebrew’s most recent version of GHC will leave you with version 1.22.2.0 of both.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">cabal</span> update
-<span class="kw">cabal</span> install --global Cabal
-<span class="kw">cabal</span> install --global cabal-install</code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1"></a><span class="ex">cabal</span> update</span>
+<span id="cb1-2"><a href="#cb1-2"></a><span class="ex">cabal</span> install --global Cabal</span>
+<span id="cb1-3"><a href="#cb1-3"></a><span class="ex">cabal</span> install --global cabal-install</span></code></pre></div>
 <p>The order of these two installs is important; if you don’t build Cabal 1.22.4.0 before attempting to install cabal-install, you’ll just link against the old system version. You can verify that all is well with:</p>
 <pre><code>$ cabal --version
 cabal-install version 1.22.6.0
 using version 1.22.4.0 of the Cabal library</code></pre>
 <h3 id="enure-youre-happy-alex.">Enure you’re happy, Alex.</h3>
 <p>GHCJS has two dependencies you’ll need to manually install: happy and alex.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">cabal</span> install --global happy alex</code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1"></a><span class="ex">cabal</span> install --global happy alex</span></code></pre></div>
 <h3 id="install-ghcjs">Install GHCJS</h3>
 <p>GHCJS has two git repositories, and no hackage packages. You must git clone and install.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">git</span> clone https://github.com/ghcjs/ghcjs-prim.git
-<span class="kw">git</span> clone https://github.com/ghcjs/ghcjs.git
-<span class="kw">cabal</span> install --global ./ghcjs-prim ./ghcjs</code></pre></div>
+<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1"></a><span class="fu">git</span> clone https://github.com/ghcjs/ghcjs-prim.git</span>
+<span id="cb4-2"><a href="#cb4-2"></a><span class="fu">git</span> clone https://github.com/ghcjs/ghcjs.git</span>
+<span id="cb4-3"><a href="#cb4-3"></a><span class="ex">cabal</span> install --global ./ghcjs-prim ./ghcjs</span></code></pre></div>
 <p>Many dependencies. Perhaps use <code>-j</code> to speed it up.</p>
 <h3 id="boot-ghcjs-libraries">Boot GHCJS libraries</h3>
-<p>You’ll need a lot of base libraries rebuilt for GHCJS, and <code>ghcjs-boot</code> will do that for you. If you don’t already have <code>nodejs</code> installed, <code class="sourceCode bash"><span class="kw">brew</span> install</code> it before doing this.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash"><span class="kw">ghcjs-boot</span> --dev --ghcjs-boot-dev-branch ghc-7.10</code></pre></div>
+<p>You’ll need a lot of base libraries rebuilt for GHCJS, and <code>ghcjs-boot</code> will do that for you. If you don’t already have <code>nodejs</code> installed, <code class="sourceCode bash"><span class="ex">brew</span> install</code> it before doing this.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1"></a><span class="ex">ghcjs-boot</span> --dev --ghcjs-boot-dev-branch ghc-7.10</span></code></pre></div>
 <p>You need to build to the 7.10 development branch, assuming your local install of GHC is 7.10.1 or so. This installs into your user directory, and doesn’t appear to support global or sandbox installs.</p>
 <p>But once it’s done, you can compile Haskell for the Web.</p>
 </article>
 
-<div id="disqus_thread"></div>
-<script type="text/javascript">
-    var disqus_shortname = 'xn--bje-syc';
-    (function() {
-        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
-        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
-        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
-    })();
-</script>
 
       </div>
     </div>

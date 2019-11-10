@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - The TRS-20 - a homebrew Z80 machine</title>
+    <link rel="stylesheet" type="text/css" href="../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../css/animation.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../about.html">About</a>
+            <a class="page-link" href="../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../images/trs80.jpg">
+  
+  <h1 class="post-title">The TRS-20 - a homebrew Z80 machine</h1>
+  <p class="post-meta">November 10, 2019 • bje</p>
+</header>
+
+<article class="post-content">
+  <p>My first computer was a TRS-80 Model I, a device that was first sold before I was born. Some time after I was born, I got my hands on one, starting my 30-odd year journey in computing.</p>
+<p>For the sake of nostalgia, I’m embarking on a journey to build a homebrew Z80-based machine, loosely based on the TRS-80 Model I. The build will take place in 2020, and so the machine will be called the TRS-20.</p>
+<!--more-->
+<p>The Model I is not a particularly high bar to reach, these days. It had 4KB of memory, a cassette drive for storage, and a monochrome video display capable of 64 characters over 16 rows - selected to fill exactly 1024 bytes of video memory. In graphics mode, each character cell becomes a 2x3 grid of addressable pixels. My Model I was a low-end model, with no expansions of note. Wikipedia can provide a <a href="trs80">thorough background</a> on the original compter.</p>
+<figure>
+<img src="../images/trs80-model1.jpg" alt /><figcaption>The TRS-80 Model I. Image by <a href="https://www.flickr.com/photos/eevblog/14761087591/">Dave Jones</a>.</figcaption>
+</figure>
+<p>The basics of my computer are set by my inspiration: I’ll be using a processor from the Z80 family, it will have RAM and ROM occupying the same 64K space, and peripherals will mostly also steal a bit of memory space instead of using the Z80’s (originally absurdly limited) I/O space.</p>
+<p>I will use a Z180 processor, most likely the <a href="s180">Z8S180</a>. This is not perfectly compatible with the original Z80, though I anticipate being able to manage the incompatibilities in the glue logic for the sake of running original TRS-80 software.</p>
+<p>I will need to design a series of boards, roughly broken down along these lines:</p>
+<ol type="1">
+<li>A motherboard or CPU board.</li>
+<li>A ROM and RAM board.</li>
+<li>An I/O board for USB keyboard input.</li>
+<li>A video display board for VGA or HDMI output.</li>
+<li>Development and debugging</li>
+<li>External storage</li>
+</ol>
+<p>The constraints on the system are a total budget target of AUD400, the use of the free edition of Eagle PCB software, and only parts I can solder with a reasonable extrapolation of my current abilities. These constraints limit me to a maximum board size of 100x100mm, to through-hole and the larger SMD parts where all solder surfaces are accessible to an iron, and to avoiding the need for costly new tools.</p>
+<p>The first round of spending will largely be experimental - DIP adapter boards to try my hand at soldering TSSOP logic chips and TSOP SRAM chips, an STM32F401 to try as a USB Host for keyboard input, and a now quite aged Altera EPM7128S CPLD chip for video signal generation. Adding in a 20x4 character LED board for debug output takes me up to around $50, an eight of my budget spent without any actual board progress, so I’ll round the spend up to $50 with a cheap Z8018010VSC processor, a 10MHz Z180 in a PLCC68 package, because mounting my CPU in a socket feels like a good plan.</p>
+<table style="width:74%;">
+<colgroup>
+<col style="width: 17%" />
+<col style="width: 18%" />
+<col style="width: 15%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+<col style="width: 7%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Total spent</th>
+<th style="text-align: center;">Boards built</th>
+<th style="text-align: center;">Processor</th>
+<th style="text-align: center;">Bus</th>
+<th style="text-align: center;">RAM</th>
+<th style="text-align: center;">ROM</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">$0 of $400</td>
+<td style="text-align: center;">0 of ~ 6</td>
+<td style="text-align: center;">Z81S80-33</td>
+<td style="text-align: center;">TBD</td>
+<td style="text-align: center;">TBD</td>
+<td style="text-align: center;">TBD</td>
+</tr>
+</tbody>
+</table>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+  </body>
+</html>

@@ -58,7 +58,7 @@
 <p>The key documents to obtain from the BT SIG are the HID over GATT profile (HOGP), the core Bluetooth specification 4.2 or later, and the supplement to the core specification (the CSS document), version 8 or later. The HOGP spec needs the most attention, while the other two mostly have tables and definitions to refer to.</p>
 <h2 id="ble-on-esp32-with-bluedroid">BLE on ESP32 with Bluedroid</h2>
 <p>The library is driven by callbacks with event codes. Setup of a BLE server happens in stages as various events are triggered, which is sort of documented in the <a href="https://github.com/espressif/esp-idf/blob/master/examples/bluetooth/bluedroid/ble/gatt_server/tutorial/Gatt_Server_Example_Walkthrough.md">walkthroughs</a>. The primary sequence is:</p>
-<ol style="list-style-type: decimal">
+<ol type="1">
 <li><p>Set up the Bluetooth stack.</p>
 <p>This process involves enabling NVRAM, initialising and enabling the BT controller, initialising and enabling the Bluedroid application stack, registering callbacks for GAP and GATTS events, and finally registering an application. This application registration triggers our first event, <code>ESP_GATTS_REG_EVT</code>.</p></li>
 <li><p>Construct advertising data and begin advertising.</p>
@@ -89,7 +89,7 @@
 <h2 id="construction">Construction</h2>
 <p>I’ve provided supplier links to most parts, but everything’s pretty generic here, so find your own options as you please. Some parts I had hanging around, so not everything has a link, but nothing is hard to find. Construction is easy, most of the work in this project was in the software.</p>
 <p><strong>Bill of Materials</strong></p>
-<ol style="list-style-type: decimal">
+<ol type="1">
 <li>A zero-delay USB <a href="https://www.aliexpress.com/item/1886491368.html">joystick kit</a></li>
 <li>An acrylic <a href="https://www.aliexpress.com/item/32947858378.html">case</a> - I chose a clear case to expose the guts with pride</li>
 <li>An ESP32 dev board (DOIT devkit v1, 36-pin variant; most boards will work)</li>
@@ -110,15 +110,6 @@
 <p>Extra buttons or an 8-way joystick could be nice, but would require a shift register. If I go down this route I’ll probably design a PCB, and maybe see about bringing the battery charger on-board. At this point, it’d also be nice to implement a soft-touch power switch and allow the ESP32 to shut itself down if the device is left idle.</p>
 </article>
 
-<div id="disqus_thread"></div>
-<script type="text/javascript">
-    var disqus_shortname = 'xn--bje-syc';
-    (function() {
-        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
-        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
-        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
-    })();
-</script>
 
       </div>
     </div>

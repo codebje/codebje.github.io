@@ -63,10 +63,10 @@
 <p>Second, I rely heavily on <a href="https://hackage.haskell.org/package/hlint">hlint</a> to make me a better Haskell developer, and too much time developing Java has made me fond of autocompletion. To satisfy these needs, and the additional bonus of showing expression types on mouse hover (mitigating my most common use of the REPL: type composition), <a href="https://atom.io/packages/ide-haskell">ide-haskell</a> and its supporting packages really shines.</p>
 <h2 id="making-it-work">Making it work</h2>
 <p>To make ide-haskell work well, you need to install <a href="https://hackage.haskell.org/package/ghc-mod">ghc-mod</a>, and to work with stack that means version 5.4.0.0. I installed using the Mac homebrew version of Cabal, and given stack tends to prefer my system GHC over installing its own copy, this leaves me with an appropriately linked set of tools. I also installed <a href="https://hackage.haskell.org/package/stylish-haskell">stylish-haskell</a> to clean up my indenting and import lists via the IDE.</p>
-<div class="sourceCode"><pre class="sourceCode bash"><code class="sourceCode bash">$ <span class="kw">stack</span> install ghc-mod
-… <span class="kw">time</span> passes …
-$ <span class="kw">stack</span> install stylish-haskell
-… <span class="kw">much</span> more time passes …</code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1"></a>$ <span class="ex">stack</span> install ghc-mod</span>
+<span id="cb1-2"><a href="#cb1-2"></a>… <span class="bu">time</span> passes …</span>
+<span id="cb1-3"><a href="#cb1-3"></a>$ <span class="ex">stack</span> install stylish-haskell</span>
+<span id="cb1-4"><a href="#cb1-4"></a>… <span class="ex">much</span> more time passes …</span></code></pre></div>
 <p>The full set of packages I’m currently making use of are:</p>
 <dl>
 <dt><a href="https://github.com/atom-haskell/autocomplete-haskell">autocomplete-haskell</a></dt>
@@ -95,15 +95,6 @@ $ <span class="kw">stack</span> install stylish-haskell
 <p>Oh, <a href="https://atom.io/packages/svg-preview">never mind</a>. Time to install a new package.</p>
 </article>
 
-<div id="disqus_thread"></div>
-<script type="text/javascript">
-    var disqus_shortname = 'xn--bje-syc';
-    (function() {
-        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
-        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
-        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
-    })();
-</script>
 
       </div>
     </div>

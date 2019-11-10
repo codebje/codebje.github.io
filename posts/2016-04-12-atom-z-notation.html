@@ -49,10 +49,7 @@
   <p>Z notation is a formal specification language based on typed set theory and predicate logic. With this relatively simple mathematical grounding, Z is a useful pedagogic introduction to formal methods, and a useful formal method to apply when consumers of the output aren’t already trained for it.</p>
 <p>However, the development of Z mostly involves tools which are rather dated. This article shows how to use Atom as a modern Z authoring studio, for small to medium specifications.</p>
 <!--more-->
-<div class="figure">
-<img src="../images/linter-czt.png" />
-
-</div>
+<p><img src="../images/linter-czt.png" /></p>
 <h2 id="essential-ingredients-latex">Essential ingredients: LaTeX</h2>
 <p>Z notation is primarily authored in LaTeX, so the first step is writing effective LaTeX in Atom.</p>
 <p>There are two approaches to this. One is to use Markdown for prose, and embed LaTeX directly, using [Pandoc] to produce PDF output. The downside of this is that Pandoc has no straightforward way to require a LaTeX package, and so including <code>oz.sty</code> or an equivalent means writing a custom preamble.</p>
@@ -68,15 +65,6 @@
 <p>Install all packages using either <code>apm</code> or the GUI settings install tab.</p>
 </article>
 
-<div id="disqus_thread"></div>
-<script type="text/javascript">
-    var disqus_shortname = 'xn--bje-syc';
-    (function() {
-        var dsq = document.createElement('script'); dsq.type = 'text/javascript'; dsq.async = true;
-        dsq.src = '//' + disqus_shortname + '.disqus.com/embed.js';
-        (document.getElementsByTagName('head')[0] || document.getElementsByTagName('body')[0]).appendChild(dsq);
-    })();
-</script>
 
       </div>
     </div>

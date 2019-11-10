@@ -43,8 +43,8 @@ body
   font-size        : 16px;
   line-height      : 1.5;
   font-weight      : 400;
-  color            : rgb(33,33,33);
-  background-color : rgb(255,255,255);
+  color            : #212121;
+  background-color : #ffffff;
 }
 
 img
@@ -79,18 +79,18 @@ h6
 
 a
 {
-  color           : rgb(83,109,254);
+  color           : #536dfe;
   text-decoration : none;
 }
 
 a:visited
 {
-  color : rgb(83,109,254);
+  color : #536dfe;
 }
 
 a:hover
 {
-  color           : rgb(33,33,33);
+  color           : #212121;
   text-decoration : underline;
 }
 
@@ -118,7 +118,7 @@ a.plain:hover
   padding-left  : 30px;
 }
 
-.wrapper:after
+.wrapper::after
 {
   content : "";
   display : table;
@@ -137,8 +137,8 @@ a.plain:hover
 }
 .site-header
 {
-  border-top       : solid 5px rgb(0,121,107);
-  background-color : rgb(0,150,136);
+  border-top       : solid 5px #00796b;
+  background-color : #009688;
   min-height       : 65px;
   position         : relative;
 }
@@ -150,12 +150,12 @@ a.plain:hover
   letter-spacing : -1px;
   margin-bottom  : 0;
   float          : left;
-  color          : rgb(255,255,255);
+  color          : #ffffff;
 }
 
 .site-title:visited
 {
-  color : rgb(255,255,255);
+  color : #ffffff;
 }
 
 .site-nav
@@ -172,7 +172,7 @@ a.plain:hover
 
 .site-nav .page-link
 {
-  color       : rgb(178,223,219);
+  color       : #b2dfdb;
   line-height : 1.5;
 }
 
@@ -188,8 +188,8 @@ a.plain:hover
   position         : absolute;
   top              : 9px;
   right            : 30px;
-  background-color : rgb(255,255,255);
-  border           : solid 1px rgb(182,182,182);
+  background-color : #ffffff;
+  border           : solid 1px #b6b6b6;
   border-radius    : 5px 5px 5px 5px;
   text-align       : right;
 }
@@ -213,7 +213,7 @@ a.plain:hover
 
 .site-nav .menu-icon > svg path
 {
-  fill : rgb(0,150,136);
+  fill : #009688;
 }
 
 .site-nav .trigger
@@ -240,18 +240,18 @@ s,
 strike,
 del
 {
-  color : rgb(114,114,114);
+  color : #727272;
 }
 
 table
 {
-  -webkit-box-shadow : 0 1px 3px rgba(0, 0, 0, 0.12),0 1px 2px rgba(0, 0, 0, 0.24);
-  -moz-box-shadow    : 0 1px 3px rgba(0, 0, 0, 0.12),0 1px 2px rgba(0, 0, 0, 0.24);
-  -ms-box-shadow     : 0 1px 3px rgba(0, 0, 0, 0.12),0 1px 2px rgba(0, 0, 0, 0.24);
-  -o-box-shadow      : 0 1px 3px rgba(0, 0, 0, 0.12),0 1px 2px rgba(0, 0, 0, 0.24);
-  box-shadow         : 0 1px 3px rgba(0, 0, 0, 0.12),0 1px 2px rgba(0, 0, 0, 0.24);
+  -webkit-box-shadow : 1px 3px rgba(0, 0, 0, 0.12),1px 2px rgba(0, 0, 0, 0.24);
+  -moz-box-shadow    : 1px 3px rgba(0, 0, 0, 0.12),1px 2px rgba(0, 0, 0, 0.24);
+  -ms-box-shadow     : 1px 3px rgba(0, 0, 0, 0.12),1px 2px rgba(0, 0, 0, 0.24);
+  -o-box-shadow      : 1px 3px rgba(0, 0, 0, 0.12),1px 2px rgba(0, 0, 0, 0.24);
+  box-shadow         : 1px 3px rgba(0, 0, 0, 0.12),1px 2px rgba(0, 0, 0, 0.24);
   margin             : 1rem auto 1.5rem auto;
-  color              : rgb(33,33,33);
+  color              : #212121;
   width              : 100%;
   border-collapse    : collapse;
 }
@@ -277,7 +277,7 @@ table tr
 
 table tr:hover
 {
-  background-color : rgb(178,223,219);
+  background-color : #b2dfdb;
 }
 
 table thead
@@ -287,7 +287,7 @@ table thead
 
 footer
 {
-  border-top     : solid 1px rgb(182,182,182);
+  border-top     : solid 1px #b6b6b6;
   padding-top    : 15px;
   padding-bottom : 15px;
 }
@@ -306,13 +306,13 @@ footer
 
 .social-media-list a
 {
-  color   : rgb(83,109,254);
+  color   : #536dfe;
   padding : 4px 8px 4px 8px;
 }
 
 .social-media-list a:hover
 {
-  color : rgb(178,223,219);
+  color : #b2dfdb;
 }
 
 .footnotes
@@ -360,7 +360,7 @@ footer
   font-size   : 14px;
   font-weight : 300;
   font-family : "Montserrat", sans-serif;
-  color       : rgb(0,150,136);
+  color       : #009688;
 }
 
 .post-content
@@ -383,14 +383,19 @@ footer
   font-size : 18px;
 }
 
+.post-content img
+{
+  width : 100%;
+}
+
 .sourceCode pre
 {
   font-family    : "Source Code Pro", monospace;
   margin         : 0 0 15px 0;
   padding        : 5px 10px 5px 10px;
   vertical-align : baseline;
-  border         : solid 1px rgb(221,221,221);
-  background     : rgb(238,238,238);
+  border         : solid 1px #dddddd;
+  background     : #eeeeee;
 }
 
 .sourceCode code
@@ -400,9 +405,9 @@ footer
 
 td.lineNumbers
 {
-  border-right  : solid 1px rgb(170,170,170);
+  border-right  : solid 1px #aaaaaa;
   text-align    : right;
-  color         : rgb(170,170,170);
+  color         : #aaaaaa;
   padding-right : 5px;
   padding-left  : 5px;
 }
@@ -415,72 +420,72 @@ td.sourceCode
 
 .sourceCode span.kw
 {
-  color       : rgb(0,0,0);
+  color       : #000000;
   font-weight : bold;
 }
 
 .sourceCode span.dt
 {
-  color       : rgb(68,85,136);
+  color       : #445588;
   font-weight : bold;
 }
 
 .sourceCode span.dv
 {
-  color : rgb(0,153,153);
+  color : #009999;
 }
 
 .sourceCode span.bn
 {
-  color : rgb(0,153,153);
+  color : #009999;
 }
 
 .sourceCode span.fl
 {
-  color : rgb(0,153,153);
+  color : #009999;
 }
 
 .sourceCode span.ch
 {
-  color : rgb(208,16,64);
+  color : #d01040;
 }
 
 .sourceCode span.st
 {
-  color : rgb(208,16,64);
+  color : #d01040;
 }
 
 .sourceCode span.co
 {
-  color      : rgb(153,153,136);
+  color      : #999988;
   font-style : italic;
 }
 
 .sourceCode span.ot
 {
-  color : rgb(85,85,85);
+  color : #555555;
 }
 
 .sourceCode span.at
 {
-  color       : rgb(255,0,0);
+  color       : #ff0000;
   font-weight : bold;
 }
 
 .sourceCode span.fu
 {
-  color       : rgb(153,0,0);
+  color       : #990000;
   font-weight : bold;
 }
 
 .sourceCode span.re
 {
-  color : rgb(0,0,0);
+  color : #000000;
 }
 
 .sourceCode span.er
 {
-  color       : rgb(255,0,0);
+  color       : #ff0000;
   font-weight : bold;
 }
 
