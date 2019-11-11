@@ -34,34 +34,102 @@
 <li>External storage</li>
 </ol>
 <p>The constraints on the system are a total budget target of AUD400, the use of the free edition of Eagle PCB software, and only parts I can solder with a reasonable extrapolation of my current abilities. These constraints limit me to a maximum board size of 100x100mm, to through-hole and the larger SMD parts where all solder surfaces are accessible to an iron, and to avoiding the need for costly new tools.</p>
-<p>The first round of spending will largely be experimental - DIP adapter boards to try my hand at soldering TSSOP logic chips and TSOP SRAM chips, an STM32F401 to try as a USB Host for keyboard input, and a now quite aged Altera EPM7128S CPLD chip for video signal generation. Adding in a 20x4 character LED board for debug output takes me up to around $50, an eight of my budget spent without any actual board progress, so I’ll round the spend up to $50 with a cheap Z8018010VSC processor, a 10MHz Z180 in a PLCC68 package, because mounting my CPU in a socket feels like a good plan.</p>
-<table style="width:74%;">
+<p>The first round of spending will largely be experimental - DIP adapter boards to try my hand at soldering TSSOP logic chips and TSOP SRAM chips, an STM32F401 to try as a USB Host for keyboard input, and a now quite aged Altera EPM7128S CPLD chip for video signal generation. Adding in a 20x4 character LED board for debug output takes me up to around $50, an eighth of my budget spent without any actual board progress, so I’ll round the spend up to $50 with a cheap Z8018010VSC processor, a 10MHz Z180 in a PLCC68 package, because mounting my CPU in a socket feels like a good plan.</p>
+<table>
+<caption>Aliexpress offers a fine selection of electronics of dubious origin and veracity.</caption>
 <colgroup>
-<col style="width: 17%" />
-<col style="width: 18%" />
-<col style="width: 15%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
-<col style="width: 7%" />
+<col style="width: 21%" />
+<col style="width: 12%" />
+<col style="width: 65%" />
 </colgroup>
 <thead>
 <tr class="header">
-<th style="text-align: center;">Total spent</th>
-<th style="text-align: center;">Boards built</th>
-<th style="text-align: center;">Processor</th>
-<th style="text-align: center;">Bus</th>
-<th style="text-align: center;">RAM</th>
-<th style="text-align: center;">ROM</th>
+<th style="text-align: left;">Item</th>
+<th style="text-align: left;">Price</th>
+<th style="text-align: left;">Purpose</th>
 </tr>
 </thead>
 <tbody>
 <tr class="odd">
-<td style="text-align: center;">$0 of $400</td>
-<td style="text-align: center;">0 of ~ 6</td>
-<td style="text-align: center;">Z81S80-33</td>
-<td style="text-align: center;">TBD</td>
-<td style="text-align: center;">TBD</td>
-<td style="text-align: center;">TBD</td>
+<td style="text-align: left;">Z8018010SVC</td>
+<td style="text-align: left;">$2.46</td>
+<td style="text-align: left;">Low-cost PLCC68 Z180 processor for initial prototyping</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">USB Blaster</td>
+<td style="text-align: left;">$4.29</td>
+<td style="text-align: left;">Altera CPLD/FPGA programmer</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PLCC sockets</td>
+<td style="text-align: left;">$5.51</td>
+<td style="text-align: left;">5 each of PLCC68 and PLCC84 through-hole sockets</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PLCC IC tool</td>
+<td style="text-align: left;">$1.17</td>
+<td style="text-align: left;">Tool for yanking PLCC chips out of sockets</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">STM32F401</td>
+<td style="text-align: left;">$5.00</td>
+<td style="text-align: left;">STM32F401CCU6 development board, for USB host trials</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">20x4 LCD, I²C adapter, acrylic case</td>
+<td style="text-align: left;">$9.02</td>
+<td style="text-align: left;">Display for debug output</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">TSSOP and TSOP adapters</td>
+<td style="text-align: left;">$10.38</td>
+<td style="text-align: left;">10xTSSOP-24 and 5xTSOP56 adapters for soldering trials</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Pin headers</td>
+<td style="text-align: left;">$11.19</td>
+<td style="text-align: left;">Pin headers, whose purpose is the subject of the next post</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">STM32F03, EPM7128S</td>
+<td style="text-align: left;">$3.61</td>
+<td style="text-align: left;">TSSOP MCU for soldering, PLCC84 CPLD for trials</td>
+</tr>
+</tbody>
+</table>
+<p>There was a discount of $4.44 applied this order, bringing the total down to under $50. This order alone doesn’t give me any single workable item: I will see if I can make my cheap STM32F03 (50c!) function as a driver for the debug LCD display, and begin putting together what I’ll need to drive the processor with data lines tied to run a NOP through the address space. With 30 to 50 days delivery on most of the above, I’ve now got plenty of lead time to prepare.</p>
+<p>Below is my project status update table. Each component gains a bar of progress meter for having a rough design, a proof of concept, a completed design, all parts ready, and a working board. Components may backslide if the produced board has enough flaws to send me back to the design or experimental stage. I am using box drawing characters in preparation for my return the glory that is a TRS-80’s graphics system.</p>
+<table style="width:86%;">
+<caption>Project status update</caption>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 13%" />
+<col style="width: 10%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Budget</th>
+<th style="text-align: center;">CPU</th>
+<th style="text-align: center;">Power</th>
+<th style="text-align: center;">Keyboard</th>
+<th style="text-align: center;">Video</th>
+<th style="text-align: center;">Memory</th>
+<th style="text-align: center;">Debug</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">$48.19 of $400</td>
+<td style="text-align: center;">█───</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">█───</td>
 </tr>
 </tbody>
 </table>]]></summary>
