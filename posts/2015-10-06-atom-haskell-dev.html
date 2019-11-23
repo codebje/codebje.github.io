@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
+    
   </head>
   <body>
     <header class="site-header">
@@ -54,7 +55,7 @@
 </ul>
 <p>This article outlines the tool chain I’m now using to do this development.</p>
 <!--more-->
-<h2 id="building-code-build-status">Building code <a href="https://travis-ci.org/codebje/hakyll-site"><img src="https://travis-ci.org/codebje/hakyll-site.svg?branch=master" alt="Build Status" /></a></h2>
+<h2 id="building-code">Building code</h2>
 <p>You can start to get a sense of how I do this by looking at those two repositories, where right off the bat you’ll see that I’m using <a href="https://www.stackage.org/">stack</a> for building, and where possible using <a href="https://travis-ci.org/codebje/">Travis CI</a> to test my builds.</p>
 <p>Using stack frees me from the cabal sandbox concerns of whether the environment is applied appropriately, particularly for tools invoked other than directly from a shell prompt where I need to take care to ensure the path is right. It also gives me the stable set of packages, but this isn’t the full Hackage, and already I’ve noticed a few packages missing.</p>
 <p>The blog itself is run using a trio of Docker containers: an nginx server to spit out the content, a builder image which pulls the latest git version, rebuilds the site executable as necessary, rebuilds the site itself, and copies it into place, on the third image, a data container. A git <code>post-receive</code> hook triggers the site rebuild container, so blog updates are always just one push away.</p>
@@ -127,5 +128,6 @@
       ga('create', 'UA-68687928-1', 'auto');
       ga('send', 'pageview');
     </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
 </html>

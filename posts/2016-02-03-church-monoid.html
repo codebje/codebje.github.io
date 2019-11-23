@@ -11,6 +11,7 @@
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
+    
   </head>
   <body>
     <header class="site-header">
@@ -55,14 +56,14 @@
 <span id="cb2-2"><a href="#cb2-2"></a>    <span class="dt">MEmbed</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</span>
 <span id="cb2-3"><a href="#cb2-3"></a>    <span class="dt">MEmpty</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a</span>
 <span id="cb2-4"><a href="#cb2-4"></a>    <span class="dt">MAppend</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</span></code></pre></div>
-<p>A Church encoding represents the interpretation of a data structure; for each construction in the type, the Church encoding will require a function to interpret that construction. Thus, the Church encoding of the above structure can be obtained by replacing <code>MonoidAST a</code> with a type variable <span class="math inline"><em>r</em></span>, and describing a function which takes one function for each of the ADT constructors, finally returning an <span class="math inline"><em>r</em></span> :</p>
+<p>A Church encoding represents the interpretation of a data structure; for each construction in the type, the Church encoding will require a function to interpret that construction. Thus, the Church encoding of the above structure can be obtained by replacing <code>MonoidAST a</code> with a type variable <span class="math inline">\(r\)</span>, and describing a function which takes one function for each of the ADT constructors, finally returning an <span class="math inline">\(r\)</span> :</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1"></a><span class="kw">newtype</span> <span class="dt">CEMonoid</span> a <span class="ot">=</span> <span class="dt">CEMonoid</span> {<span class="ot"> mrun ::</span></span>
 <span id="cb3-2"><a href="#cb3-2"></a>    <span class="kw">forall</span> r<span class="op">.</span>        <span class="co">-- ≡ MonoidAST</span></span>
 <span id="cb3-3"><a href="#cb3-3"></a>    (a <span class="ot">-&gt;</span> r)         <span class="co">-- ≡ MEmbed</span></span>
 <span id="cb3-4"><a href="#cb3-4"></a>    <span class="ot">-&gt;</span> r             <span class="co">-- ≡ MEmpty</span></span>
 <span id="cb3-5"><a href="#cb3-5"></a>    <span class="ot">-&gt;</span> (r <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="co">-- ≡ MAppend</span></span>
 <span id="cb3-6"><a href="#cb3-6"></a>    <span class="ot">-&gt;</span> r }</span></code></pre></div>
-<p>The <code>mrun</code> function will take a Church encoded monoid and the functions for each interpretation, and produce a monoidal value. If we consider <code>CEMonoid  Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline"><em>a</em></span> and <span class="math inline"><em>r</em></span> are not necessarily the same type. We could execute a monoid which first transforms the integer value to something else, such as <code>mrun _ show "" (++)</code>.</p>
+<p>The <code>mrun</code> function will take a Church encoded monoid and the functions for each interpretation, and produce a monoidal value. If we consider <code>CEMonoid  Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline">\(a\)</span> and <span class="math inline">\(r\)</span> are not necessarily the same type. We could execute a monoid which first transforms the integer value to something else, such as <code>mrun _ show "" (++)</code>.</p>
 <p>Now we have a way to execute a monoid, but not to construct one. We provide functions for constructors, effectively taking the lower-case of the ADT’s constructors:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1"></a>membed' a <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ d _ _ <span class="ot">-&gt;</span> d a</span>
 <span id="cb4-2"><a href="#cb4-2"></a>mempty' <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ _ e _ <span class="ot">-&gt;</span> e</span>
@@ -449,5 +450,6 @@ font-weight: bold;
       ga('create', 'UA-68687928-1', 'auto');
       ga('send', 'pageview');
     </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
 </html>

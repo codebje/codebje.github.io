@@ -11,19 +11,19 @@
     <updated>2019-11-10T00:00:00Z</updated>
     <entry>
     <title>The TRS-20 - a homebrew Z80 machine</title>
-    <link href="https://bje.id.au/blog/posts/2019-11-10-trs20-ideas.html" />
-    <id>https://bje.id.au/blog/posts/2019-11-10-trs20-ideas.html</id>
+    <link href="https://bje.id.au/blog/posts/trs20/001-ideas.html" />
+    <id>https://bje.id.au/blog/posts/trs20/001-ideas.html</id>
     <published>2019-11-10T00:00:00Z</published>
     <updated>2019-11-10T00:00:00Z</updated>
     <summary type="html"><![CDATA[<p>My first computer was a TRS-80 Model I, a device that was first sold before I was born. Some time after I was born, I got my hands on one, starting my 30-odd year journey in computing.</p>
 <p>For the sake of nostalgia, I’m embarking on a journey to build a homebrew Z80-based machine, loosely based on the TRS-80 Model I. The build will take place in 2020, and so the machine will be called the TRS-20.</p>
 <!--more-->
-<p>The Model I is not a particularly high bar to reach, these days. It had 4KB of memory, a cassette drive for storage, and a monochrome video display capable of 64 characters over 16 rows - selected to fill exactly 1024 bytes of video memory. In graphics mode, each character cell becomes a 2x3 grid of addressable pixels. My Model I was a low-end model, with no expansions of note. Wikipedia can provide a <a href="trs80">thorough background</a> on the original compter.</p>
+<p>The Model I is not a particularly high bar to reach, these days. It had 4KB of memory, a cassette drive for storage, and a monochrome video display capable of 64 characters over 16 rows - selected to fill exactly 1024 bytes of video memory. In graphics mode, each character cell becomes a 2x3 grid of addressable pixels. My Model I was a low-end model, with no expansions of note. Wikipedia can provide a <a href="https://en.wikipedia.org/wiki/TRS-80">thorough background</a> on the original compter.</p>
 <figure>
 <img src="/images/trs80-model1.jpg" alt="" /><figcaption>The TRS-80 Model I. Image by <a href="https://www.flickr.com/photos/eevblog/14761087591/">Dave Jones</a>.</figcaption>
 </figure>
 <p>The basics of my computer are set by my inspiration: I’ll be using a processor from the Z80 family, it will have RAM and ROM occupying the same 64K space, and peripherals will mostly also steal a bit of memory space instead of using the Z80’s (originally absurdly limited) I/O space.</p>
-<p>I will use a Z180 processor, most likely the <a href="s180">Z8S180</a>. This is not perfectly compatible with the original Z80, though I anticipate being able to manage the incompatibilities in the glue logic for the sake of running original TRS-80 software.</p>
+<p>I will use a Z180 processor, most likely the <a href="https://en.wikipedia.org/wiki/Zilog_Z180">Z8S180</a>. This is not perfectly compatible with the original Z80, though I anticipate being able to manage the incompatibilities in the glue logic for the sake of running original TRS-80 software.</p>
 <p>I will need to design a series of boards, roughly broken down along these lines:</p>
 <ol type="1">
 <li>A motherboard or CPU board.</li>
@@ -241,14 +241,14 @@
 <span id="cb2-2"><a href="#cb2-2"></a>    <span class="dt">MEmbed</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</span>
 <span id="cb2-3"><a href="#cb2-3"></a>    <span class="dt">MEmpty</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a</span>
 <span id="cb2-4"><a href="#cb2-4"></a>    <span class="dt">MAppend</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</span></code></pre></div>
-<p>A Church encoding represents the interpretation of a data structure; for each construction in the type, the Church encoding will require a function to interpret that construction. Thus, the Church encoding of the above structure can be obtained by replacing <code>MonoidAST a</code> with a type variable <span class="math inline"><em>r</em></span>, and describing a function which takes one function for each of the ADT constructors, finally returning an <span class="math inline"><em>r</em></span> :</p>
+<p>A Church encoding represents the interpretation of a data structure; for each construction in the type, the Church encoding will require a function to interpret that construction. Thus, the Church encoding of the above structure can be obtained by replacing <code>MonoidAST a</code> with a type variable <span class="math inline">\(r\)</span>, and describing a function which takes one function for each of the ADT constructors, finally returning an <span class="math inline">\(r\)</span> :</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1"></a><span class="kw">newtype</span> <span class="dt">CEMonoid</span> a <span class="ot">=</span> <span class="dt">CEMonoid</span> {<span class="ot"> mrun ::</span></span>
 <span id="cb3-2"><a href="#cb3-2"></a>    <span class="kw">forall</span> r<span class="op">.</span>        <span class="co">-- ≡ MonoidAST</span></span>
 <span id="cb3-3"><a href="#cb3-3"></a>    (a <span class="ot">-&gt;</span> r)         <span class="co">-- ≡ MEmbed</span></span>
 <span id="cb3-4"><a href="#cb3-4"></a>    <span class="ot">-&gt;</span> r             <span class="co">-- ≡ MEmpty</span></span>
 <span id="cb3-5"><a href="#cb3-5"></a>    <span class="ot">-&gt;</span> (r <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="co">-- ≡ MAppend</span></span>
 <span id="cb3-6"><a href="#cb3-6"></a>    <span class="ot">-&gt;</span> r }</span></code></pre></div>
-<p>The <code>mrun</code> function will take a Church encoded monoid and the functions for each interpretation, and produce a monoidal value. If we consider <code>CEMonoid  Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline"><em>a</em></span> and <span class="math inline"><em>r</em></span> are not necessarily the same type. We could execute a monoid which first transforms the integer value to something else, such as <code>mrun _ show "" (++)</code>.</p>
+<p>The <code>mrun</code> function will take a Church encoded monoid and the functions for each interpretation, and produce a monoidal value. If we consider <code>CEMonoid  Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline">\(a\)</span> and <span class="math inline">\(r\)</span> are not necessarily the same type. We could execute a monoid which first transforms the integer value to something else, such as <code>mrun _ show "" (++)</code>.</p>
 <p>Now we have a way to execute a monoid, but not to construct one. We provide functions for constructors, effectively taking the lower-case of the ADT’s constructors:</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1"></a>membed&#39; a <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ d _ _ <span class="ot">-&gt;</span> d a</span>
 <span id="cb4-2"><a href="#cb4-2"></a>mempty&#39; <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ _ e _ <span class="ot">-&gt;</span> e</span>
@@ -616,7 +616,7 @@ font-weight: bold;
 </ul>
 <p>This article outlines the tool chain I’m now using to do this development.</p>
 <!--more-->
-<h2 id="building-code-build-status">Building code <a href="https://travis-ci.org/codebje/hakyll-site"><img src="https://travis-ci.org/codebje/hakyll-site.svg?branch=master" alt="Build Status" /></a></h2>
+<h2 id="building-code">Building code</h2>
 <p>You can start to get a sense of how I do this by looking at those two repositories, where right off the bat you’ll see that I’m using <a href="https://www.stackage.org/">stack</a> for building, and where possible using <a href="https://travis-ci.org/codebje/">Travis CI</a> to test my builds.</p>
 <p>Using stack frees me from the cabal sandbox concerns of whether the environment is applied appropriately, particularly for tools invoked other than directly from a shell prompt where I need to take care to ensure the path is right. It also gives me the stable set of packages, but this isn’t the full Hackage, and already I’ve noticed a few packages missing.</p>
 <p>The blog itself is run using a trio of Docker containers: an nginx server to spit out the content, a builder image which pulls the latest git version, rebuilds the site executable as necessary, rebuilds the site itself, and copies it into place, on the third image, a data container. A git <code>post-receive</code> hook triggers the site rebuild container, so blog updates are always just one push away.</p>

@@ -5,17 +5,18 @@
     <meta name="viewport" content="width=device-width initial-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>λbje - The TRS-20 - a homebrew Z80 machine</title>
-    <link rel="stylesheet" type="text/css" href="../css/main.css">
-    <link rel="stylesheet" type="text/css" href="../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../../css/animation.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
-    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
+    
   </head>
   <body>
     <header class="site-header">
       <div class="wrapper">
-        <a class="site-title" href="../">Typed out</a>
+        <a class="site-title" href="../../">Typed out</a>
 
         <nav class="site-nav">
           <a href="#" class="menu-icon">
@@ -27,8 +28,8 @@
           </a>
 
           <div class="trigger">
-            <a class="page-link" href="../about.html">About</a>
-            <a class="page-link" href="../archive.html">Archive</a>
+            <a class="page-link" href="../../about.html">About</a>
+            <a class="page-link" href="../../archive.html">Archive</a>
           </div>
         </nav>
 
@@ -39,7 +40,7 @@
       <div class="wrapper">
         <header class="post-header">
   
-    <img class="post-logo" src="../images/trs80.jpg">
+    <img class="post-logo" src="../../images/trs80.jpg">
   
   <h1 class="post-title">The TRS-20 - a homebrew Z80 machine</h1>
   <p class="post-meta">November 10, 2019 • bje</p>
@@ -50,12 +51,12 @@
   <p>My first computer was a TRS-80 Model I, a device that was first sold before I was born. Some time after I was born, I got my hands on one, starting my 30-odd year journey in computing.</p>
 <p>For the sake of nostalgia, I’m embarking on a journey to build a homebrew Z80-based machine, loosely based on the TRS-80 Model I. The build will take place in 2020, and so the machine will be called the TRS-20.</p>
 <!--more-->
-<p>The Model I is not a particularly high bar to reach, these days. It had 4KB of memory, a cassette drive for storage, and a monochrome video display capable of 64 characters over 16 rows - selected to fill exactly 1024 bytes of video memory. In graphics mode, each character cell becomes a 2x3 grid of addressable pixels. My Model I was a low-end model, with no expansions of note. Wikipedia can provide a <a href="trs80">thorough background</a> on the original compter.</p>
+<p>The Model I is not a particularly high bar to reach, these days. It had 4KB of memory, a cassette drive for storage, and a monochrome video display capable of 64 characters over 16 rows - selected to fill exactly 1024 bytes of video memory. In graphics mode, each character cell becomes a 2x3 grid of addressable pixels. My Model I was a low-end model, with no expansions of note. Wikipedia can provide a <a href="https://en.wikipedia.org/wiki/TRS-80">thorough background</a> on the original compter.</p>
 <figure>
-<img src="../images/trs80-model1.jpg" alt /><figcaption>The TRS-80 Model I. Image by <a href="https://www.flickr.com/photos/eevblog/14761087591/">Dave Jones</a>.</figcaption>
+<img src="../../images/trs80-model1.jpg" alt /><figcaption>The TRS-80 Model I. Image by <a href="https://www.flickr.com/photos/eevblog/14761087591/">Dave Jones</a>.</figcaption>
 </figure>
 <p>The basics of my computer are set by my inspiration: I’ll be using a processor from the Z80 family, it will have RAM and ROM occupying the same 64K space, and peripherals will mostly also steal a bit of memory space instead of using the Z80’s (originally absurdly limited) I/O space.</p>
-<p>I will use a Z180 processor, most likely the <a href="s180">Z8S180</a>. This is not perfectly compatible with the original Z80, though I anticipate being able to manage the incompatibilities in the glue logic for the sake of running original TRS-80 software.</p>
+<p>I will use a Z180 processor, most likely the <a href="https://en.wikipedia.org/wiki/Zilog_Z180">Z8S180</a>. This is not perfectly compatible with the original Z80, though I anticipate being able to manage the incompatibilities in the glue logic for the sake of running original TRS-80 software.</p>
 <p>I will need to design a series of boards, roughly broken down along these lines:</p>
 <ol type="1">
 <li>A motherboard or CPU board.</li>
@@ -198,5 +199,6 @@
       ga('create', 'UA-68687928-1', 'auto');
       ga('send', 'pageview');
     </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
 </html>
