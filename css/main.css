@@ -134,7 +134,7 @@ a.plain:hover
 
 .wrapper
 {
-  max-width     : 1140px;
+  max-width     : 840px;
   margin-right  : auto;
   margin-left   : auto;
   padding-right : 30px;
@@ -268,6 +268,7 @@ del
 
 table
 {
+  font-size          : 80%;
   -webkit-box-shadow : 0px 0px 40px 0px rgba(0, 0, 0, 0.15);
   -moz-box-shadow    : 0px 0px 40px 0px rgba(0, 0, 0, 0.15);
   -ms-box-shadow     : 0px 0px 40px 0px rgba(0, 0, 0, 0.15);
@@ -445,6 +446,20 @@ footer
 .post-content img.post-hero
 {
   margin-bottom : 30px;
+}
+
+.post-content .post-hero-note
+{
+  margin-top    : -30px;
+  margin-bottom : 30px;
+  font-size     : 80%;
+  text-align    : right;
+  font-style    : oblique;
+}
+
+.post-content .post-hero-note img
+{
+  width : auto;
 }
 
 .sourceCode pre

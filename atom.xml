@@ -34,6 +34,7 @@
 <p>I’m pleased with the notion of the PC/104 form factor. However, if it doesn’t work out as I’d like, I will fall back on more typical edge connectors. Five 2.54mm pitch 72-pin edge connectors is less than $15, and less than 100mm across (89mm for the pins, plus room for the edge of the header). PCI connectors have 120 pins, and at 1.27mm pitch are a comfortable 90mm or so for the whole connector, and cost about the same.</p>
 <p>Meanwhile, because I’d like QFP parts to be an option I’ve also spent $5.84 on SMD soldering practice boards. The boards come with two QFP-44 chips each, some SOICs, a handful of resistors from 0402 up to 0805, some SOT23 chips, and some 0606 resistor arrays. Using SMD means more available parts, lower costs, and more effective use of my rather limited board space - but poking things with a hot metal stick might not cut it for much longer.</p>
 <table style="width:86%;">
+<caption>Project status update</caption>
 <colgroup>
 <col style="width: 21%" />
 <col style="width: 8%" />
