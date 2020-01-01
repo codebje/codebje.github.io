@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - The TRS-20 - Arrivals from China</title>
+    <link rel="stylesheet" type="text/css" href="../../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
+    
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../../about.html">About</a>
+            <a class="page-link" href="../../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../../images/trs80.jpg">
+  
+  <h1 class="post-title">The TRS-20 - Arrivals from China</h1>
+  <p class="post-meta">January  1, 2020 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../../images/banners/air-china.jpg">
+
+  <div class="post-hero-note">Image by <a href="https://pixabay.com/users/WikimediaImages-1185597/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=image&amp;utm_content=884426">WikimediaImages</a> from <a href="https://pixabay.com/?utm_source=link-attribution&amp;utm_medium=referral&amp;utm_campaign=image&amp;utm_content=884426">Pixabay</a>, cropped.</div>
+
+
+  <p>Ordering a stack of parts from China always brings to my mind the idea of space-based mining operations loading packages of extracted minerals onto a linear accelerator, resulting in a line of packages drifting towards a rendezvous point to be collected on arrival. Since AliExpress is a brokerage for individual traders, placing an order like mine means almost everything comes in its own separate package.</p>
+<!--more-->
+<p>The space rocks have been arriving at my Lagrange point since the start of December. My STM32F401 “black pill” board and LCD panel arrived first, followed by my Z180 processor and the PLCC extractor tool. Just before Christmas, my practice SMD kits and logic analyzer arrived, along with a brand new order from Digi-Key detailed below, followed shortly by a USB Blaster for programming a CPLD. The CPLD and some PLCC sockets are awaiting collection from my Lagrange point now.</p>
+<p>Sadly, one space rock has been stuck in Sydney awaiting clearance since November. Unfortunately it will probably never arrive. Fortunately, though, it’s the PC/104 headers, which I can go without while I wait for the delivery window to expire, get a refund, and order more.</p>
+<h2 id="damaged-goods">Damaged goods</h2>
+<p>Ordering from AliExpress is usually a mixed bag of results, and this set of orders is no different. The LCD panel has a lovely big impact fracture in it, obsuring ten characters. Despite this, it works, and I have the black pill STM32 driving it happily - all I/O ports on the STM32F4 are 5V tolerant, so there’s no problem controlling the 5V LCD panel from the 3.3V STM32. A refund should be processed shortly, but I don’t think I’ll bother ordering another - I’d need to order the I²C adapter as well, and it’ll take a month to arrive. I’ll work around the damage.</p>
+<figure>
+<img src="../../images/lcd-cracked.jpg" alt /><figcaption>Taking a photo of a backlit LCD panel is surprisingly difficult.</figcaption>
+</figure>
+<p>The logic analyzer powered up its LEDs just fine, but wasn’t recognised as a USB device. It’s easy to take apart, but scanning over the circuit board showed no obvious problems. This device is quite simple, with a Cypress CY7C68013A USB controller with integrated 8051 μC at its heart. The μC is supported by a 2K EEPROM and a 24MHz crystal, and the usual scattering of resistors and such. With no obvious problems on the board, I took a peek at the USB socket. The ground pin was missing, which is a problem and a surprise - despite this missing pin, the board was powering up, so it was finding a return path somewhere.</p>
+<figure>
+<img src="../../images/logic-analyzer.jpg" alt /><figcaption>This photo shows the part markings, with a hint of ghetto repair.</figcaption>
+</figure>
+<p>A $5 part is worth taking the risk on for a repair, so I took the shield off the USB socket and found the ground pin was present but not inserted correctly. It’s possible the board was getting an intermittent connection from it. I straightened the pin out a little and the board was recognised immediately, and could analyze my I²C link to the LCD panel. Of course without the shield and its solder connections, the remaining stub of USB socket quickly broke off, so I lopped the head off the supplied USB cable and soldered it directly to the board, which you can see at the bottom of the image, beside the exposed FR4 substrate where I ripped the pad right off removing the shield. Hot glue will provide sufficient strain relief for this device.</p>
+<h2 id="soldering-with-fire">Soldering with fire</h2>
+<p>My SMD practice kits also arrived, so I took a moment to solder two QFP 44s, some SOT-23s, 0612 resistor arrays, and even some 0402 resistors. I tried drag soldering, heating solder paste with the iron, and heating paste with a butane hot air torch. The image below shows the hot air soldering on the QFP on the left, and the SOIC and SOT-23s at the top. Heating paste with an iron is the QFP on the right, and the SOIC/SOTs at the bottom. The drag soldering was an attept to correct the hot air QFP having been lifted slightly off the pads on one side, and since I dont have any flux that isn’t inside a solder wire or in the paste, it went very poorly. You can see a big ol’ solder bridge between the 4th and 5th pins from the bottom.</p>
+<figure>
+<img src="../../images/qfp-solder-kit.jpg" alt /><figcaption>I don’t even know what these chips do. They’re probably not functional though, since they’re in a cheap practice kit.</figcaption>
+</figure>
+<p>The hot air soldering did a very neat job on the SOICs and the SOT-23s, and a reasonably neat job on the 0402s. I’ll still call 0603 my lower limit, but if I ever need a 0402 in a pinch I’m confident I could manage. The 0612 arrays (marked as 0606 on the board, but definitely not square parts) were surprisingly fiddly, but also went on okay. I singed the board in two places trying to fiddle with the arrays, though.</p>
+<p>I’ll definitely use the hot air approach for most SMD work. The solder paste heated with an iron leaves a lot of mess behind that I suspect may corrode the board or cause bridges down the line, and I don’t see any reason to use flux paste and try again on the drag soldering given how quick and effective the hot air soldering was. The fact that one row of legs didn’t make contact means I’ll try again on the second practice board and see if it was insufficient paste, bent pins, or a lack of pressure on the chip, but I expect that a cheap butane torch is enough to run with QFPs and even stuff with thermal pads.</p>
+<h2 id="christmas-shopping">Christmas shopping</h2>
+<p>Meanwhile, I placed and received an order from Digi-Key, and I got a refund for the broken LCD panel. This puts me $5.32 up, and $66.28 down, or $124 through my $400 budget, with no operational circuits or PCBs yet. With Jaycar putting a hot air rework station on special, I need to pay close attention to my spending habits, lest I wind up $400 in with a bunch of loose parts and nothing else.</p>
+<p>The Digi-Key order gives me a handful of 74 logic ICs from the HC and AHCT families - NAND gates, D flip-flops, multivibrators, and in/out shift registers. These logic ICs will allow my STM32F4 to link up to the system bus. With a 1MHz oscillator the processor will be running at 500KHz, giving me a whopping 2ms to establish /WAIT and process signals. The STM has 64Kb of SRAM, it can deliver 16Kb to the Z180 comfortably, and 16Kb of its 256Kb of Flash can serve as a ROM.</p>
+<table>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 6%" />
+<col style="width: 58%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Item</th>
+<th style="text-align: left;">Price</th>
+<th style="text-align: left;">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">AE11164-ND</td>
+<td style="text-align: left;">$6.24</td>
+<td style="text-align: left;">2x right-angle 50-pin IDC header</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">ED3044-5-ND</td>
+<td style="text-align: left;">$1.20</td>
+<td style="text-align: left;">5x 8-pin IC sockets, for oscillators</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">2015-CY7C1049CV33-12ZSXA-ND</td>
+<td style="text-align: left;">$6.96</td>
+<td style="text-align: left;">2x 4Mbit 12ns SRAM, TSOP-II, total 1Mbyte</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">MCP2221A-I/P-ND</td>
+<td style="text-align: left;">$3.42</td>
+<td style="text-align: left;">USB to I2C/UART IC, for serial comms</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">296-36142-5-ND</td>
+<td style="text-align: left;">$4.30</td>
+<td style="text-align: left;">5x 74HC595 shift registers (DIP), debug board</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">296-8251-5-ND</td>
+<td style="text-align: left;">$3.60</td>
+<td style="text-align: left;">5x 74HC165 shift registers (DIP), debug board</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">296-4632-5-ND</td>
+<td style="text-align: left;">$5.89</td>
+<td style="text-align: left;">10x 74AHCT00 NAND gates (DIP), debug board</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">296-4772-5-ND</td>
+<td style="text-align: left;">$5.89</td>
+<td style="text-align: left;">10x 74ACHT74 D-type flip flops (DIP), debug board</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">296-41620-5-ND</td>
+<td style="text-align: left;">$4.50</td>
+<td style="text-align: left;">5x 74AHCT123 multivibrators (DIP), debug board</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CKN12306-ND</td>
+<td style="text-align: left;">$1.50</td>
+<td style="text-align: left;">10x through-hole tactile switches, debug board</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CKN12219-1-ND</td>
+<td style="text-align: left;">$1.56</td>
+<td style="text-align: left;">10x SMD tactile switches</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">H3DDH-5018G-ND</td>
+<td style="text-align: left;">$5.60</td>
+<td style="text-align: left;">450mm 50-way IDC ribbon cable</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">H3DDH-5006G-ND</td>
+<td style="text-align: left;">$3.99</td>
+<td style="text-align: left;">150mm 50-way IDC ribbon cable</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">110-MXO45HS-3C-1M000000-ND</td>
+<td style="text-align: left;">$3.26</td>
+<td style="text-align: left;">1MHz oscillator, processor board</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">AE10059-ND</td>
+<td style="text-align: left;">$2.34</td>
+<td style="text-align: left;">68-pin PLCC socket, processor board</td>
+</tr>
+</tbody>
+</table>
+<p>The next task is to bust out the soldering iron to get some wires hooked up on the perf board. I can’t put it off forever: if I wait much longer I may as well have just ordered a PCB instead.</p>
+<table style="width:86%;">
+<caption>Project status update</caption>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 13%" />
+<col style="width: 10%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Budget</th>
+<th style="text-align: center;">CPU</th>
+<th style="text-align: center;">Power</th>
+<th style="text-align: center;">Keyboard</th>
+<th style="text-align: center;">Video</th>
+<th style="text-align: center;">Memory</th>
+<th style="text-align: center;">Debug</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">$124.09 of $400</td>
+<td style="text-align: center;">█───</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">██──</td>
+</tr>
+</tbody>
+</table>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </body>
+</html>

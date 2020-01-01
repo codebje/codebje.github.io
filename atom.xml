@@ -8,8 +8,165 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2019-12-30T00:00:00Z</updated>
+    <updated>2020-01-01T00:00:00Z</updated>
     <entry>
+    <title>The TRS-20 - Arrivals from China</title>
+    <link href="https://bje.id.au/blog/posts/trs20/004-china-cargo.html" />
+    <id>https://bje.id.au/blog/posts/trs20/004-china-cargo.html</id>
+    <published>2020-01-01T00:00:00Z</published>
+    <updated>2020-01-01T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Ordering a stack of parts from China always brings to my mind the idea of space-based mining operations loading packages of extracted minerals onto a linear accelerator, resulting in a line of packages drifting towards a rendezvous point to be collected on arrival. Since AliExpress is a brokerage for individual traders, placing an order like mine means almost everything comes in its own separate package.</p>
+<!--more-->
+<p>The space rocks have been arriving at my Lagrange point since the start of December. My STM32F401 “black pill” board and LCD panel arrived first, followed by my Z180 processor and the PLCC extractor tool. Just before Christmas, my practice SMD kits and logic analyzer arrived, along with a brand new order from Digi-Key detailed below, followed shortly by a USB Blaster for programming a CPLD. The CPLD and some PLCC sockets are awaiting collection from my Lagrange point now.</p>
+<p>Sadly, one space rock has been stuck in Sydney awaiting clearance since November. Unfortunately it will probably never arrive. Fortunately, though, it’s the PC/104 headers, which I can go without while I wait for the delivery window to expire, get a refund, and order more.</p>
+<h2 id="damaged-goods">Damaged goods</h2>
+<p>Ordering from AliExpress is usually a mixed bag of results, and this set of orders is no different. The LCD panel has a lovely big impact fracture in it, obsuring ten characters. Despite this, it works, and I have the black pill STM32 driving it happily - all I/O ports on the STM32F4 are 5V tolerant, so there’s no problem controlling the 5V LCD panel from the 3.3V STM32. A refund should be processed shortly, but I don’t think I’ll bother ordering another - I’d need to order the I²C adapter as well, and it’ll take a month to arrive. I’ll work around the damage.</p>
+<figure>
+<img src="/images/lcd-cracked.jpg" alt="" /><figcaption>Taking a photo of a backlit LCD panel is surprisingly difficult.</figcaption>
+</figure>
+<p>The logic analyzer powered up its LEDs just fine, but wasn’t recognised as a USB device. It’s easy to take apart, but scanning over the circuit board showed no obvious problems. This device is quite simple, with a Cypress CY7C68013A USB controller with integrated 8051 μC at its heart. The μC is supported by a 2K EEPROM and a 24MHz crystal, and the usual scattering of resistors and such. With no obvious problems on the board, I took a peek at the USB socket. The ground pin was missing, which is a problem and a surprise - despite this missing pin, the board was powering up, so it was finding a return path somewhere.</p>
+<figure>
+<img src="/images/logic-analyzer.jpg" alt="" /><figcaption>This photo shows the part markings, with a hint of ghetto repair.</figcaption>
+</figure>
+<p>A $5 part is worth taking the risk on for a repair, so I took the shield off the USB socket and found the ground pin was present but not inserted correctly. It’s possible the board was getting an intermittent connection from it. I straightened the pin out a little and the board was recognised immediately, and could analyze my I²C link to the LCD panel. Of course without the shield and its solder connections, the remaining stub of USB socket quickly broke off, so I lopped the head off the supplied USB cable and soldered it directly to the board, which you can see at the bottom of the image, beside the exposed FR4 substrate where I ripped the pad right off removing the shield. Hot glue will provide sufficient strain relief for this device.</p>
+<h2 id="soldering-with-fire">Soldering with fire</h2>
+<p>My SMD practice kits also arrived, so I took a moment to solder two QFP 44s, some SOT-23s, 0612 resistor arrays, and even some 0402 resistors. I tried drag soldering, heating solder paste with the iron, and heating paste with a butane hot air torch. The image below shows the hot air soldering on the QFP on the left, and the SOIC and SOT-23s at the top. Heating paste with an iron is the QFP on the right, and the SOIC/SOTs at the bottom. The drag soldering was an attept to correct the hot air QFP having been lifted slightly off the pads on one side, and since I dont have any flux that isn’t inside a solder wire or in the paste, it went very poorly. You can see a big ol’ solder bridge between the 4th and 5th pins from the bottom.</p>
+<figure>
+<img src="/images/qfp-solder-kit.jpg" alt="" /><figcaption>I don’t even know what these chips do. They’re probably not functional though, since they’re in a cheap practice kit.</figcaption>
+</figure>
+<p>The hot air soldering did a very neat job on the SOICs and the SOT-23s, and a reasonably neat job on the 0402s. I’ll still call 0603 my lower limit, but if I ever need a 0402 in a pinch I’m confident I could manage. The 0612 arrays (marked as 0606 on the board, but definitely not square parts) were surprisingly fiddly, but also went on okay. I singed the board in two places trying to fiddle with the arrays, though.</p>
+<p>I’ll definitely use the hot air approach for most SMD work. The solder paste heated with an iron leaves a lot of mess behind that I suspect may corrode the board or cause bridges down the line, and I don’t see any reason to use flux paste and try again on the drag soldering given how quick and effective the hot air soldering was. The fact that one row of legs didn’t make contact means I’ll try again on the second practice board and see if it was insufficient paste, bent pins, or a lack of pressure on the chip, but I expect that a cheap butane torch is enough to run with QFPs and even stuff with thermal pads.</p>
+<h2 id="christmas-shopping">Christmas shopping</h2>
+<p>Meanwhile, I placed and received an order from Digi-Key, and I got a refund for the broken LCD panel. This puts me $5.32 up, and $66.28 down, or $124 through my $400 budget, with no operational circuits or PCBs yet. With Jaycar putting a hot air rework station on special, I need to pay close attention to my spending habits, lest I wind up $400 in with a bunch of loose parts and nothing else.</p>
+<p>The Digi-Key order gives me a handful of 74 logic ICs from the HC and AHCT families - NAND gates, D flip-flops, multivibrators, and in/out shift registers. These logic ICs will allow my STM32F4 to link up to the system bus. With a 1MHz oscillator the processor will be running at 500KHz, giving me a whopping 2ms to establish /WAIT and process signals. The STM has 64Kb of SRAM, it can deliver 16Kb to the Z180 comfortably, and 16Kb of its 256Kb of Flash can serve as a ROM.</p>
+<table>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 6%" />
+<col style="width: 58%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Item</th>
+<th style="text-align: left;">Price</th>
+<th style="text-align: left;">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">AE11164-ND</td>
+<td style="text-align: left;">$6.24</td>
+<td style="text-align: left;">2x right-angle 50-pin IDC header</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">ED3044-5-ND</td>
+<td style="text-align: left;">$1.20</td>
+<td style="text-align: left;">5x 8-pin IC sockets, for oscillators</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">2015-CY7C1049CV33-12ZSXA-ND</td>
+<td style="text-align: left;">$6.96</td>
+<td style="text-align: left;">2x 4Mbit 12ns SRAM, TSOP-II, total 1Mbyte</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">MCP2221A-I/P-ND</td>
+<td style="text-align: left;">$3.42</td>
+<td style="text-align: left;">USB to I2C/UART IC, for serial comms</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">296-36142-5-ND</td>
+<td style="text-align: left;">$4.30</td>
+<td style="text-align: left;">5x 74HC595 shift registers (DIP), debug board</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">296-8251-5-ND</td>
+<td style="text-align: left;">$3.60</td>
+<td style="text-align: left;">5x 74HC165 shift registers (DIP), debug board</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">296-4632-5-ND</td>
+<td style="text-align: left;">$5.89</td>
+<td style="text-align: left;">10x 74AHCT00 NAND gates (DIP), debug board</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">296-4772-5-ND</td>
+<td style="text-align: left;">$5.89</td>
+<td style="text-align: left;">10x 74ACHT74 D-type flip flops (DIP), debug board</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">296-41620-5-ND</td>
+<td style="text-align: left;">$4.50</td>
+<td style="text-align: left;">5x 74AHCT123 multivibrators (DIP), debug board</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CKN12306-ND</td>
+<td style="text-align: left;">$1.50</td>
+<td style="text-align: left;">10x through-hole tactile switches, debug board</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">CKN12219-1-ND</td>
+<td style="text-align: left;">$1.56</td>
+<td style="text-align: left;">10x SMD tactile switches</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">H3DDH-5018G-ND</td>
+<td style="text-align: left;">$5.60</td>
+<td style="text-align: left;">450mm 50-way IDC ribbon cable</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">H3DDH-5006G-ND</td>
+<td style="text-align: left;">$3.99</td>
+<td style="text-align: left;">150mm 50-way IDC ribbon cable</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">110-MXO45HS-3C-1M000000-ND</td>
+<td style="text-align: left;">$3.26</td>
+<td style="text-align: left;">1MHz oscillator, processor board</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">AE10059-ND</td>
+<td style="text-align: left;">$2.34</td>
+<td style="text-align: left;">68-pin PLCC socket, processor board</td>
+</tr>
+</tbody>
+</table>
+<p>The next task is to bust out the soldering iron to get some wires hooked up on the perf board. I can’t put it off forever: if I wait much longer I may as well have just ordered a PCB instead.</p>
+<table style="width:86%;">
+<caption>Project status update</caption>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 13%" />
+<col style="width: 10%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Budget</th>
+<th style="text-align: center;">CPU</th>
+<th style="text-align: center;">Power</th>
+<th style="text-align: center;">Keyboard</th>
+<th style="text-align: center;">Video</th>
+<th style="text-align: center;">Memory</th>
+<th style="text-align: center;">Debug</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">$124.09 of $400</td>
+<td style="text-align: center;">█───</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">██──</td>
+</tr>
+</tbody>
+</table>]]></summary>
+</entry>
+<entry>
     <title>The TRS-20 - make it run</title>
     <link href="https://bje.id.au/blog/posts/trs20/003-basic-board.html" />
     <id>https://bje.id.au/blog/posts/trs20/003-basic-board.html</id>
@@ -1060,39 +1217,6 @@ font-weight: bold;
 </table>
 <p>Which of course also implies that position should map to your most important metric, or if possible, your two most important metrics. For a bar chart, the choice of X axis can sometimes fall between category or time, with the Y axis often representing amount. This choice can be informed by these relative strengths.</p>
 <p>Hue decreases accessibility, though, so for nominal items I would still favour texture over hue when possible.</p>]]></summary>
-</entry>
-<entry>
-    <title>Installing GHCJS on OS X</title>
-    <link href="https://bje.id.au/blog/posts/2015-07-24-ghcjs-on-osx.html" />
-    <id>https://bje.id.au/blog/posts/2015-07-24-ghcjs-on-osx.html</id>
-    <published>2015-07-24T00:00:00Z</published>
-    <updated>2015-07-24T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>Assuming that you’ve installed GHC using Homebrew, the following steps will install GHCJS for you. These instructions perform a global install, but you can do a sandbox install by dropping the <code>--global</code> argument and ensuring your sandbox <code>bin</code> directory is higher on your <code class="sourceCode bash"><span class="va">$PATH</span></code> than any other cabal binary paths. You can likewise do a user install without <code>--global</code> and ensuring your user cabal <code>bin</code> directory is higher on your <code class="sourceCode bash"><span class="va">$PATH</span></code> than the homebrew cabal’s <code>bin</code> directory.</p>
-<p>I went global.</p>
-<!--more-->
-<h3 id="upgrade-your-cabal-and-cabal-install-versions">Upgrade your Cabal and cabal-install versions</h3>
-<p>GHCJS expects cabal-install 1.22.6.0, and Cabal 1.22.4.0. Homebrew’s most recent version of GHC will leave you with version 1.22.2.0 of both.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1"></a><span class="ex">cabal</span> update</span>
-<span id="cb1-2"><a href="#cb1-2"></a><span class="ex">cabal</span> install --global Cabal</span>
-<span id="cb1-3"><a href="#cb1-3"></a><span class="ex">cabal</span> install --global cabal-install</span></code></pre></div>
-<p>The order of these two installs is important; if you don’t build Cabal 1.22.4.0 before attempting to install cabal-install, you’ll just link against the old system version. You can verify that all is well with:</p>
-<pre><code>$ cabal --version
-cabal-install version 1.22.6.0
-using version 1.22.4.0 of the Cabal library</code></pre>
-<h3 id="enure-youre-happy-alex.">Enure you’re happy, Alex.</h3>
-<p>GHCJS has two dependencies you’ll need to manually install: happy and alex.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1"></a><span class="ex">cabal</span> install --global happy alex</span></code></pre></div>
-<h3 id="install-ghcjs">Install GHCJS</h3>
-<p>GHCJS has two git repositories, and no hackage packages. You must git clone and install.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1"></a><span class="fu">git</span> clone https://github.com/ghcjs/ghcjs-prim.git</span>
-<span id="cb4-2"><a href="#cb4-2"></a><span class="fu">git</span> clone https://github.com/ghcjs/ghcjs.git</span>
-<span id="cb4-3"><a href="#cb4-3"></a><span class="ex">cabal</span> install --global ./ghcjs-prim ./ghcjs</span></code></pre></div>
-<p>Many dependencies. Perhaps use <code>-j</code> to speed it up.</p>
-<h3 id="boot-ghcjs-libraries">Boot GHCJS libraries</h3>
-<p>You’ll need a lot of base libraries rebuilt for GHCJS, and <code>ghcjs-boot</code> will do that for you. If you don’t already have <code>nodejs</code> installed, <code class="sourceCode bash"><span class="ex">brew</span> install</code> it before doing this.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode bash"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1"></a><span class="ex">ghcjs-boot</span> --dev --ghcjs-boot-dev-branch ghc-7.10</span></code></pre></div>
-<p>You need to build to the 7.10 development branch, assuming your local install of GHC is 7.10.1 or so. This installs into your user directory, and doesn’t appear to support global or sandbox installs.</p>
-<p>But once it’s done, you can compile Haskell for the Web.</p>]]></summary>
 </entry>
 
 </feed>
