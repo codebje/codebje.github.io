@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - The TRS-20 - apply power here</title>
+    <link rel="stylesheet" type="text/css" href="../../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
+    
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../../about.html">About</a>
+            <a class="page-link" href="../../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../../images/trs80.jpg">
+  
+  <h1 class="post-title">The TRS-20 - apply power here</h1>
+  <p class="post-meta">January 15, 2020 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../../images/banners/logicscope.jpg">
+
+  <div class="post-hero-note">Image by <a href="https://www.flickr.com/photos/htomari/26463247372">htomari</a> (cropped) <a href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
+
+
+  <p>With my plan for a perfboard in hand, I finally broke out the soldering iron and started assembling. The board has a socket for an oscillator, a socket for the CPU, and IDC connectors for both 50-pin and 10-pin links. This is a <em>lot</em> of little wires to cut, strip, and solder. Let’s see how it goes.</p>
+<!--more-->
+<h2 id="data-address-and-more">Data, address, and more</h2>
+<figure>
+<img src="../../images/z80-basic-wiring.jpg" alt /><figcaption>Marge! We need more red, blue, yellow, white, red, and black hookup wire!</figcaption>
+</figure>
+<p>The first pass at it all involved 8 white wires for data, 16 yellow wires for address, some black and red for power lines, and not quite enough blue left for all the signals. There’s a capacitor that snuck its way on the board, since it’ll be noisy enough as it is. The soldering went as well as one might expect, you can see a few wires where the insulation has melted apart, a few suspiciously large blobs of solder, but everything’s clean and bridge-free.</p>
+<p>The set of signals I chose to hook up with the blue I had are the CPU’s inputs: the four interrupts, reset, wait, and bus request. Wiring these seven signals high, and the eight data signals low, will put the CPU into a NOP loop through the low 8 bits of address space.</p>
+<figure>
+<img src="../../images/z80-low-address-probe.png" alt /><figcaption>A0 to A4 showing doubling of frequency at each bit. Just ignore the noise…</figcaption>
+</figure>
+<p>Using my ghetto fixed logic probe, the main thing I see is a smattering of chaos. The CPU has not been told otherwise, and so it is refreshing DRAM it doesn’t have. Each DRAM refresh sets some address lines and leaves others floating. The result on the probe is that I can find spans in which the low order address lines show a satisfying binary counting pattern, but the high order lines barely show structure at all.</p>
+<figure>
+<img src="../../images/z80-basic-board.jpg" alt /><figcaption>Eight address lines into the probe, seven signal lines tied high, eight data lines tied low.</figcaption>
+</figure>
+<h2 id="wiring-up-the-rest">Wiring up the rest</h2>
+<p>That’s okay. It’s time to wire up the remaining signals anyway. A quick trip to the local Jaycar (shout out to the Jaycar Aspley folks who’re super helpful every time I come in!) and I’m $9 down, but two packs of jumper wire up, and I can finish off the soldering. Except for the USART stuff to the 10-pin header, which I’ll leave for when I need it.</p>
+<p>This time around, I’ll want to see what’s going on with the CPU status pins. I know that it should only be doing opcode fetches and refreshes, which means M1, MREQ, and RD are the only interesting signals. Connecting four pins of the probe to A0 through A3, and the other four pins to M1, MREQ, RD, and PHI lets me take a peek at what’s going on.</p>
+<figure>
+<img src="../../images/z80-rfsh-probe.png" alt /><figcaption>Ah logic probe, well worth what I paid for you. I think I forgot to include you in my costings, though…</figcaption>
+</figure>
+<p>This image shows <em>exactly</em> what I expect. When M1 and RD are high but MREQ is low, the CPU is in a refresh cycle. The address lines will make some sort of sense, but not the sense I’m looking for. When M1. RD, and MREQ are all low, the CPU is fetching an opcode. The address lines are behaving as they should at these times.</p>
+<figure>
+<img src="../../images/z180%20timing%20diagram.png" alt /><figcaption>This timing diagram is from PS014005-0817, the Z80180 MPU product specification document, page 31.</figcaption>
+</figure>
+<p>The synchronisation of signals matches the data sheet. Very shortly after Ф rises for T1, M1 falls. So shortly, in fact, my cheap logic probe records them as happening simultaneously, which means they are less than 41.7ns apart. At 10MHz, the data sheet promises these two events happen no slower than 60ns apart, and that looks to hold true at 1MHz as well. T1’s falling edge MREQ and RD both falling, no more than 50ns after. These three events coincide at a finer resolution than my probe. With T3’s rise, M1 rises. With T3’s fall, MREQ and RD rise.</p>
+<figure>
+<img src="../../images/z180%20one%20cycle.png" alt /><figcaption>Zoomed in on one opcode fetch machine cycle.</figcaption>
+</figure>
+<p>Since the CPU is only executing NOP instructions, all registers are at their RESET defaults. This includes the DMA/WAIT Control (DCNTL) register, which sets bits MWI0 and MWI1 at RESET, inserting three wait states to memory access cycles. The Refresh Control (RCR) register is also in its RESET state, which enables DRAM refresh, inserts one wait state in the refresh cycle to take it to three clocks, and requires one refresh cycle every 10 clock cycles. In practice, this means that there’s a memory refresh cycle between almost every opcode fetch cycle - every 7th fetch cycle skips a refresh cycle. In the image above, you can see a refresh cycle beginning. M1 and RD are high, MREQ is low.</p>
+<p>The Z8018x Family MPU User Manual (UM005004-0918) has a table on page 287 that indicates a memory refresh cycle has M1, IORQ, RD, WR, HALT, and BUSACK high, and has MREQ and RFSH low. No other operating modes have MREQ active without either RD or WR active, that is <span class="math inline">\(\overline{RFSH} = \overline{MREQ} \land \lnot(\overline{RD} \lor \overline{WR})\)</span>. I don’t need to expose the RFSH line to know when a refresh cycle is active, and my boot ROM will disable memory refresh very early on in any case, so there’s no need to expose this signal.</p>
+<p>One oddity does stand out. The system clock on PHI is running at 1MHz, the same as the oscillator. However, the Z8018x User Manual claims that “[T]he frequency of this output is equal to one-half that of the crystal or input clock frequency.” (UM005004-0918, pp. 7) This same claim is repeated in the Z80180 MPU Product Specification (PS014005-0817, pp. 9) for the CLOCK signal. This isn’t a problem, exactly, save that I have an 18MHz oscillator on back order, and that’ll be far too fast for my 10MHz rated chip.</p>
+<p>Nevertheless, my chip starts up and looks on the surface to be behaving correctly. And perhaps more surprisingly, my soldering looks to have been done correctly!</p>
+<h2 id="spending-is-a-habit">Spending is a habit</h2>
+<table>
+<caption>I warned myself about a Jaycar spree…</caption>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 6%" />
+<col style="width: 58%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Item</th>
+<th style="text-align: left;">Price</th>
+<th style="text-align: left;">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">SM1024</td>
+<td style="text-align: left;">$2.40</td>
+<td style="text-align: left;">8-way DIP switch</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">WH3009</td>
+<td style="text-align: left;">$24.95</td>
+<td style="text-align: left;">8 spools of 25m hookup wire</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PB8819</td>
+<td style="text-align: left;">$9.95</td>
+<td style="text-align: left;">Breadboard w/ power supply and jumpers</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">RC5360</td>
+<td style="text-align: left;">$1.60</td>
+<td style="text-align: left;">10x 100nF ceramic cap, through hole</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">RR0596</td>
+<td style="text-align: left;">$1.65</td>
+<td style="text-align: left;">24x 10kΩ ±1% 0.5W resistor</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PP1116</td>
+<td style="text-align: left;">$0.95</td>
+<td style="text-align: left;">1x 50-pin IDC header</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PP1100</td>
+<td style="text-align: left;">$1.90</td>
+<td style="text-align: left;">2x 10-pin IDC header</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">HP9540</td>
+<td style="text-align: left;">$4.50</td>
+<td style="text-align: left;">Stripboard, 95x75mm</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">WH3032</td>
+<td style="text-align: left;">$9.00</td>
+<td style="text-align: left;">2x breadboard jumper wire</td>
+</tr>
+</tbody>
+</table>
+<p>I picked up 8 spools of hookup wire. It’s wider than the jumper wire, and multi-core, so I haven’t used any yet. It’s great stuff for crimping into connectors and the like, but not so fun for soldering with - I expect it to last for years, but probably not see much use on this project. Towards the end of my $400 budget I will sort out what’s been used on the project and what hasn’t, so I can assess costs better.</p>
+<p>The ceramic caps are handy for decoupling ICs: you can see one embedded in the processor board. The resistors are for pulling signals high or low. One 50-pin IDC header is now attached to a small section of stripboard, with male headers soldered beneath, as an IDC-to-DIP connector. It’s tricky, soldering to both sides of one-sided stripboard. The DIP switch was bought with dreams of toggling data lines high or low, but I’m not sure I’ll ever want to do that.</p>
+<p>My PC104 stackable headers have failed to clear customs. I’ve received a refund, though sadly it looks like my refund doesn’t include the GST I paid for, so I’m out a dollar or so out of pocket, and I’ll need to re-order them sooner or later. Also from Aliexpress, I bought the logic probe from the last post for $12.93, but forgot to list it in any post, and have since also bought a MAX II CPLD minimum system board for $11.56 so I can experiment with a CPLD without soldering a hundred little wires, and some brass spacers for $5.20 for the PC/104 stack.</p>
+<p>I think I can claim an extra mark on the CPU progress meter, since I have a working CPU.</p>
+<table style="width:86%;">
+<caption>Project status update</caption>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 13%" />
+<col style="width: 10%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Budget</th>
+<th style="text-align: center;">CPU</th>
+<th style="text-align: center;">Power</th>
+<th style="text-align: center;">Keyboard</th>
+<th style="text-align: center;">Video</th>
+<th style="text-align: center;">Memory</th>
+<th style="text-align: center;">Debug</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">$209.35 of $400</td>
+<td style="text-align: center;">██──</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">██──</td>
+</tr>
+</tbody>
+</table>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </body>
+</html>

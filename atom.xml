@@ -8,9 +8,150 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2020-01-01T00:00:00Z</updated>
+    <updated>2020-01-15T00:00:00Z</updated>
     <entry>
-    <title>The TRS-20 - Arrivals from China</title>
+    <title>The TRS-20 - apply power here</title>
+    <link href="https://bje.id.au/blog/posts/trs20/005-power-up.html" />
+    <id>https://bje.id.au/blog/posts/trs20/005-power-up.html</id>
+    <published>2020-01-15T00:00:00Z</published>
+    <updated>2020-01-15T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>With my plan for a perfboard in hand, I finally broke out the soldering iron and started assembling. The board has a socket for an oscillator, a socket for the CPU, and IDC connectors for both 50-pin and 10-pin links. This is a <em>lot</em> of little wires to cut, strip, and solder. Let’s see how it goes.</p>
+<!--more-->
+<h2 id="data-address-and-more">Data, address, and more</h2>
+<figure>
+<img src="/images/z80-basic-wiring.jpg" alt="" /><figcaption>Marge! We need more red, blue, yellow, white, red, and black hookup wire!</figcaption>
+</figure>
+<p>The first pass at it all involved 8 white wires for data, 16 yellow wires for address, some black and red for power lines, and not quite enough blue left for all the signals. There’s a capacitor that snuck its way on the board, since it’ll be noisy enough as it is. The soldering went as well as one might expect, you can see a few wires where the insulation has melted apart, a few suspiciously large blobs of solder, but everything’s clean and bridge-free.</p>
+<p>The set of signals I chose to hook up with the blue I had are the CPU’s inputs: the four interrupts, reset, wait, and bus request. Wiring these seven signals high, and the eight data signals low, will put the CPU into a NOP loop through the low 8 bits of address space.</p>
+<figure>
+<img src="/images/z80-low-address-probe.png" alt="" /><figcaption>A0 to A4 showing doubling of frequency at each bit. Just ignore the noise…</figcaption>
+</figure>
+<p>Using my ghetto fixed logic probe, the main thing I see is a smattering of chaos. The CPU has not been told otherwise, and so it is refreshing DRAM it doesn’t have. Each DRAM refresh sets some address lines and leaves others floating. The result on the probe is that I can find spans in which the low order address lines show a satisfying binary counting pattern, but the high order lines barely show structure at all.</p>
+<figure>
+<img src="/images/z80-basic-board.jpg" alt="" /><figcaption>Eight address lines into the probe, seven signal lines tied high, eight data lines tied low.</figcaption>
+</figure>
+<h2 id="wiring-up-the-rest">Wiring up the rest</h2>
+<p>That’s okay. It’s time to wire up the remaining signals anyway. A quick trip to the local Jaycar (shout out to the Jaycar Aspley folks who’re super helpful every time I come in!) and I’m $9 down, but two packs of jumper wire up, and I can finish off the soldering. Except for the USART stuff to the 10-pin header, which I’ll leave for when I need it.</p>
+<p>This time around, I’ll want to see what’s going on with the CPU status pins. I know that it should only be doing opcode fetches and refreshes, which means M1, MREQ, and RD are the only interesting signals. Connecting four pins of the probe to A0 through A3, and the other four pins to M1, MREQ, RD, and PHI lets me take a peek at what’s going on.</p>
+<figure>
+<img src="/images/z80-rfsh-probe.png" alt="" /><figcaption>Ah logic probe, well worth what I paid for you. I think I forgot to include you in my costings, though…</figcaption>
+</figure>
+<p>This image shows <em>exactly</em> what I expect. When M1 and RD are high but MREQ is low, the CPU is in a refresh cycle. The address lines will make some sort of sense, but not the sense I’m looking for. When M1. RD, and MREQ are all low, the CPU is fetching an opcode. The address lines are behaving as they should at these times.</p>
+<figure>
+<img src="/images/z180%20timing%20diagram.png" alt="" /><figcaption>This timing diagram is from PS014005-0817, the Z80180 MPU product specification document, page 31.</figcaption>
+</figure>
+<p>The synchronisation of signals matches the data sheet. Very shortly after Ф rises for T1, M1 falls. So shortly, in fact, my cheap logic probe records them as happening simultaneously, which means they are less than 41.7ns apart. At 10MHz, the data sheet promises these two events happen no slower than 60ns apart, and that looks to hold true at 1MHz as well. T1’s falling edge MREQ and RD both falling, no more than 50ns after. These three events coincide at a finer resolution than my probe. With T3’s rise, M1 rises. With T3’s fall, MREQ and RD rise.</p>
+<figure>
+<img src="/images/z180%20one%20cycle.png" alt="" /><figcaption>Zoomed in on one opcode fetch machine cycle.</figcaption>
+</figure>
+<p>Since the CPU is only executing NOP instructions, all registers are at their RESET defaults. This includes the DMA/WAIT Control (DCNTL) register, which sets bits MWI0 and MWI1 at RESET, inserting three wait states to memory access cycles. The Refresh Control (RCR) register is also in its RESET state, which enables DRAM refresh, inserts one wait state in the refresh cycle to take it to three clocks, and requires one refresh cycle every 10 clock cycles. In practice, this means that there’s a memory refresh cycle between almost every opcode fetch cycle - every 7th fetch cycle skips a refresh cycle. In the image above, you can see a refresh cycle beginning. M1 and RD are high, MREQ is low.</p>
+<p>The Z8018x Family MPU User Manual (UM005004-0918) has a table on page 287 that indicates a memory refresh cycle has M1, IORQ, RD, WR, HALT, and BUSACK high, and has MREQ and RFSH low. No other operating modes have MREQ active without either RD or WR active, that is <span class="math inline">\(\overline{RFSH} = \overline{MREQ} \land \lnot(\overline{RD} \lor \overline{WR})\)</span>. I don’t need to expose the RFSH line to know when a refresh cycle is active, and my boot ROM will disable memory refresh very early on in any case, so there’s no need to expose this signal.</p>
+<p>One oddity does stand out. The system clock on PHI is running at 1MHz, the same as the oscillator. However, the Z8018x User Manual claims that “[T]he frequency of this output is equal to one-half that of the crystal or input clock frequency.” (UM005004-0918, pp. 7) This same claim is repeated in the Z80180 MPU Product Specification (PS014005-0817, pp. 9) for the CLOCK signal. This isn’t a problem, exactly, save that I have an 18MHz oscillator on back order, and that’ll be far too fast for my 10MHz rated chip.</p>
+<p>Nevertheless, my chip starts up and looks on the surface to be behaving correctly. And perhaps more surprisingly, my soldering looks to have been done correctly!</p>
+<h2 id="spending-is-a-habit">Spending is a habit</h2>
+<table>
+<caption>I warned myself about a Jaycar spree…</caption>
+<colgroup>
+<col style="width: 34%" />
+<col style="width: 6%" />
+<col style="width: 58%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">Item</th>
+<th style="text-align: left;">Price</th>
+<th style="text-align: left;">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">SM1024</td>
+<td style="text-align: left;">$2.40</td>
+<td style="text-align: left;">8-way DIP switch</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">WH3009</td>
+<td style="text-align: left;">$24.95</td>
+<td style="text-align: left;">8 spools of 25m hookup wire</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PB8819</td>
+<td style="text-align: left;">$9.95</td>
+<td style="text-align: left;">Breadboard w/ power supply and jumpers</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">RC5360</td>
+<td style="text-align: left;">$1.60</td>
+<td style="text-align: left;">10x 100nF ceramic cap, through hole</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">RR0596</td>
+<td style="text-align: left;">$1.65</td>
+<td style="text-align: left;">24x 10kΩ ±1% 0.5W resistor</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">PP1116</td>
+<td style="text-align: left;">$0.95</td>
+<td style="text-align: left;">1x 50-pin IDC header</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">PP1100</td>
+<td style="text-align: left;">$1.90</td>
+<td style="text-align: left;">2x 10-pin IDC header</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">HP9540</td>
+<td style="text-align: left;">$4.50</td>
+<td style="text-align: left;">Stripboard, 95x75mm</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">WH3032</td>
+<td style="text-align: left;">$9.00</td>
+<td style="text-align: left;">2x breadboard jumper wire</td>
+</tr>
+</tbody>
+</table>
+<p>I picked up 8 spools of hookup wire. It’s wider than the jumper wire, and multi-core, so I haven’t used any yet. It’s great stuff for crimping into connectors and the like, but not so fun for soldering with - I expect it to last for years, but probably not see much use on this project. Towards the end of my $400 budget I will sort out what’s been used on the project and what hasn’t, so I can assess costs better.</p>
+<p>The ceramic caps are handy for decoupling ICs: you can see one embedded in the processor board. The resistors are for pulling signals high or low. One 50-pin IDC header is now attached to a small section of stripboard, with male headers soldered beneath, as an IDC-to-DIP connector. It’s tricky, soldering to both sides of one-sided stripboard. The DIP switch was bought with dreams of toggling data lines high or low, but I’m not sure I’ll ever want to do that.</p>
+<p>My PC104 stackable headers have failed to clear customs. I’ve received a refund, though sadly it looks like my refund doesn’t include the GST I paid for, so I’m out a dollar or so out of pocket, and I’ll need to re-order them sooner or later. Also from Aliexpress, I bought the logic probe from the last post for $12.93, but forgot to list it in any post, and have since also bought a MAX II CPLD minimum system board for $11.56 so I can experiment with a CPLD without soldering a hundred little wires, and some brass spacers for $5.20 for the PC/104 stack.</p>
+<p>I think I can claim an extra mark on the CPU progress meter, since I have a working CPU.</p>
+<table style="width:86%;">
+<caption>Project status update</caption>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 13%" />
+<col style="width: 10%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Budget</th>
+<th style="text-align: center;">CPU</th>
+<th style="text-align: center;">Power</th>
+<th style="text-align: center;">Keyboard</th>
+<th style="text-align: center;">Video</th>
+<th style="text-align: center;">Memory</th>
+<th style="text-align: center;">Debug</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">$209.35 of $400</td>
+<td style="text-align: center;">██──</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">██──</td>
+</tr>
+</tbody>
+</table>]]></summary>
+</entry>
+<entry>
+    <title>The TRS-20 - arrivals from China</title>
     <link href="https://bje.id.au/blog/posts/trs20/004-china-cargo.html" />
     <id>https://bje.id.au/blog/posts/trs20/004-china-cargo.html</id>
     <published>2020-01-01T00:00:00Z</published>
@@ -1129,94 +1270,6 @@ font-weight: bold;
 <p>My <a href="https://github.com/codebje/vimrc/">vim setup</a> is reasonably complex, and my familiarity with the modal editing gives me plenty of technical efficiency for making changes. But when I write code, I don’t really need technical efficiency so much as I need cognitive efficiency - linting, type checking, quick access to docs, and of course REPL behaviours tend to weigh much more than how rapidly I can indent 20 lines. Atom gives me that cognitive assistance for a wide range of tasks, in one place.</p>
 <p>My current project at work involves prototyping a user interface for a new system, and this means some Haskell to generate a static site, some Markdown for the straight up descriptive text, some HTML for the interface prototypes, and a lot of SVG for the shiny new bits. Atom’s made all of that pretty much seamless, with the one minor down side that so far I don’t have a great setup for previewing SVG as I edit it - which is potentially a new project to embark on.</p>
 <p>Oh, <a href="https://atom.io/packages/svg-preview">never mind</a>. Time to install a new package.</p>]]></summary>
-</entry>
-<entry>
-    <title>Geometric variables for visualisation</title>
-    <link href="https://bje.id.au/blog/posts/2015-07-28-visualisation-geometric-variables.html" />
-    <id>https://bje.id.au/blog/posts/2015-07-28-visualisation-geometric-variables.html</id>
-    <published>2015-07-28T00:00:00Z</published>
-    <updated>2015-07-28T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>How to map some data into a factor for visualisation is one of the key questions to answer when designing a new graphic. Sometimes, the variables available are fixed by some external consideration, such as a requirement for a particular type of chart, and sometimes the only constraints are those inherent in the message to convey and the data available.</p>
-<!--more-->
-<p>The table below from a <a href="http://www2.parc.com/istl/groups/uir/publications/items/UIR-1986-02-Mackinlay-TOG-Automating.pdf">paper</a> by J.D. Mackinlay in ’86 signals which variables are the most effective for which types of data. This isn’t anything new or groundbreaking, it’s just sufficiently important to aspects of my work that I wanted to reproduce it here.</p>
-<table>
-<thead>
-<tr class="header">
-<th style="text-align: right;">Quantitative</th>
-<th style="text-align: center;">Ordinal</th>
-<th style="text-align: left;">Nominal</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: right;">Position</td>
-<td style="text-align: center;">Position</td>
-<td style="text-align: left;">Position</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">Length</td>
-<td style="text-align: center;">Density</td>
-<td style="text-align: left;">Hue</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">Angle</td>
-<td style="text-align: center;">Saturation</td>
-<td style="text-align: left;">Texture</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">Slope</td>
-<td style="text-align: center;">Hue</td>
-<td style="text-align: left;">Connection</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">Area</td>
-<td style="text-align: center;">Texture</td>
-<td style="text-align: left;">Containment</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">Volume</td>
-<td style="text-align: center;">Connection</td>
-<td style="text-align: left;">Density</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">Density</td>
-<td style="text-align: center;">Containment</td>
-<td style="text-align: left;">Saturation</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;">Saturation</td>
-<td style="text-align: center;">Length</td>
-<td style="text-align: left;">Shape</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;">Hue</td>
-<td style="text-align: center;">Angle</td>
-<td style="text-align: left;">Length</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;"><del>Texture</del></td>
-<td style="text-align: center;">Slope</td>
-<td style="text-align: left;">Angle</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;"><del>Connection</del></td>
-<td style="text-align: center;">Area</td>
-<td style="text-align: left;">Slope</td>
-</tr>
-<tr class="even">
-<td style="text-align: right;"><del>Containment</del></td>
-<td style="text-align: center;">Volume</td>
-<td style="text-align: left;">Area</td>
-</tr>
-<tr class="odd">
-<td style="text-align: right;"><del>Shape</del></td>
-<td style="text-align: center;"><del>Shape</del></td>
-<td style="text-align: left;">Volume</td>
-</tr>
-</tbody>
-</table>
-<p>Which of course also implies that position should map to your most important metric, or if possible, your two most important metrics. For a bar chart, the choice of X axis can sometimes fall between category or time, with the Y axis often representing amount. This choice can be informed by these relative strengths.</p>
-<p>Hue decreases accessibility, though, so for nominal items I would still favour texture over hue when possible.</p>]]></summary>
 </entry>
 
 </feed>
