@@ -11,6 +11,8 @@
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="./atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
     
   </head>
   <body>
@@ -39,6 +41,29 @@
     <div class="page-content">
       <div class="wrapper">
         
+  <section class="anim fadeinup">
+    <header class="post-header">
+      
+        <img class="post-logo" src="images/trs80.jpg">
+      
+      <h1 class="post-title"><a href="./posts/trs20/006-fake-it.html" class="plain">The TRS-20 - fake it 'til you make it</a></h1>
+      <p class="post-meta">January 27, 2020 • bje</p>
+    </header>
+
+    <article class="post-content">
+      <a href="./posts/trs20/006-fake-it.html"><img class="post-hero" src="./images/banners/racetrack.jpg"></a>
+      
+        <div class="post-hero-note">Image via <a href="https://www.peakpx.com/602656/electric-slot-car-track-playset">Peakpx</a> <a href="https://creativecommons.org/publicdomain/zero/1.0/deed.en"><img class="attribution" src="https://licensebuttons.net/p/zero/1.0/80x15.png"></a></div>
+      
+      
+        <p>My processor appears to be happy in its perfboard home for now. While I can get pretty excited over seeing signal probes confirm data sheet timing diagrams, I’ll admit that it’s a limited success. There is still a long road to having a homebrew computer built. What I’d like to do next is give the processor some RAM and ROM, and have it execute programs more significant than endless <code>NOP</code>s. I’d like to exercise the other major machine cycles - memory write, and I/O reads and writes, so I can get excited about signal probes confirming a whole new swathe of timing diagrams.</p>
+<p>To achieve this, I’ll use my STM32F401CC “black pill” board to act as the RAM and ROM, and use its connection to my LCD to display runtime status information. With 256KiB of Flash and 64KiB of SRAM, there’s space on the black pill to share with the Z180… but can the 84MHz STM32F401CC react fast enough to deliver data smoothly to the 1MHz Z180?</p>
+
+        <a href="./posts/trs20/006-fake-it.html">Read more…</a>
+      
+    </article>
+  </section>
+
   <section class="anim fadeinup">
     <header class="post-header">
       
@@ -79,29 +104,6 @@
         <p>Ordering a stack of parts from China always brings to my mind the idea of space-based mining operations loading packages of extracted minerals onto a linear accelerator, resulting in a line of packages drifting towards a rendezvous point to be collected on arrival. Since AliExpress is a brokerage for individual traders, placing an order like mine means almost everything comes in its own separate package.</p>
 
         <a href="./posts/trs20/004-china-cargo.html">Read more…</a>
-      
-    </article>
-  </section>
-
-  <section class="anim fadeinup">
-    <header class="post-header">
-      
-        <img class="post-logo" src="images/trs80.jpg">
-      
-      <h1 class="post-title"><a href="./posts/trs20/003-basic-board.html" class="plain">The TRS-20 - make it run</a></h1>
-      <p class="post-meta">December 30, 2019 • bje</p>
-    </header>
-
-    <article class="post-content">
-      <a href="./posts/trs20/003-basic-board.html"><img class="post-hero" src="./images/wirewrapped.jpg"></a>
-      
-        <div class="post-hero-note">Image by <a href="https://commons.wikimedia.org/wiki/File:Computerplatine_Wire-wrap_backplane_detail_Z80_Doppel-Europa-Format_1977_(close_up).jpg">Wikinaut</a> (cropped) <a href="https://creativecommons.org/licenses/by-sa/3.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/3.0/80x15.png?zoom=2&w=700"></a></div>
-      
-      
-        <p>My Z8018010VSC processor is here!</p>
-<p>Also arrived is the LCD screen, the STM32F401CC dev board, and most of the other junk I ordered. This post explores what else I need to prepare to be able to make something operational.</p>
-
-        <a href="./posts/trs20/003-basic-board.html">Read more…</a>
       
     </article>
   </section>

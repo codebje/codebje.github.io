@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - The TRS-20 - fake it 'til you make it</title>
+    <link rel="stylesheet" type="text/css" href="../../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    <script defer src="../../js/pullup.js" type="text/javascript"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../../about.html">About</a>
+            <a class="page-link" href="../../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../../images/trs80.jpg">
+  
+  <h1 class="post-title">The TRS-20 - fake it 'til you make it</h1>
+  <p class="post-meta">January 27, 2020 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../../images/banners/racetrack.jpg">
+
+  <div class="post-hero-note">Image via <a href="https://www.peakpx.com/602656/electric-slot-car-track-playset">Peakpx</a> <a href="https://creativecommons.org/publicdomain/zero/1.0/deed.en"><img class="attribution" src="https://licensebuttons.net/p/zero/1.0/80x15.png"></a></div>
+
+
+  <p>My processor appears to be happy in its perfboard home for now. While I can get pretty excited over seeing signal probes confirm data sheet timing diagrams, I’ll admit that it’s a limited success. There is still a long road to having a homebrew computer built. What I’d like to do next is give the processor some RAM and ROM, and have it execute programs more significant than endless <code>NOP</code>s. I’d like to exercise the other major machine cycles - memory write, and I/O reads and writes, so I can get excited about signal probes confirming a whole new swathe of timing diagrams.</p>
+<p>To achieve this, I’ll use my STM32F401CC “black pill” board to act as the RAM and ROM, and use its connection to my LCD to display runtime status information. With 256KiB of Flash and 64KiB of SRAM, there’s space on the black pill to share with the Z180… but can the 84MHz STM32F401CC react fast enough to deliver data smoothly to the 1MHz Z180?</p>
+<!--more-->
+<h2 id="will-they-blend">Will they blend?</h2>
+<p>At a physical level, there’s no particular problem with wiring up the STM32 to the Z180. The STM32 is 5V tolerant, so as long as voltage levels, current limits, and impedance requirements line up, I can wire the two up directly.</p>
+<p><span class="math display">\[\begin{array}{rrcll}
+&amp; \text{STM32} &amp; &amp; \text{Z180} &amp; \\\hline
+V_{IL} &amp;1V &amp;\leq&amp;  0.45V &amp;V_{OL} \\
+V_{IH} &amp;2.3V &amp;\leq&amp; 2.4V &amp;V_{OH} \\
+V_{OL} &amp;0.4V &amp;\geq &amp; 0.8V &amp;V_{IL} \\
+V_{OH} &amp;2.4V &amp;\geq &amp; 2.0V &amp;V_{IH} \\
+\end{array}
+\]</span></p>
+<p>There’s a possible concern with the V<sub>IH</sub> for the STM32 at 2.31V, and the V<sub>OH</sub> of the Z180 at 2.4V. 100mV is not a lot of margin. The datasheet indicates that the Z180 will put out a voltage of V<sub>CC</sub>-1.2 if the output current is 20μA or less. The dynamic current consumption of the STM32 is calculated below, based on a pin capacitance on the Z180 of up to 12pF plus some stray capacitance.</p>
+<p><span class="math display">\[\begin{aligned}
+I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
+        &amp;= 20\mathrm{pF} \times 3.3\mathrm{V} \times 1\mathrm{MHz} \\
+        &amp;= 20\times10^{-12} \times 3.3 \times 1\times10^6 \\
+        &amp;= 20\times10^{-6} \times 3.3 \\
+        &amp;= 60\times10^{-6} \\
+        &amp;= 60\textrm{μA}
+\end{aligned}\]</span></p>
+<p>60μA means the high output voltage will be somewhere between 2.4V and 3.8V. There’s no curve provided, alas, but having a lower current than 200μA means the high level will be over 2.4V, and the circuit should behave correctly.</p>
+<figure>
+<img src="../../images/black-pill-schematic.png" alt /><figcaption><a href="https://user-images.githubusercontent.com/26240765/60139875-2fb05880-97e2-11e9-9a82-5670e73c8bd1.png">This</a> might not be the same thing that I have, but it will be close to it.</figcaption>
+</figure>
+<p>There’s also the matter of pin assignments. The black pill board has an STM32F401CCU6 processor on it, which is a 48-pin device. Ten pins are supply pins, two pins are boot/reset signals, and the remaining 36 pins are GPIO - or special purpose. PC14 and PC15 are attached to the external low-speed oscillator, as shown above. According to the full schematic, PC13 is wired to the board’s user LED. PA11 and PA12 are wired to the USB-C socket. PA4 (F_CS), PA5, PA6 (MISO), and PA7 (MOSI) are all wired up to U3, which by the schematic is a 32M SPI Flash chip - this Flash has not been installed on my board, so these pins are available for GPIO. PA13 and PA14 are wired to the serial debug header, and are SWDIO and SWCLK respectively. PB3, PB4, and PA15 are also JTAG pins, but there’s no JTAG header exposed, so I can configure these pins for GPIO. However, PB4 and PA15 are in pull-up state after reset, so care must be taken if they’re wired directly to the Z180.</p>
+<p>I2C3 uses PA8 and PB4. PB2 is tied to ground, as it also serves as BOOT1 and must be low when BOOT0 is high to select the bootloader. This leaves PB0:1 and PB5:10 free for the address bus, and PB12:15 for signals. Pulling in MREQ, IORQ, RD, and WR gives me 95% of what I’ll need - I can’t detect an interrupt acknowledge, differentiate opcode fetch from other memory reads, or see a bus request acknowledgement. PA0:7 are open to be the data bus, so long as I can switch them from output to input fast enough to avoid a bus collision with the Z180. I’m left with PA8:10 for any further signals required.</p>
+<h2 id="racing-electrons">Racing electrons</h2>
+<p>The STM32F4 can be configured to operate at 84 times the system clock speed of the Z180. At this speed, there’s a good chance that the STM32 will have enough time to observe signal changes and connect SRAM or Flash to the data bus depending on the operation involved. And, of course, if there’s any bug in my code then I’ll either lock the data bus on output and possibly burn out pins, or lock it on input and the Z180 will see only noise. A transceiver with its enable and direction inputs controlled by glue logic may be worthwhile to protect my hardware from me.</p>
+<p>The basic loop looks something like this:</p>
+<p><img src="../../images/stm32-ram-rom-flowchart.png" /></p>
+<p>There’s 4,500ns available between the fall of T1 and the rise of T3 with a 1MHz clock and three wait states. MREQ and RD may fall as much as 50ns after the fall of T1, and data must be present at least 25ns before the rise of T3, so with the magic of rounding that’s 4,400ns to recognise a memory read request and respond to it. If a read is immediately followed by a write, then the Z180 might be asserting data on the bus as soon as the fall of T1, so it’s imperative that the STM32 stops asserting data as soon as RD rises - that’s one full clock cycle, less the maximum 50ns delay that RD may have, or around 950ns at 1MHz.</p>
+<p>I don’t think I can reasonably pre-determine how many clock cycles the STM32 will take for its work, as this isn’t your simple 8-bit 1980s era processor any more. It has an instruction cache (in the Flash interface, not the Cortex-M4 itself), multiple bus masters, and a pipelined CPU with instruction prefetch and branch prediction. Even with interrupts disabled, I don’t think I’d be comfortable declaring that any measurement I make gives a definitive answer of clock cycles used. However, each clock cycle is around 12ns, so I have a hair over 75 cycles to detect RD rising and to change the I/O ports to inputs again.</p>
+<p>I can wire up signals in and out of the STM32, but leave address and data disconnected, to see how quickly it can respond to the Z180’s changing signals.</p>
+<h2 id="programming-the-stm32">Programming the STM32</h2>
+<p>Since this project is about doing pointlessly difficult things for no reason other than learning something that others have already done before me, and better, I’ll program the STM32 in assembly. The bare bones of this is straightforward, as the GCC port for ARM does everything except writing to the device with a minimum of fuss.</p>
+<p>There’s only a few details to worry about. The first is that the Flash memory on the STM32F4 series is at 0x08000000:0x08040000, so the linker must be told to place sections into that region. The second is that there is a vector table to place at 0x08000000, containing an initial stack pointer, the reset vector, and a handful of other vectors. Using the <code>-Ttext 0x08000000</code> argument to <code>ld</code> will put the text section at the right offset, and putting the reset vector at the start of the text section more or less does the trick. As my code gets bigger, though, I’ll want to use a linker script to ensure all sections are placed correctly, and that the vector table is placed first, even when I’m linking multiple object files. The trivial method is shown by example <a href="http://www.martinhubacek.cz/arm/arm-cortex-bare-metal-assembly/stm32f0-cortex-m0-bare-metal-assembly">here</a>, and the linker script can easily be cribbed from the output of CubeMX.</p>
+<p>After those details are squared away, it’s down to code. The STM32 chips are interesting in that they boot up kind of brain-dead. Most of the peripherals are off, the clock runs off an internal oscillator at a low speed, and there’s no fuses to pre-configure everything like on an AVR. This allows much more software control over the chip’s power consumption, but requires that the chip is configured after every reset, from which peripherals will be used to how the clock runs.</p>
+<h2 id="clocking-in">Clocking in</h2>
+<p>The STM32F4 has a moderately complex clock tree, compared to the old 8 bit CPUs. There are two internal oscillators, at 32KHz and 16MHz. The low speed internal (LSI) oscillator feeds the RTC system and the internal watchdog, neither of which I will use for now. The high speed internal (HSI) oscillator feeds into the PLL source mux, along with the high speed external (HSE) oscillator. The PLL feeds the USB 48MHz clock, and all three of PLL, HSI, and HSE feed into the system clock mux. From here, the clock is prescaled, then drives the various peripheral buses and such.</p>
+<figure>
+<img src="../../images/stm32-cube-clocks.png" alt /><figcaption>Image from STM32CubeMX, which makes all of this easier to work out.</figcaption>
+</figure>
+<p>Solving the clock tree puzzle means finding values for M, N, P, and Q in the PLL subsystem such that 84MHz can be fed into the system clock mux, and 48MHz can be fed into the USB clock. The high speed oscillator is divided by M, then multiplied by N. This value is divided by P to get the system clock, and by Q to get the USB clock. P is constrained to be 2, 4, 6, or 8, while Q is anything from 2 to 15.</p>
+<p><span class="math display">\[\begin{aligned}
+    ((25MHz / M) \times N) / P &amp;= 84MHz &amp; \text{system clock} \\
+    ((25MHz / M) \times N) / Q &amp;= 48MHz &amp; \text{USB clock}
+\end{aligned}\]</span></p>
+<p>The trick, at least according to one <a href="https://stm32f4-discovery.net/2015/01/properly-set-clock-speed-stm32f4xx-devices/">tutorial</a>, is to start by ensuring <span class="math inline">\(M\)</span> matches your high speed oscillator so you feed a 1MHz signal into the PLL.</p>
+<p><span class="math display">\[\begin{aligned}
+    N / P &amp;= 84MHz &amp; \text{system clock} \\
+    N / Q &amp;= 48MHz &amp; \text{USB clock}
+\end{aligned}\]</span></p>
+<p>Now the constraints on <span class="math inline">\(P\)</span> limit the possibilities to finding a value for <span class="math inline">\(N\)</span> that can be divided by 2, 4, 6, or 8 to get 84MHz, and that can be divided by 2 to 15 to get 48MHz. <span class="math inline">\(N\)</span> will be one of 168, 336, 504, or 672. Since <span class="math inline">\(N\)</span> is constrained to be between 50 and 432, the choices are 168 or 336. Of those two, only 336 has no remainder when divided by 48, so the PLL settings are <span class="math inline">\(M\)</span> at 25, <span class="math inline">\(N\)</span> at 336, <span class="math inline">\(P\)</span> at 4, and <span class="math inline">\(Q\)</span> at 7. After that it’s just a matter of setting the prescalers and multipliers for the peripheral clocks to keep everything at 84MHz except for PCLK1, which maxes out at 42MHz instead.</p>
+<p>All of this is communicated to the chip by writing to the Reset and Clock Control (RCC) registers, described in gory detail in the STM32F401xx reference manual (RM0368, pp. 103-139).</p>
+<ol type="1">
+<li><p>The HSE must be turned on. In the case of the black pill board, this is an external crystal, so the RCC Control Register (RCC_CR) will have bit 16 turned on. The software should then wait until bit 17 (HSE RDY) of RCC_CR is set by hardware.</p></li>
+<li><p>The PLL must be configured via the RCC PLL configuration register (RCC_PLLCFGR). The PLL is disabled on reset, so it is safe to write to the register in one go, setting M, N, P, Q, and the PLL source. The PLL is then enabled via the RCC_CR, and the program should wait until the PLL is flagged as ready.</p></li>
+<li><p>The Flash interface must be configured to use a sufficient number of wait states for the chosen clock speed. At 84MHz, three CPU cycles are required to read from the Flash memory, and so two wait states must be inserted. Writing to the Flash Access Control Register (FLASH_ACR) achieves this - the low byte can be used to select between zero and fifteen wait states.</p></li>
+<li><p>The system and peripheral bus clocks must be configured. The APB1 peripheral clock must not exceed 42MHz, so the APB1 prescaler needs to be set before the system clock source is changed to the PLL. When the APB1 prescaler, AHB prescaler, and SYSCLK source have all been configured via the RCC Configuration Register (RCC_CFGR), the clock tree is configured and ready to go.</p></li>
+</ol>
+<p>There’s one part in this that concerns me a little. The reference manual (RM0368) states that some bits of the RCC_PLLCFGR are reserved and “must be kept at reset value.” The reset value from the manual has one reserved bit set, but the HAL library code happily constructs a value for this register that obliterates that bit. Are they important? Who knows. The HAL certainly has its share of bugs, so my inclination is to stick to what the manual describes, and set the bit.</p>
+<h2 id="general-purpose-io-sir">General Purpose IO, <em>sir</em>!</h2>
+<p>The final boot-up task is to configure the GPIO pins. PB0:1, PB5:10, and PB12:15 are all to be inputs, while PA0:7 will be inputs unless a read is requested. The two ports are enabled using the RCC AHB1 peripheral clock enable register (RCC_AHB1ENR), bits 0 and 1. However, the errata sheet ES0182 (rev 11, pp 16) notes that there must be a delay between enabling an RCC peripheral clock and any access to that peripheral. One of the three work-arounds suggested is to read back from the register immediately after writing to it.</p>
+<p>The reference manual has a chapter explaining the GPIO system. Configuration is managed through four registers per port: the GPIOx_MODER mode register, the GPIOx_OTYPER output type register, the GPIOx_OSPEEDR output speed register, and the GPIOx_PUPDR pull-up/pull-down register. At reset, most GPIO pins are configured as inputs, with the exception of PA13 (analog input) and PB3/4 (alternate function: JTAG/SWD). PA13 and PB3 are configured for very high output speeds, with all other pins at low speed. PA15, PA13, and PB4 are all configured to pull up, with PA14 configured to pull down.</p>
+<p>All of port B should stay as inputs; all pins on the port will either be tied to something on the Z180, or already configured to not be floating. Most of port A should stay as it is on reset as well. PA8:10 will be floating, and should have an internal pull-up enabled. PA0:7 are the data lines, and will be shared between the Z180 and the STM32. Setting A0:7 to push-pull in GPIOA_OTYPER should allow a single half-word store to GPIOA_MODER to flip modes. Between the time each IC is trying to drive the lines they will be left floating. Putting an external pull-up resistor on the data lines will help ensure that both ICs always see a valid logic level.</p>
+<p>The minimum resistance for the pull-up is determined by how much current will flow through the resistor and into an N-MOS gate driving the line low. The Z180 does not want to sink more than around 2.2mA on an output line being pulled low, while the STM32 claims to be comfortable with 25mA per pin, but only 120mA total across all pins, so around 2mA is a reasonable target for both ICs. This sets the lower bound for the pull-up resistor at 5V/2.2mA or 2.3kΩ.</p>
+<p>The maximum resistance depends on both the impedance of the input pin (as the pull-up resistor and the pin’s impedance form a resistor divider that limits the input voltage level seen by the pin), and on the acceptable rise time for a floating line to be pulled high. CMOS high-Z impedance is usually in the MΩ range: the STM32’s leakage current is 3μA, and the Z180’s is 1μA, putting their respective impedances at around 333kΩ and 1MΩ respectively. This caps the pull-up resistor at 33.3kΩ. Assuming around 25pF capacitance for the wires and input pins, the RC time constant will be 33kΩ × 25pF = 33e3 × 25e-12 = 825e-9 or 825ns, and the time to reach approx. 2.5V from 0V is 0.693 825ns = 572ns.</p>
+<p>Selecting a resistor value that will give a faster rising edge will leave both ICs in their defined voltage ranges for more total time. A 10k resistor will reach 2.5V in 173ns and consume 500μA, and a 4.7k resistor will reach 2.5V in 81ns and consume 1mA. Lower resistance is a stronger pull-up, and causes more work to be done by a driver pulling the line low, but will reduce the work done to pull the line high.</p>
+<p>The effect of resistance on rise time can be seen in this interactive chart. The chart shows a 500kHz signal with a pull-up resistor and 25pF capacitance. The fastest signal out of the Z180 is PHI at 1MHz, but most information bearing signals are 500kHz or slower.</p>
+<canvas id="canvas" height="300" style="width:100%">
+</canvas>
+<p>There are two advantages to using a strong pull-up in my design. Assisting the Z180 to pull the data lines high will help the STM32 see a higher voltage level on its inputs, and configuring the STM32’s pins as open-drain outputs means they will never be driving a line high while the Z180 is driving it low. Unfortunately the reverse is not true, as the Z180 operates its data lines in push-pull mode, and will push high when it needs a high signal. If it pushes high when the STM32 is pulling low, both ICs will be at risk of damage. A ’245 transceiver is still the real answer to this problem.</p>
+<p>The next step is to <a href="https://github.com/codebje/trs20-debug/">write the code</a> to implement chip configuration. My logic probe is a 24MHz device, so it can’t directly observe an 84MHz clock, but I can certainly drive a timer on the STM32 to produce what I think should be a 1MHz signal, and observe that. Then I can observe the μC reacting to the CPU’s control signals, and verify that an 84MHz μC can react fast enough to appear like RAM to a 1MHz CPU.</p>
+<table style="width:86%;">
+<caption>Project status update</caption>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 13%" />
+<col style="width: 10%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Budget</th>
+<th style="text-align: center;">CPU</th>
+<th style="text-align: center;">Power</th>
+<th style="text-align: center;">Keyboard</th>
+<th style="text-align: center;">Video</th>
+<th style="text-align: center;">Memory</th>
+<th style="text-align: center;">Debug</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">$209.35 of $400</td>
+<td style="text-align: center;">██──</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">██──</td>
+</tr>
+</tbody>
+</table>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </body>
+</html>
