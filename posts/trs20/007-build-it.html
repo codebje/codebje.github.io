@@ -1,0 +1,354 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - The TRS-20 - STM32F4 driver</title>
+    <link rel="stylesheet" type="text/css" href="../../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../../about.html">About</a>
+            <a class="page-link" href="../../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../../images/trs80.jpg">
+  
+  <h1 class="post-title">The TRS-20 - STM32F4 driver</h1>
+  <p class="post-meta">February  2, 2020 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../../images/banners/before-typing.jpg">
+
+  <div class="post-hero-note">Image from <a href="https://archive.org/details/1986-08-computegazette/page/n97/mode/2up">Compute! Gazette August 1986, p98</a>. Used without permission.</div>
+
+
+  <p>With my <a href="../../post/trs20/006-fake-it.html">plan</a> sorted out, it’s time to get down to code. As you may expect from this project by now there’ll be a few additional sidebar adventures along the way. I want to build my ROM image and embed it in the STM32’s Flash memory, so there’ll be two target platforms to deal with. I’m working on improving developer workflows for APIs in the day job at present, so I’ll dig into GitHub workflows for continuous builds. I’ll take a look at how to set up automated testing of embedded code. And hopefully amidst all the flying yak hair, I’ll also build some working code.</p>
+<!--more-->
+<h2 id="build-first">Build first</h2>
+<p>I find it to be good practice for any project to start with the build and deployment processes. I want to be able to evolve my processes as my project evolves, and I don’t want to encounter infrastructure surprises late in the project when everything is more complicated and change is costlier.</p>
+<p>My initial build process was a straightforward Makefile to build a single assembly source file with a single <code class="sourceCode armasm"><span class="dt">.text</span></code> section and link it as per the <a href="http://www.martinhubacek.cz/arm/arm-cortex-bare-metal-assembly/stm32f0-cortex-m0-bare-metal-assembly">Cortex M0 example</a> I mentioned in the last post. This got me far enough to inspect binary outputs, which leads to understanding why my assembly sources should begin with the following three directives.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb1-1"><a href="#cb1-1"></a>        .thumb</span>
+<span id="cb1-2"><a href="#cb1-2"></a>        .cpu            cortex-m4</span>
+<span id="cb1-3"><a href="#cb1-3"></a>        .unified</span></code></pre></div>
+<p>The STM32F series is based on a Cortex M4 design. The M4 permits two instruction sets, the ARMv7 and Thumb sets - the Thumb set has 32-bit extensions (sometimes called Thumb v2), and the STM32F4 only supports Thumb mode. The directives then tell the assembler to emit Thumb opcodes, to use the set of opcodes supported by the M4, and to use a unified syntax common to both sets as the original Thumb mnemonics kind of sucked.</p>
+<p>Switching between ARMv7 and Thumb modes is accomplished with a couple of branch-and-exchange-mode instructions. If the target address has its least significant bit set, then Thumb mode is enabled. Otherwise, ARMv7 mode is enabled. I’ll never use the <code class="sourceCode armasm"><span class="kw">bx</span></code> instructions, but this LSB signal also crops up for the processor’s vector table.</p>
+<p>You could simply set the LSB on each address in the vector table with something like <code class="sourceCode armasm"><span class="dt">.word</span> _start + <span class="bn">1</span></code>, but the GNU ARM assembler knows its business and will set the bit for you if you tell it that a symbol is for a function entry point, with <code class="sourceCode armasm">.type _start, %function</code>.</p>
+<h2 id="but-what-of-the-tests">But what of the tests?</h2>
+<p>Testing embedded code brings some interesting challenges, ones I’m not familiar with. Checking that the code builds and opening up an ELF file in GDB don’t get you a whole lot of assurance. My first thought was to use QEMU to emulate the STM32F4, as this lets me test code without worrying about plugging a device in. Sadly, QEMU does not support any STM32s out of the box, and my Googling found only a project for an STM32F103. Firing up QEMU with some other Cortex M4 based system doesn’t help much, since the M4 is only the processor. The STM32F4 and other M4 based designs are differentiated by their peripherals, including their memory maps. Since my code is linked at 0x08000000, most CPUs won’t even see my vector table or code in the right places.</p>
+<p>As it turns out, in the current (as of writing) master branch of qemu, some gentle soul has added an STM32F405 SoC, and a machine built on top of it. It’s quick work to add an STM32F401 SoC and a Black Pill machine to my local checkout, so I now have the capacity to run my ARM code on an emulator for the target device.</p>
+<p>Testing chip configuration via an emulator is of limited value though - the emulator’s peripherals all do nothing - so I will leave off any further investigation of automated testing until I have something worth testing.</p>
+<h2 id="on-to-the-code">On to the code!</h2>
+<p>I’ve refactored my code base to have a separate startup module in <code>start.s</code>, which configures the clocks and then calls <code>main</code>. This code broadly follows the outline of my last post, with the configuration of the APB1 prescaler moved to happen first. This prescaler <em>must</em> be set before the system clock ramps up from 16MHz to 84MHz for the APB1 bus to never exceed 42MHz, but it can take up to 16 AHB cycles for a change to the prescalers to take effect. With a populated pipeline, most STM32F4 instructions take only one cycle.</p>
+<p>I’d like to test my clock configuration, so I’ll fire up one of the timers to emit what should be a 1MHz signal. TIM2 is on the supposedly 42MHz APB1 bus, and TIM9 is on the supposedly 84MHz APB2 bus. I’ll test TIM2’s output first. By using channel 3 of TIM2, and channel 1 of TIM9 all my output will be on the same pin, PA2, so I won’t have to change my wiring.</p>
+<p>An STM32 timer’s output frequency is governed by its clock frequency, its prescaler, and its period. With a clock of 42MHz and a desired output frequency of 1MHz, this means the prescaler times the period must equal 42. Integer factors of 42 include 6 and 7, which are fine for what I want. This means I’ll set the <code>TIM2_PSC</code> prescale register to 6, and the <code>TIM2_ARR</code> auto-reload register to 5. The minus one happens because the STM32 timers count from zero and do not reset until overflow. A prescale value of 6 means the timer will count <code>[0, 1, 2, 3, 4, 5, 6]</code> and then reset, taking seven time intervals to complete.</p>
+<p><span class="math display">\[F = \frac{\mathrm{CK\_INT}}{(\mathrm{TIM2\_PSC} + 1)\times(\mathrm{TIM2\_ARR} + 1)}\]</span></p>
+<p>With the timer ticking away at what I expect to be 1MHz, the next task is to produce a square wave on an output pin. There’s an output compare mode in which a pin can be set, reset, or toggled when the timer’s counter reaches a configured value. Using this mode would produce a square wave at 500KHz, so I would have to double the timer’s frequency. Using Pulse Width Modulation (PWM) modes, a duty cycle is established based on the <code>TIM2_CCRx</code> capture/compare register, where <code>x</code> is the channel being used. The <code>OCREF</code> output compare reference signal is high while the timer’s counter is lower than the CCR, otherwise it’s low. By setting <code>TIM2_CCR3</code> to 3, I should see a nice square wave 1MHz signal on the output pin.</p>
+<table>
+<caption>The subset of registers and bits that must be configured.</caption>
+<colgroup>
+<col style="width: 12%" />
+<col style="width: 6%" />
+<col style="width: 80%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Register</th>
+<th style="text-align: center;">Bits</th>
+<th style="text-align: center;">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">TIM2_CR1</td>
+<td style="text-align: center;">CEN</td>
+<td style="text-align: center;">Counter enable, set to start the timer.</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">TIM2_EGR</td>
+<td style="text-align: center;">UG</td>
+<td style="text-align: center;">Update generation, set by software to reset the timer and update shadow registers.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">TIM2_CCMR2</td>
+<td style="text-align: center;">OC3M CC3S</td>
+<td style="text-align: center;">Output compare mode. Set to 0b100 for PWM mode 1. Capture/Compare selection. Set to 0b00 for output mode.</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">TIM2_CCER</td>
+<td style="text-align: center;">CC3E</td>
+<td style="text-align: center;">Capture/Compare output enable.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">TIM2_PSC</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">Prescaler, to be set to 6.</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">TIM2_ARR</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">Auto-reload, to be set to 5.</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">TIM2_CCR3</td>
+<td style="text-align: center;"></td>
+<td style="text-align: center;">Capture/Compare register, to be set to 3.</td>
+</tr>
+</tbody>
+</table>
+<p>All of the timer registers are reset to zero except for the auto-reload register which is set to 0xffff ffff. This means any settings I’m not interested in that are safe to leave at zero can be ignored. The code to configure TIM2 is <a href="https://github.com/codebje/trs20-debug/blob/fe11a903a1df9553ae3c87e779e340607668d3f4/main.s#L46">here</a>. It’s time to flash this sucker to a device and see what’s on pin A2.</p>
+<p>To flash the device, I’m programming over USB. I could use the SWDIO pins for this, which would give me debugging support too. However, those pins don’t supply power, and I’d need to run the USB cable anyway. The open-source [dfu-util][dfu] tool will program many ST devices, including the STM32F4 using the bootloader. The STM32F4 can be reset to boot from the bootloader by asserting BOOT0 during a reset (with BOOT1 low). The Black Pill board has a button for this purpose, and pulls BOOT1 (aka PB2) low at all times. Programming the board via USB is as simple as holding BOOT and pressing NRST, then using a magic invocation of <code>dfu-util</code> to flash my binary image at the right address, into the right device target.</p>
+<h2 id="experiments">Experiments</h2>
+<p>Because I have no facility to test register configuration, I’m taking a cautious approach. I’ve commented out all code to write to the clock configuration registers, leaving only the timer output. With the HSI running at 16MHz, I expect to see a signal of <span class="math inline">\(\frac{16\mathrm{MHz}}{42} = ~381\mathrm{KHz}\)</span>.</p>
+<figure>
+<img src="../../images/timers%20-%20flatline.png" alt /><figcaption>I’m no electrical engineer, but I’m pretty sure that’s a 0Hz signal.</figcaption>
+</figure>
+<p>I made several mistakes, which isn’t entirely unexpected. I can’t debug on the device itself, because my st-link clone appears to be broken, possibly fried by my own actions, but I can inspect my code in a debugger.</p>
+<p>The first problem is that my linker script wasn’t quite right. You are free to name your output sections anything you like, and I chose <code>.vectors</code> for my vector table. However, that freedom is limited by your output format. In an ELF binary, however, certain section names are magical.</p>
+<pre><code>Idx Name          Size      VMA       LMA       File off  Algn
+  0 .vectors      0000001c  08000000  08000000  0001803c  2**0
+                  CONTENTS, READONLY
+  1 .text         000000dc  08000000  08000000  00010000  2**2
+                  CONTENTS, ALLOC, LOAD, READONLY, CODE
+  2 .rodata       00007f60  080000dc  080000dc  000100dc  2**0
+                  CONTENTS, ALLOC, LOAD, READONLY, DATA
+  3 .ARM.attributes 00000021  00000000  00000000  00018058  2**0
+                  CONTENTS, READONLY</code></pre>
+<p>As I planned it, my <code>.vectors</code> section is at VMA 0x08000000, hooray. But its flags don’t include ALLOC or LOAD, so the section is never loaded into memory, or flashed onto the device. Instead, the <code>.text</code> section is loaded at VMA 0x08000000, and the processor attempts to jump to 0x60b00000 to run code, as shown in gdb with <code>x/2xw 0x08000000</code>. This does not succeed. The problem is easily solved: I put the <code>.vectors</code> input section into the <code>.text</code> output section.</p>
+<p>The next problem is in this little excerpt of code, that is supposed to set pin A2’s mode to its alternate function.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb3-1"><a href="#cb3-1"></a>        <span class="kw">ldr</span>     <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_MODER]</span>
+<span id="cb3-2"><a href="#cb3-2"></a>        orr     <span class="at">r0</span>, <span class="at">r0</span>, GPIOx_MODER_MODE_ALT</span>
+<span id="cb3-3"><a href="#cb3-3"></a>        <span class="kw">str</span>     <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_MODER]   // set PA2 to mode AF</span></code></pre></div>
+<p>Symbolic constants abound. I can check those by cross-referencing where they’re defined, but I can also fire up a debugger and look at what code is in the byte stream.</p>
+<pre><code>0x080000a2 &lt;+46&gt;:	ldr	r0, [r6, #0]
+0x080000a4 &lt;+48&gt;:	orr.w	r0, r0, #2
+0x080000a8 &lt;+52&gt;:	str	r0, [r6, #0]</code></pre>
+<p><code>#0</code> is the right offset for <code>GPIOx_MODER</code>, but what’s this? <code>#2</code> is definitely not the right constant for setting pin 2 to AF - it’s the right constant for setting pin 0 to AF. I neglected to shift my symbolic constant into the right spot for the pin I want to affect.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb5-1"><a href="#cb5-1"></a>        orr     <span class="at">r0</span>, <span class="at">r0</span>, GPIOx_MODER_MODE_ALT &lt;&lt; <span class="bn">4</span></span></code></pre></div>
+<p>And now, I see output.</p>
+<figure>
+<img src="../../images/timers%20-%20heartbeat.png" alt /><figcaption>The earlier peaks here measure as 375KHz, so I cherry picked the best one.</figcaption>
+</figure>
+<p>I see the output I predicted, no less. The time there is 2.625μs, which is exactly 42 divided by 16. Every few intervals, the measured frequency is 375KHz, which I would expect is because either the internal oscillator or my cheap logic analyser’s clock are not perfectly accurate. A 2.625μs measurement is 63 samples at 24MHz, while a 2.667μs measurement is 64 samples.</p>
+<h2 id="changing-clocks">Changing clocks</h2>
+<p>Able to see output, it’s now time to start changing my clock speeds. I’ll start by verifying I can change the APB1 divider, because that’s the one I need to get right before mucking with the system clock. This means re-including stores to <code>RCC_CFGR</code>. While I’m there, I’ll also turn on the HSE and wait for it to be ready, and as the last thing I do in my <code>main</code>, I’ll turn on PC13 as a push-pull output, driven low, to turn on the board’s blue LED. This will give me a quick visual indicator that my code has made it through all of the configuration, instead of hitting a trap or an endless loop.</p>
+<p>With the APB1 divider set to 2, I now expect to see 5.25μs between peaks, a 190KHz rate, taking 126 samples. I may see 189KHz as well, which is 127 samples. Let’s take a look.</p>
+<figure>
+<img src="../../images/timers%20-%20heartbeat.png" alt /><figcaption>Yes, this is the same image as before.</figcaption>
+</figure>
+<p>Well, hmm. Am I failing to configure the APB1 clock divider? If so, how? A peek at my code shows I forgot to actually set <code class="sourceCode armasm"><span class="at">r6</span></code> to <code>RCC</code>, so I’m attempting to set the clock by writing a word into Flash. This does not succeed. I fix that up, and…</p>
+<figure>
+<img src="../../images/timers%20-%20heartbeat.png" alt /><figcaption>Yes, this is still the same image as before.</figcaption>
+</figure>
+<p>Uh. Well, it’s midnight, I should sleep.</p>
+<h2 id="finding-the-mistake">Finding the mistake</h2>
+<p>There is a very good reason for the timer output being unchanged despite the APB1 clock divider being set to two. The reason for it is right there on the clock tree diagram from the <a href="006-fake-it.html">last post</a>: the timers on APB1 and APB2 have their clocks multiplied by a value that’s set by the microcontroller, based on the APBx prescaler. From the reference manual (RM0368 rev. 5, p94):</p>
+<blockquote>
+<p>If the APB prescaler is configured to a division factor of 1, the timer clock frequencies (TIMxCLK) are set to HCLK. Otherwise, the timer clock frequencies are twice the frequency of the APB domain to which the timers are connected: TIMxCLK = 2xPCLKx.</p>
+</blockquote>
+<p>So it turns out that I am seeing what I would expect to see if I set the APB1 divider to 2.</p>
+<p>It’s also around this point that I reflect on the fact that my logic analyser has eight inputs, and I’m only using one. I can observe both TIM9 and TIM2 at once. I’ll use PA3 for TIM9 channel 2, and switch to PA1 for TIM2 channel 2, so I can re-use the timer setup code trivially.</p>
+<p>With a big change to my port setup code, I’ll check my constants via gdb again:</p>
+<pre><code>   0x08000088 &lt;+32&gt;:	ldr	r6, [pc, #108]	; (0x80000f8)
+   0x0800008a &lt;+34&gt;:	mov.w	r0, #204	; 0xcc
+   0x0800008e &lt;+38&gt;:	str	r0, [r6, #8]
+   0x08000090 &lt;+40&gt;:	movw	r0, #12304	; 0x3010
+   0x08000094 &lt;+44&gt;:	str	r0, [r6, #32]
+   0x08000096 &lt;+46&gt;:	ldr	r0, [r6, #0]
+   0x08000098 &lt;+48&gt;:	orr.w	r0, r0, #136	; 0x88
+   0x0800009c &lt;+52&gt;:	str	r0, [r6, #0]</code></pre>
+<p>Address <code>0x80000f8</code> has the right value for <code>GPIOA</code>. <code>0xcc</code> is <code>1100 1100</code>, which sets very high speed on pins 1 and 3. <code>0x3010</code> is <code>0011 0000 0001 0000</code>, written to <code>GPIOx_AFLR</code>, sets pin 3 to AF03, and pin 1 to AF01. And finally, <code>0x88</code> is <code>1000 1000</code>, written to <code>GPIOx_MODER</code>. This assumes the modes for pins 1 and 3 are in their reset state, and sets them to AF mode.</p>
+<p>With APB1’s clock now divided by four, I’m ready to run this sucker.</p>
+<figure>
+<img src="../../images/timers%20-%20paired.png" alt /><figcaption>If this were a gif sort of blog, there’d be a celebratory dance of some kind right here.</figcaption>
+</figure>
+<p>I configured both timers with prescale 7, counter 6. With APB2’s timers running twice as fast as APB1’s, I now expect to see TIM9 spitting out a 381KHz signal, and TIM2 spitting out a 190KHz signal.</p>
+<h2 id="the-rest-of-the-owl">The rest of the owl</h2>
+<p>With the most risky part out of the way, it’s time to fire up the whole configuration scheme and get the part running at 84MHz. I’ve set APB2’s divider back down to two, which means both TIM2 and TIM9 will be running at 84MHz. The settings I have for prescaler and counter should produce a 2MHz signal (84/6/7 = 2).</p>
+<figure>
+<img src="../../images/timers%20-%202mhz.png" alt /><figcaption>Sort of anticlimatic, when everything works as predicted.</figcaption>
+</figure>
+<p>Now I need to refer back to my notes so I can start reacting to signals. The pins I’ve defined are:</p>
+<table>
+<thead>
+<tr class="header">
+<th>STM32</th>
+<th>Z180</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>PA0:7</td>
+<td>D0:7</td>
+<td>Data bus, in/out</td>
+</tr>
+<tr class="even">
+<td>PA9</td>
+<td>-</td>
+<td>STM32’s “processing read” flag</td>
+</tr>
+<tr class="odd">
+<td>PB0:1</td>
+<td>A0:1</td>
+<td>First two address lines</td>
+</tr>
+<tr class="even">
+<td>PB5:10</td>
+<td>A2:7</td>
+<td>Next six address lines</td>
+</tr>
+<tr class="odd">
+<td>PB12</td>
+<td>IORQ</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>PB13</td>
+<td>MREQ</td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>PB14</td>
+<td>WR</td>
+<td></td>
+</tr>
+<tr class="even">
+<td>PB15</td>
+<td>RD</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>The code to watch for a memory request and react to it is straightforward. I read from the GPIOB input data register and check to see if MREQ and RD (bits 13 and 15) are set. If not, I loop and read again.</p>
+<p>If so, then I set PA9 using the bit set/reset register for GPIOA, then I wait for either MREQ or RD to clear. I then reset PA9, and loop back to wait for MREQ and RD again.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb7-1"><a href="#cb7-1"></a><span class="fu">loop:</span>   // wait for MREQ and RD to be set</span>
+<span id="cb7-2"><a href="#cb7-2"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_IDR]</span>
+<span id="cb7-3"><a href="#cb7-3"></a>        ands            <span class="at">r1</span>, <span class="at">r0</span>, <span class="bn">0</span>b1010000000000000</span>
+<span id="cb7-4"><a href="#cb7-4"></a>        <span class="kw">beq</span>             loop</span>
+<span id="cb7-5"><a href="#cb7-5"></a></span>
+<span id="cb7-6"><a href="#cb7-6"></a>        // set PA9 to indicate memory read is active</span>
+<span id="cb7-7"><a href="#cb7-7"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, =<span class="bn">1</span> &lt;&lt; <span class="bn">9</span></span>
+<span id="cb7-8"><a href="#cb7-8"></a>        <span class="kw">str</span>             <span class="at">r0</span>, [<span class="at">r5</span>, GPIOx_BSRR]</span>
+<span id="cb7-9"><a href="#cb7-9"></a></span>
+<span id="cb7-10"><a href="#cb7-10"></a><span class="fu">reading:</span>// wait for MREQ and RD to go inactive</span>
+<span id="cb7-11"><a href="#cb7-11"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_IDR]</span>
+<span id="cb7-12"><a href="#cb7-12"></a>        ands            <span class="at">r1</span>, <span class="at">r0</span>, <span class="bn">0</span>b1010000000000000</span>
+<span id="cb7-13"><a href="#cb7-13"></a>        <span class="kw">bne</span>             reading</span>
+<span id="cb7-14"><a href="#cb7-14"></a></span>
+<span id="cb7-15"><a href="#cb7-15"></a>        // reset PA9</span>
+<span id="cb7-16"><a href="#cb7-16"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, =<span class="bn">1</span> &lt;&lt; <span class="bn">25</span></span>
+<span id="cb7-17"><a href="#cb7-17"></a>        <span class="kw">str</span>             <span class="at">r0</span>, [<span class="at">r5</span>, GPIOx_BSRR]</span>
+<span id="cb7-18"><a href="#cb7-18"></a></span>
+<span id="cb7-19"><a href="#cb7-19"></a>        b               loop</span></code></pre></div>
+<p>There’s a logic error in here I introduced in the 11th hour, so it works <em>almost</em> as expected. The logic analyser’s capture shows the STM32 dropping PA9 low when MREQ and RD are low, and PA9 staying high during a DRAM refresh cycle when only MREQ goes low. Of course, I wrote it thinking I was asserting PA9 high when MREQ/RD were active, but I forgot to take into account that these two lines are active low. Despite this, the timing here shows the STM32F4 will comfortably respond to a read request in time, and have no trouble turning output off when it should relinquish the bus.</p>
+<figure>
+<img src="../../images/timers%20-%20reacting.png" alt /><figcaption>The slowest reaction I could find in here was 166.667ns.</figcaption>
+</figure>
+<p>A few other things have gone a little bit wrong, of course. I was having trouble getting the STM32 to boot up correctly: it would only work immediately after being flashed on. Turns out I forgot to uncomment the Flash wait state register write, which as promised crashes the μC. I have to plug in the STM32’s USB cable before the logic analyser: I suspect a ground loop is at fault. And my ghetto breadboard header for the 50-pin IDC socket is really not a good piece of engineering, so A1 isn’t wired up right. This final point means I’ve got to bust out a soldering iron before I can make the STM32 act as RAM and ROM.</p>
+<figure>
+<img src="../../images/timers%20-%20test%20rig.jpg" alt /><figcaption>There’s a cheeky 74HC245N photobombing my rig.</figcaption>
+</figure>
+<p>I also don’t really like my chances of fitting enough wires on this breadboard to wire up the data lines via a ’245. Another round of fiddly soldering of 40 or so wires, here I come.</p>
+<p>This experiment has been a great success. I’ve programmed my STM32F4 from the ground up, detected the Z180’s memory requests, and confirmed that an 84MHz μC is easily fast enough to be RAM and ROM for a 1MHz processor. Nice.</p>
+<table style="width:86%;">
+<caption>Project status update</caption>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 13%" />
+<col style="width: 10%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Budget</th>
+<th style="text-align: center;">CPU</th>
+<th style="text-align: center;">Power</th>
+<th style="text-align: center;">Keyboard</th>
+<th style="text-align: center;">Video</th>
+<th style="text-align: center;">Memory</th>
+<th style="text-align: center;">Debug</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">$209.35 of $400</td>
+<td style="text-align: center;">██──</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">███─</td>
+</tr>
+</tbody>
+</table>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </body>
+</html>
