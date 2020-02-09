@@ -251,6 +251,7 @@
 </tr>
 </tbody>
 </table>
+<p><em>Note: the mistake I made in the previous post to somehow forget that the address bus is 16-bits continues here. I won’t fix it, I’ll live with it and move on to using real memory.</em></p>
 <p>The code to watch for a memory request and react to it is straightforward. I read from the GPIOB input data register and check to see if MREQ and RD (bits 13 and 15) are set. If not, I loop and read again.</p>
 <p>If so, then I set PA9 using the bit set/reset register for GPIOA, then I wait for either MREQ or RD to clear. I then reset PA9, and loop back to wait for MREQ and RD again.</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb7-1"><a href="#cb7-1"></a><span class="fu">loop:</span>   // wait for MREQ and RD to be set</span>
