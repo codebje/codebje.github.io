@@ -8,8 +8,62 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2020-02-02T00:00:00Z</updated>
+    <updated>2020-02-09T00:00:00Z</updated>
     <entry>
+    <title>Testing STM32 code</title>
+    <link href="https://bje.id.au/blog/posts/trs20/008-test-it.html" />
+    <id>https://bje.id.au/blog/posts/trs20/008-test-it.html</id>
+    <published>2020-02-09T00:00:00Z</published>
+    <updated>2020-02-09T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>There’s now code worth testing in my project: address line decoding. Let’s take another sidebar journey into automated testing of embedded code, and see where it leads.</p>
+<!--more-->
+<p>I’ve been claiming loudly for a while now that there’s no good reason to begin any new projects in C when there’s Rust available instead, and that there’s precious little reason for new projects in C++, barring libraries you just cannot expose to Rust and cannot live without. As a result, this project is done in Rust.</p>
+<p>The basic problem facing me is that I’m extremely inexperienced with ARM assembly and the Thumb-2 instruction set. I’d like to be able to test my ideas and expectations before flashing code to my device, which means I want to execute my code on my development host.</p>
+<p>I originally considered firing up <a href="https://www.qemu.org/">QEMU</a>. The current master branch has support for one STM32F4 processor, so it’s not an outrageous stretch to build a black pill emulator, but the support is threadbare and QEMU isn’t set up for being a unit test executor.</p>
+<p>My <a href="https://github.com/codebje/rustmtest/">solution</a> uses the <a href="http://www.unicorn-engine.org/">Unicorn engine</a>, which is backed by QEMU, to set up the memory map of an STM32F401. I then load my ELF intermediate output, which has a symbol table, and copy the loadable segments into the emulator’s memory.</p>
+<p>Tests are defined as a DSL that specifies the input and output register states, and selects a symbol to call.</p>
+<p>The GitHub workflow for this project builds a binary, automatically tags a new release if the version number in <code>Cargo.toml</code> has changed, and publishes the binary to the release.</p>
+<p>I can now take this local function for breaking my 8 bits of address space out of port B and into an address in either RAM or ROM:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb1-1"><a href="#cb1-1"></a>        .type           memaddr, %function</span>
+<span id="cb1-2"><a href="#cb1-2"></a><span class="fu">memaddr:</span></span>
+<span id="cb1-3"><a href="#cb1-3"></a>        // the memory address is in PB0:<span class="bn">1</span>, <span class="bn">5</span>:<span class="bn">10</span></span>
+<span id="cb1-4"><a href="#cb1-4"></a>        movw            <span class="at">r2</span>, <span class="bn">0</span>b11111100</span>
+<span id="cb1-5"><a href="#cb1-5"></a></span>
+<span id="cb1-6"><a href="#cb1-6"></a>        // top <span class="bn">6</span> bits into <span class="at">r1</span></span>
+<span id="cb1-7"><a href="#cb1-7"></a>        and             <span class="at">r1</span>, <span class="at">r2</span>, <span class="at">r0</span>, lsr <span class="bn">3</span></span>
+<span id="cb1-8"><a href="#cb1-8"></a></span>
+<span id="cb1-9"><a href="#cb1-9"></a>        // assemble full address into <span class="at">r0</span></span>
+<span id="cb1-10"><a href="#cb1-10"></a>        and             <span class="at">r0</span>, <span class="at">r0</span>, <span class="bn">0</span>b11</span>
+<span id="cb1-11"><a href="#cb1-11"></a>        orr             <span class="at">r0</span>, <span class="at">r1</span>, <span class="at">r0</span></span>
+<span id="cb1-12"><a href="#cb1-12"></a></span>
+<span id="cb1-13"><a href="#cb1-13"></a>        // check if RAM or ROM</span>
+<span id="cb1-14"><a href="#cb1-14"></a>        movw            <span class="at">r1</span>, <span class="bn">1</span></span>
+<span id="cb1-15"><a href="#cb1-15"></a>        eors            <span class="at">r1</span>, <span class="at">r1</span>, <span class="at">r0</span>, lsr <span class="bn">7</span></span>
+<span id="cb1-16"><a href="#cb1-16"></a></span>
+<span id="cb1-17"><a href="#cb1-17"></a>        ite             eq</span>
+<span id="cb1-18"><a href="#cb1-18"></a>        ldreq           <span class="at">r2</span>, =RAM_BASE</span>
+<span id="cb1-19"><a href="#cb1-19"></a>        ldrne           <span class="at">r2</span>, =ROM_BASE</span>
+<span id="cb1-20"><a href="#cb1-20"></a></span>
+<span id="cb1-21"><a href="#cb1-21"></a>        <span class="kw">add</span>             <span class="at">r0</span>, <span class="at">r0</span>, <span class="at">r2</span></span>
+<span id="cb1-22"><a href="#cb1-22"></a></span>
+<span id="cb1-23"><a href="#cb1-23"></a>        <span class="kw">bx</span>              <span class="at">lr</span></span>
+<span id="cb1-24"><a href="#cb1-24"></a></span>
+<span id="cb1-25"><a href="#cb1-25"></a>        .size           memaddr, . - memaddr</span></code></pre></div>
+<p>… and confirm that my use of unfamiliar instructions like <a href="http://infocenter.arm.com/help/topic/com.arm.doc.kui0100a/armasm_cjabicci.htm">ite</a> work the way I expect with a test script:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb2-1"><a href="#cb2-1"></a><span class="fu">test:</span> Memory Address decode</span>
+<span id="cb2-2"><a href="#cb2-2"></a></span>
+<span id="cb2-3"><a href="#cb2-3"></a><span class="fu">setup:</span></span>
+<span id="cb2-4"><a href="#cb2-4"></a>    <span class="at">r0</span> = <span class="bn">0</span>b10111011101</span>
+<span id="cb2-5"><a href="#cb2-5"></a></span>
+<span id="cb2-6"><a href="#cb2-6"></a><span class="fu">call:</span> memaddr</span>
+<span id="cb2-7"><a href="#cb2-7"></a></span>
+<span id="cb2-8"><a href="#cb2-8"></a><span class="fu">check:</span></span>
+<span id="cb2-9"><a href="#cb2-9"></a>    <span class="at">r0</span> = <span class="bn">0</span>x200000b9</span>
+<span id="cb2-10"><a href="#cb2-10"></a>    <span class="at">r1</span> = <span class="bn">0</span></span></code></pre></div>
+<p>It’s easy to also wrap a download of the released binary from GitHub into an action in the <a href="https://github.com/codebje/stm32-debug/">RAM/ROM project</a> and have automatic unit testing take place.</p>
+<p>Constantly practicing repeatable and automated processes for building, testing, and deploying makes it easier and more habitual to do for everything. I may have lost two or three days of STM32F4 assembly coding time in writing my test executor and its workflow actions, but I’ve gained a lot more confidence that the code will work as expected once it hits the μC, and I expect I’ll easily make back that time in fewer mistakes on device, where it’s harder to inspect.</p>]]></summary>
+</entry>
+<entry>
     <title>The TRS-20 - STM32F4 driver</title>
     <link href="https://bje.id.au/blog/posts/trs20/007-build-it.html" />
     <id>https://bje.id.au/blog/posts/trs20/007-build-it.html</id>
@@ -1204,30 +1258,6 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
 <p>There’s a few things that aren’t quite right on the build. The screws that hold the case together come loose very easily as the case rattles around during play, and the joystick’s knob also loosens over time - a bit plumber’s tape or a spring washer will likely fix these problems. I have to open up the case to recharge the battery, for which I have a Micro-USB panel mount part on order - wiring the power lines to the charger and the data lines to the ESP32 should do the trick, though this means I’ll want to run power in via the USB port at all times instead of trying to switch from 3V in to 5V via the on-board regulator.</p>
 <p>The main problem with the whole setup though is that the particular battery board I’m using doesn’t have any charge measurement capabilities. This means I run blind on how long I can expect the battery to last. It’s got a decent operational lifetime, I haven’t run it down enough to see if the board safely shuts off when the battery gets low but I have played for 4+hrs in a sitting without it flaking out - so it’s good enough for my purposes. A further revision would definitely change the battery board out for something that can measure charge too.</p>
 <p>Extra buttons or an 8-way joystick could be nice, but would require a shift register. If I go down this route I’ll probably design a PCB, and maybe see about bringing the battery charger on-board. At this point, it’d also be nice to implement a soft-touch power switch and allow the ESP32 to shut itself down if the device is left idle.</p>]]></summary>
-</entry>
-<entry>
-    <title>Z specification with Atom</title>
-    <link href="https://bje.id.au/blog/posts/2016-04-12-atom-z-notation.html" />
-    <id>https://bje.id.au/blog/posts/2016-04-12-atom-z-notation.html</id>
-    <published>2016-04-12T00:00:00Z</published>
-    <updated>2016-04-12T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>Z notation is a formal specification language based on typed set theory and predicate logic. With this relatively simple mathematical grounding, Z is a useful pedagogic introduction to formal methods, and a useful formal method to apply when consumers of the output aren’t already trained for it.</p>
-<p>However, the development of Z mostly involves tools which are rather dated. This article shows how to use Atom as a modern Z authoring studio, for small to medium specifications.</p>
-<!--more-->
-<p><img src="/images/linter-czt.png" /></p>
-<h2 id="essential-ingredients-latex">Essential ingredients: LaTeX</h2>
-<p>Z notation is primarily authored in LaTeX, so the first step is writing effective LaTeX in Atom.</p>
-<p>There are two approaches to this. One is to use Markdown for prose, and embed LaTeX directly, using [Pandoc] to produce PDF output. The downside of this is that Pandoc has no straightforward way to require a LaTeX package, and so including <code>oz.sty</code> or an equivalent means writing a custom preamble.</p>
-<p>The second approach is the one I favour: write in LaTeX, use the <a href="https://atom.io/packages/latextools">latextools</a> package to build PDF output, and use the <a href="https://atom.io/packages/pdf-view">pdf-view</a> package to preview the PDF in a side-by-side panel.</p>
-<h2 id="essential-ingredients-type-checking">Essential ingredients: type checking</h2>
-<p>Z notation is machine checkable; the syntax and types can be verified automatically. However, <a href="https://en.wikipedia.org/wiki/Z_notation#Tools">the tools</a> to do this aren’t always kept up to date: the most current is <a href="https://sourceforge.net/projects/czt/">CZT</a>, the Community Z Tools, many others are either now broken links, or ten years out of date.</p>
-<p>Using CZT isn’t a great experience, particularly for beginners. It offers an Eclipse-based IDE, with a project concept and file naming requirements in conflict with LaTeX naming requirements.</p>
-<p>CZT also offers a command line typechecker, and so I created an Atom package, <a href="https://atom.io/packages/linter-czt">linter-czt</a>, to invoke that typechecker as a service provider for the <a href="https://atom.io/packages/linter">linter</a> package.</p>
-<h2 id="usage-of-linter-czt">Usage of linter-czt</h2>
-<p>Because it’s not a good idea to typecheck all LaTeX files, the CZT linter package introduces a new grammar for Z specifications, with scope <code>text.tex.latex.zed</code>. You can either select the <code>LaTeX Z</code> grammar from the grammar selection list (click on <code>LaTeX</code> in the status bar for a .tex file), follow the CZT approach and name your file with a <code>.zed</code> notation, or put <code>% !Z-notation</code> as the first line in your file.</p>
-<p>Interpreting messages is not made any easier by the wrapper of a modern editor over a dated typechecker, so there’s no substitute for experience and understanding when it comes to writing meaningful Z.</p>
-<p>The CZT distribution requires a Java 8 runtime, and a binary is included in the Atom package, with a patch to provide better location information applied.</p>
-<p>Install all packages using either <code>apm</code> or the GUI settings install tab.</p>]]></summary>
 </entry>
 
 </feed>
