@@ -44,6 +44,28 @@
   <section class="anim fadeinup">
     <header class="post-header">
       
+        <img class="post-logo" src="images/trs80.jpg">
+      
+      <h1 class="post-title"><a href="./posts/trs20/009-boot-it.html" class="plain">The TRS-20 - boot up</a></h1>
+      <p class="post-meta">February 19, 2020 • bje</p>
+    </header>
+
+    <article class="post-content">
+      <a href="./posts/trs20/009-boot-it.html"><img class="post-hero" src="./images/banners/neat-test-rig.jpg"></a>
+      
+        <div class="post-hero-note">Satisfyingly neatened up. Photo by me. <a href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
+      
+      
+        <p>My 128 bytes each of ROM and RAM are working: the Z180 is executing my code.</p>
+
+        <a href="./posts/trs20/009-boot-it.html">Read more…</a>
+      
+    </article>
+  </section>
+
+  <section class="anim fadeinup">
+    <header class="post-header">
+      
         <img class="post-logo" src="images/microchip.svg">
       
       <h1 class="post-title"><a href="./posts/trs20/008-test-it.html" class="plain">Testing STM32 code</a></h1>
@@ -79,29 +101,6 @@
         <p>With my <a href="./post/trs20/006-fake-it.html">plan</a> sorted out, it’s time to get down to code. I’ll set up my build environment, take a look at testing options, configure timers, make a bunch of mistakes, and eventually test my hypothesis that an STM32F4 is fast enough to pretend to be the RAM and ROM for a 1MHz Z180.</p>
 
         <a href="./posts/trs20/007-build-it.html">Read more…</a>
-      
-    </article>
-  </section>
-
-  <section class="anim fadeinup">
-    <header class="post-header">
-      
-        <img class="post-logo" src="images/trs80.jpg">
-      
-      <h1 class="post-title"><a href="./posts/trs20/006-fake-it.html" class="plain">The TRS-20 - fake it 'til you make it</a></h1>
-      <p class="post-meta">January 27, 2020 • bje</p>
-    </header>
-
-    <article class="post-content">
-      <a href="./posts/trs20/006-fake-it.html"><img class="post-hero" src="./images/banners/racetrack.jpg"></a>
-      
-        <div class="post-hero-note">Image via <a href="https://www.peakpx.com/602656/electric-slot-car-track-playset">Peakpx</a> <a href="https://creativecommons.org/publicdomain/zero/1.0/deed.en"><img class="attribution" src="https://licensebuttons.net/p/zero/1.0/80x15.png"></a></div>
-      
-      
-        <p>My processor appears to be happy in its perfboard home for now. While I can get pretty excited over seeing signal probes confirm data sheet timing diagrams, I’ll admit that it’s a limited success. There is still a long road to having a homebrew computer built. What I’d like to do next is give the processor some RAM and ROM, and have it execute programs more significant than endless <code>NOP</code>s. I’d like to exercise the other major machine cycles - memory write, and I/O reads and writes, so I can get excited about signal probes confirming a whole new swathe of timing diagrams.</p>
-<p>To achieve this, I’ll use my STM32F401CC “black pill” board to act as the RAM and ROM, and use its connection to my LCD to display runtime status information. With 256KiB of Flash and 64KiB of SRAM, there’s space on the black pill to share with the Z180… but can the 84MHz STM32F401CC react fast enough to deliver data smoothly to the 1MHz Z180?</p>
-
-        <a href="./posts/trs20/006-fake-it.html">Read more…</a>
       
     </article>
   </section>

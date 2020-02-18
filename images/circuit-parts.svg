@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1">
+    <defs>
+        <g id="and">
+            <path d="M 5,0 h 10 c 10,0 10,15 0,15 h -10 z" fill="none" stroke="black"/>
+            <line x1="0" y1="3.5" x2="5" y2="3.5" stroke="black"/>
+            <line x1="0" y1="11.5" x2="5" y2="11.5" stroke="black"/>
+            <line x1="22" y1="7.5" x2="30" y2="7.5" stroke="black"/>
+        </g>
+        <g id="nand">
+            <use xlink:href="#and" x="0" y="0"/>
+            <circle cx="25" cy="7.5" r="2" fill="white" stroke="black"/>
+        </g>
+        <g id="or">
+            <path d="M 22.5,7.5 c -5,-7.5 -14,-7.5 -17.5,-7.5
+                              c 4,3 4,12 0,15
+                              c 2,0 12,0 17.5,-7.5" fill="none" stroke="black"/>
+            <line x1="0" y1="3.5" x2="7" y2="3.5" stroke="black"/>
+            <line x1="0" y1="11.5" x2="7" y2="11.5" stroke="black"/>
+            <line x1="22" y1="7.5" x2="30" y2="7.5" stroke="black"/>
+        </g>
+        <g id="nor">
+            <use xlink:href="#or" x="0" y="0"/>
+            <circle cx="25" cy="7.5" r="2" fill="white" stroke="black"/>
+        </g>
+        <g id="xor">
+            <use xlink:href="#or" x="0" y="0"/>
+            <path d="M 2,0 c 4,3 4,12 0,15" fill="none" stroke="black"/>
+        </g>
+        <g id="xnor">
+            <use xlink:href="#xor" x="0" y="0"/>
+            <circle cx="25" cy="7.5" r="2" fill="white" stroke="black"/>
+        </g>
+        <g id="dff">
+            <path d="M 5,5 h 20 v 30 h -20 z
+                     M 5,21.5 l4,3 l-4,3
+                     M 5,15.5 h-5
+                     M 5,24.5 h-5
+                     M 25,15.5 h5
+                     M 25,24.5 h5
+                     M 15,5 v-5
+                     M 15,35 v5" fill="none" stroke="black" />
+            <circle cx="15" cy="3.5" r="1.5" fill="white" stroke="black"/>
+            <circle cx="15" cy="36.5" r="1.5" fill="white" stroke="black"/>
+            <text font-family="fixed" font-size="6px" dominant-baseline="central" text-anchor="start"
+                  x="6" y="15.5">D</text>
+            <text font-family="fixed" font-size="6px" dominant-baseline="hanging" text-anchor="middle"
+                  text-decoration="overline"
+                  x="15" y="7">PRE</text>
+            <text font-family="fixed" font-size="6px" dominant-baseline="bottom" text-anchor="middle"
+                  text-decoration="overline"
+                  x="15" y="34">CLR</text>
+            <text font-family="fixed" font-size="6px" dominant-baseline="central" text-anchor="end"
+                  x="24" y="15.5">Q</text>
+            <text font-family="fixed" font-size="6px" dominant-baseline="central" text-anchor="end"
+                  text-decoration="overline"
+                  x="24" y="24.5">Q</text>
+        </g>
+        <g id="buffer">
+            <path d="M 5,0 v15 l 15,-7.5 z M 0,7.5 h5 M 20,7.5 h5" fill="none" stroke="black"/>
+        </g>
+        <g id="inverter">
+            <use xlink:href="#buffer" x="0" y="0"/>
+            <circle cx="21.5" cy="7.5" r="1.5" fill="white" stroke="black"/>
+        </g>
+    </defs>
+</svg>

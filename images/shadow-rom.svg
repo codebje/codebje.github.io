@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 500 100" style="width:100%">
+    <style>
+        * { stroke-width: 0.5; }
+        line,path,rect {
+            fill: none;
+            stroke: black;
+        }
+        path.NC {
+            stroke: gray;
+            stroke-width: 0.25;
+        }
+        text {
+            font: 6px normal fixed;
+        }
+    </style>
+
+    <!-- D flip-flop source from GND -->
+    <use href="circuit-parts.svg#dff" x="30" y="20"/>
+    <text x="29" y="44.5" dominant-baseline="central" text-anchor="end" text-decoration="overline">RESET</text>
+    <text x="29" y="35.5" dominant-baseline="central" text-anchor="end">
+        <tspan>V</tspan><tspan baseline-shift="sub" font-size="65%">CC</tspan>
+    </text>
+    <text x="61" y="34.5" dominant-baseline="bottom" text-anchor="start">BOOTUP</text>
+    <line x1="45" y1="20" x2="45" y2="15"/>
+    <path d="M 58,42.5 l 4,4 M 62,42.5 l-4,4" class="NC"/>
+
+    <line x1="60" y1="35.5" x2="150" y2="35.5"/>
+    <line x1="45" y1="15" x2="75" y2="15"/>
+    <line x1="30" y1="70" x2="140" y2="70"/>
+    <line x1="140" y1="70" x2="140" y2="15"/>
+    <circle cx="140" cy="43.5" r="1.5" fill="black"/>
+    <line x1="140" y1="43.5" x2="150" y2="43.5"/>
+    <line x1="140" y1="15" x2="100" y2="15"/>
+
+    <text x="29" y="70" dominant-baseline="central" text-anchor="end">
+        <tspan>A</tspan><tspan baseline-shift="sub" font-size="65%">19</tspan>
+    </text>
+    <text x="181" y="37" dominant-baseline="bottom" text-anchor="start">
+        <tspan>A</tspan><tspan baseline-shift="sub" font-size="65%">19</tspan><tspan>*</tspan>
+    </text>
+
+    <!-- OR gate between BOOTUP and A19 -->
+    <use href="circuit-parts.svg#or" x="150" y="32"/>
+
+    <!-- Inverter for A19 into flip-flop -->
+    <g transform="scale(-1, 1)">
+        <use href="circuit-parts.svg#inverter" x="-100" y="7.5"/>
+    </g>
+
+</svg>

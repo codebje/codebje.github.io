@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-1 -1 602 62" style="width:100%">
+    <style>
+        rect,line { fill: none; stroke: black; }
+        text { font: normal 8px sans-serif; dominant-baseline: middle; alignment-baseline: central; }
+        line.range { stroke-width: 0.5; stroke: gray; }
+        text.range { alignment-baseline: central; font-family: monospace; }
+    </style>
+    <rect x="0" y="0" width="600" height="50"/>
+    <line x1="200" y1="0" x2="200" y2="50"/>
+    <line x1="400" y1="0" x2="400" y2="50"/>
+    <text x="100" y="25" text-anchor="middle">Common Area 0</text>
+    <text x="300" y="25" text-anchor="middle">Bank Area</text>
+    <text x="500" y="25" text-anchor="middle">Common Area 1</text>
+
+    <text x="30" y="55" text-anchor="end" class="range">$0000</text>
+    <line x1="0" y1="55" x2="5" y2="55" class="range" />
+    <line x1="32" y1="55" x2="568" y2="55" class="range" />
+    <line x1="595" y1="55" x2="600" y2="55" class="range" />
+    <text x="570" y="55" text-anchor="start" class="range">$FFFF</text>
+</svg>
+

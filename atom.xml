@@ -8,8 +8,129 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2020-02-09T00:00:00Z</updated>
+    <updated>2020-02-19T00:00:00Z</updated>
     <entry>
+    <title>The TRS-20 - boot up</title>
+    <link href="https://bje.id.au/blog/posts/trs20/009-boot-it.html" />
+    <id>https://bje.id.au/blog/posts/trs20/009-boot-it.html</id>
+    <published>2020-02-19T00:00:00Z</published>
+    <updated>2020-02-19T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>My 128 bytes each of ROM and RAM are working: the Z180 is executing my code.</p>
+<!--more-->
+<p>With my test rig re-wired using 22AWG wire (from a kit, I don’t have a nice stock of the stuff to trim to length myself yet) and looking neat, despite still only having eight address lines, I fired the thing up. Not pictured is a small extension that ties RESET high with a 10k resistor and adds a tactile switch to pull it low, as the Z180 doesn’t really behave properly without being reset.</p>
+<p>The <a href="https://github.com/codebje/trs20-debug/blob/fe11a903a1df9553ae3c87e779e340607668d3f4/trs20.asm">code</a> that should be executed disables DRAM refresh, so my logic analyser images don’t have so much noise in them. After that, it just loops forever not doing anything.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb1-1"><a href="#cb1-1"></a><span class="fu">reset:</span>	<span class="dt">.org</span>	<span class="bn">$0000</span></span>
+<span id="cb1-2"><a href="#cb1-2"></a>	ld	<span class="at">a</span>, <span class="bn">0</span></span>
+<span id="cb1-3"><a href="#cb1-3"></a>	out0	(RCR), <span class="at">a</span>	<span class="co">; disable the DRAM refresh</span></span>
+<span id="cb1-4"><a href="#cb1-4"></a>	jp	_start</span>
+<span id="cb1-5"><a href="#cb1-5"></a></span>
+<span id="cb1-6"><a href="#cb1-6"></a><span class="co">; … other RST vectors omitted …</span></span>
+<span id="cb1-7"><a href="#cb1-7"></a></span>
+<span id="cb1-8"><a href="#cb1-8"></a><span class="fu">_start:</span></span>
+<span id="cb1-9"><a href="#cb1-9"></a>	nop</span>
+<span id="cb1-10"><a href="#cb1-10"></a>	jp	_start</span></code></pre></div>
+<p>After a reset, the data lines look like this. I’ve added handy little labels for the signals.</p>
+<figure>
+<img src="/images/boot-from-rom.png" alt="" /><figcaption>On reflection, it probably would have been easier to read as D7:0.</figcaption>
+</figure>
+<p>Decoding and cross-referencing these binary values with the listing file for the ROM image shows it executing exactly what it should, and it’s apparent that immediately after the <code class="sourceCode z80asm">out0</code> the DRAM refresh ceases, and the CPU repeatedly requests the <code class="sourceCode z80asm">nop</code> and <code class="sourceCode z80asm">jp</code> instructions</p>
+<table>
+<thead>
+<tr class="header">
+<th>bits</th>
+<th>hex</th>
+<th>assembly</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>00111110</code></td>
+<td><code>3E</code></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>00000000</code></td>
+<td><code>00</code></td>
+<td><code class="sourceCode z80asm">ld <span class="at">a</span>, <span class="bn">0</span></code></td>
+</tr>
+<tr class="odd">
+<td><code>11101101</code></td>
+<td><code>ED</code></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>00111001</code></td>
+<td><code>39</code></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><code>00110110</code></td>
+<td><code>36</code></td>
+<td><code class="sourceCode z80asm">out0 (RCR), <span class="at">a</span></code></td>
+</tr>
+<tr class="even">
+<td><code>11000011</code></td>
+<td><code>C3</code></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td><code>00111000</code></td>
+<td><code>38</code></td>
+<td></td>
+</tr>
+<tr class="even">
+<td><code>00000000</code></td>
+<td><code>00</code></td>
+<td><code class="sourceCode z80asm">jp <span class="bn">$0038</span></code></td>
+</tr>
+<tr class="odd">
+<td><code>00000000</code></td>
+<td><code>00</code></td>
+<td><code class="sourceCode z80asm">nop</code></td>
+</tr>
+</tbody>
+</table>
+<p>I don’t think I’ve convinced friends or family that this is, in fact, quite an exciting milestone. Nevertheless, it is: I have written code that runs on my CPU. The rest of the computer is just details…</p>
+<p>The STM32’s usefulness for this stage of the project is, I think, now at an end. It may return as a USB keyboard controller down the line, but this project is ready for PCB design.</p>
+<p>Meanwhile, the PC104 headers I ordered arrived, after 84 days. My guess is they fell behind something in Customs and were only recently found. They were very well packed, and are undamaged, so I contacted the seller and placed another order that the seller didn’t ship. Since my refund didn’t include the tax I paid, and my new order did, I’ve now paid twice the tax on the headers, taking their total cost up to $12.70 for five 40-pin headers and two 64-pin headers. My stand-offs also arrived, so there’s now nothing in transit.</p>
+<p>I also ordered and received an Altera MAX II CPLD minimal development board, for $11.56. This board saves me a lot of fiddly soldering making my own on perfboard, and will let me trial the use of a relatively cheap CPLD IC for address decoding or video output. I booted up Intel’s Quartus II to a sufficient level to verify the board works - to cut a long story short on it, it’s just a lot easier on a Mac to run Quartus in a desktop Linux VM than it is to try to make it work in Docker.</p>
+<p>I’m going to mark the Debug section of the project as complete. It’s possible I’ll need further debugging aids later in the project, but each quarter I’ll want to review my targets and check they still make sense given what I’ve learned so far.</p>
+<table style="width:86%;">
+<caption>Project status update</caption>
+<colgroup>
+<col style="width: 21%" />
+<col style="width: 8%" />
+<col style="width: 10%" />
+<col style="width: 13%" />
+<col style="width: 10%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Budget</th>
+<th style="text-align: center;">CPU</th>
+<th style="text-align: center;">Power</th>
+<th style="text-align: center;">Keyboard</th>
+<th style="text-align: center;">Video</th>
+<th style="text-align: center;">Memory</th>
+<th style="text-align: center;">Debug</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">$233.61 of $400</td>
+<td style="text-align: center;">██──</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">────</td>
+<td style="text-align: center;">done</td>
+</tr>
+</tbody>
+</table>]]></summary>
+</entry>
+<entry>
     <title>Testing STM32 code</title>
     <link href="https://bje.id.au/blog/posts/trs20/008-test-it.html" />
     <id>https://bje.id.au/blog/posts/trs20/008-test-it.html</id>
@@ -1189,75 +1310,6 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
 </tr>
 </tbody>
 </table>]]></summary>
-</entry>
-<entry>
-    <title>Bluetooth Arcade Joystick</title>
-    <link href="https://bje.id.au/blog/posts/2019-07-05-ble-joystick.html" />
-    <id>https://bje.id.au/blog/posts/2019-07-05-ble-joystick.html</id>
-    <published>2019-07-05T00:00:00Z</published>
-    <updated>2019-07-05T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>A <a href="https://retropie.org.uk/">RetroPie</a> is a lot of fun, but quite a few of the games one might want to play really need a classic arcade joystick. And that joystick needs to be usable from the comfort of the recliner, which is definitely not in USB cable range of the TV. The solution is obvious: build a bluetooth joystick controller.</p>
-<!--more-->
-<p>To build this, we’ll need the software to drive it, and the hardware to run it on. The basic design is to use an ESP32 dev board, which exposes enough GPIO pins to support a 4-way joystick and 8 buttons, and a li-po battery to keep the thing running.</p>
-<p>The software first requires an understanding of the communication mechanism to be used - bluetooth low energy, which not only has the possibility of consuming lower power than bluetooth classic (AFAIK on an ESP32 it currently does not) but also has very low latency (and on an ESP32, this is definitely true). This is essential for having a good gaming experience.</p>
-<h2 id="bluetooth-low-energy">Bluetooth Low Energy</h2>
-<p>BLE operates in a client-server model, where the peripheral provide services to a central client device. The ESP-IDF framework provides BLE support via Bluedroid, but documentation is a little sparse. Even more annoying, the Bluetooth SIG reworked their website and broke huge numbers of deep links at some point in the relatively recent past, so many articles include broken links. This one will not link directly to the BT SIG for this reason.</p>
-<p>Creating a Bluetooth Low Energy joystick means understanding an entire stack of acronyms. The device appears as a Human Interface Device (HID), which is the same meaning as for USB devices. This is layered into the Generic Attribute Profile (GATT) of BLE. GATT operates alongside the Generic Access Profile (GAP), which manages connections and advertisements.</p>
-<p>A GATT application profile is a sequence of services, where each service is a sequence of characteristics. There are predefined services available, including the HID service (16-bit UUID 0x1812), the battery service (0x180f), and the device information service (0x180a). A HID device should provide all three of these services.</p>
-<p>The Battery Service has a single characteristic for reporting the current battery level. An XML description of the service can be found via Google; it’s published by the BT SIG at unstable URLs.</p>
-<p>The key documents to obtain from the BT SIG are the HID over GATT profile (HOGP), the core Bluetooth specification 4.2 or later, and the supplement to the core specification (the CSS document), version 8 or later. The HOGP spec needs the most attention, while the other two mostly have tables and definitions to refer to.</p>
-<h2 id="ble-on-esp32-with-bluedroid">BLE on ESP32 with Bluedroid</h2>
-<p>The library is driven by callbacks with event codes. Setup of a BLE server happens in stages as various events are triggered, which is sort of documented in the <a href="https://github.com/espressif/esp-idf/blob/master/examples/bluetooth/bluedroid/ble/gatt_server/tutorial/Gatt_Server_Example_Walkthrough.md">walkthroughs</a>. The primary sequence is:</p>
-<ol type="1">
-<li><p>Set up the Bluetooth stack.</p>
-<p>This process involves enabling NVRAM, initialising and enabling the BT controller, initialising and enabling the Bluedroid application stack, registering callbacks for GAP and GATTS events, and finally registering an application. This application registration triggers our first event, <code>ESP_GATTS_REG_EVT</code>.</p></li>
-<li><p>Construct advertising data and begin advertising.</p>
-<p>The application registration event triggers a callback in the GATTS portion of the stack. At this point, the GAP parameters for the device should be configured: device name, appearance, advertising and scan response data. Each of advertising and scan response data is capped at 31 bytes, so using the additional 31 bytes of a scan response may be necessary for larger advertisements. An event is triggered when each has completed successfully, the <code>ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT</code> and the <code>ESP_GAP_BLE_SCAN_RSP_DATA_SET_COMPLETE_EVT</code> events. When both events have fired, advertising may be started, which will in turn trigger an <code>ESP_GAP_BLE_ADV_START_COMPLETE_EVT</code> event.</p>
-<p>The Bluedroid stack will take care of packing advertising data into advertising and scan response data packets. The order in which it writes data is flags, appearance, device name, manufacturer data, TX power, 16-bit UUIDs, 32-bit UUIDs, 128-bit UUIDs, service solicitation UUIDs, and finally service data. Most of these items are not particularly important for a joystick device: appearance, device name, and 16-bit UUIDs are the most valuable. The TX power is flagged “TODO” in the version of the library I have, so there’s no point worrying about that one. The stack will also take care of translating 128-bit UUIDs to the right format based on their value.</p>
-<p>After setting up and starting advertisements, the device will be visible to BT hosts, but it will not respond to connection requests yet.</p></li>
-<li><p>Define services and characteristics.</p>
-<p>An application in BLE consists of a sequence of services, each of which is a sequence of characteristics. Each characteristic is a declaration, a value, and a possibly empty set of descriptors. All of these things are defined using GATT attributes. For example, a partial HID service declaration would consist of these ordered attributes:</p>
-<ul>
-<li>A Service Declaration attribute for the HID Service UUID</li>
-<li>A Characteristic Declaration attribute for a read/notify value</li>
-<li>A HID Report attribute containing the value itself</li>
-<li>A Client Characteristic Configuration (CCC) Descriptor attribute</li>
-<li>A Report Reference Descriptor attribute</li>
-</ul>
-<p>This partial declaration only has a single characteristic; a full HID service must have a Report Map, at least one Report, and a HID Information characteristic, and may have further Reports, a Control Point, and for keyboards and mice, a Protocol Mode value and Boot Report(s), used for a host that’s booting up and can’t use the full HID spec.</p>
-<p>Bluedroid allows these to be created one by one, or defined in a table and created in one shot. The latter is much simpler: create the service in one call, and in the ensuing callback start the service. The stack can also take care of responding to read and write requests for you.</p>
-<p>For the HID profile, the CCC allows the client to inform the server whether it wants notifications enabled or not, and the Report Reference indicates the type(s) (Input, Output, or Feature) and identifiers of the Report.</p>
-<p>Alongside the HID Service itself, a HID Device must also implement the Battery Service and Device Information Service.</p></li>
-<li><p>Security, security, security, security.</p>
-<p>The HID profile requires a secured connection. This involves bonding - a long-term exchange of keys that the server and client will use for future connections. As the gamepad has no output controls and only limited input controls, it’s easiest to use a no-PIN bonding mechanism. We’re not too worried about the security of a game controller, so there’s little reason to require anything beyond a confirmation box on the host device.</p>
-<p>Bluedroid in ESP-IDF requires that at least two security parameters are set: <code>ESP_BLE_SM_AUTHEN_REQ_MODE</code>, set to <code>ESP_LE_AUTH_REQ_SC_BOND</code> to require bonding,</p></li>
-<li><p>HID profile conformance details.</p>
-<p>The HID profile has some additional requirements and recommendations to follow regarding advertising, connecting to non-bonded and bonded hosts, and reconnections. I glossed over most of this, which likely will cause problems down the line.</p></li>
-</ol>
-<p>With all of this sorted out, the joystick pairs and bonds.</p>
-<p>The remaining code is trivial: interrupts on any of the input pins (rising or falling edges) cause all pins to be read and a BLE notification message to be sent. The delay on this appears to be singificantly smaller than the delay caused by my aging reflexes - the ESP32 is a reasonably fast chip, there’s next to nothing executing on it, and the BLE transport sends tiny packets very quickly.</p>
-<h2 id="construction">Construction</h2>
-<p>I’ve provided supplier links to most parts, but everything’s pretty generic here, so find your own options as you please. Some parts I had hanging around, so not everything has a link, but nothing is hard to find. Construction is easy, most of the work in this project was in the software.</p>
-<p><strong>Bill of Materials</strong></p>
-<ol type="1">
-<li>A zero-delay USB <a href="https://www.aliexpress.com/item/1886491368.html">joystick kit</a></li>
-<li>An acrylic <a href="https://www.aliexpress.com/item/32947858378.html">case</a> - I chose a clear case to expose the guts with pride</li>
-<li>An ESP32 dev board (DOIT devkit v1, 36-pin variant; most boards will work)</li>
-<li>A li-po <a href="https://www.aliexpress.com/item/32926131874.html">battery module</a> for an 18650 battery</li>
-<li>A <a href="https://www.jaycar.com.au/spdt-sub-miniature-toggle-switch-solder-tag/p/ST0300">toggle switch</a> for power control</li>
-<li>A set of XHP <a href="https://www.aliexpress.com/item/32681086028.html">connectors</a> in 2, 3, and 4 pin configurations</li>
-<li>A perfboard large enough to hold the connectors and dev board</li>
-<li>A 40-pin female header strip</li>
-</ol>
-<p>The joystick kit includes a 4-way joystick, 8x 30mm buttons, 2x 22mm buttons, cables with XHP plugs, and a zero-delay USB encoder board that we will not use. The case only has 6x 30mm holes and 2x22mm holes, so two buttons are also unused. The particular combination I wound up with didn’t quite work perfectly - the buttons are push-through and should snap into place, but the lid of the case is a little too thick for them to snap in. Screw type buttons would be a better choice with this case.</p>
-<p>The 40-pin header can be cut in half (pull out a sacrificial pin and cut in the hole it left, don’t try and cut between two pins) and trimmed to get two 18-pin headers to hold the ESP32 module; this means any mistakes don’t cost me a whole module, and a subsequent improved version is possible as well.</p>
-<p>Onto the perfboard I soldered the headers, 8 2-pin connectors for the buttons, and a 5-pin male header for the joystick. I didn’t have a 5-pin XHP socket in my kit, alas. When laying this part out, pay attention to where the board will sit in the case and how far the cables can reach - I soldered in one header for the joystick before verifying that the cable could reach that location, and needed to add a second header on the other end of the board.</p>
-<p>Another pair of headers for a power cable, with the high side line passing through the toggle switch (drill a small hole in the rear of the case to mount the switch), jumper wires as appropriate, and everything’s ready to go.</p>
-<h2 id="closing-remarks">Closing remarks</h2>
-<p>This was a fun project - it didn’t stress my mediocre hardware abilities, I learned a lot about bluetooth, I applied material on FreeRTOS I’d learned recently while completing a Master’s degree by coursework, and the thing <em>works</em> !</p>
-<p>There’s a few things that aren’t quite right on the build. The screws that hold the case together come loose very easily as the case rattles around during play, and the joystick’s knob also loosens over time - a bit plumber’s tape or a spring washer will likely fix these problems. I have to open up the case to recharge the battery, for which I have a Micro-USB panel mount part on order - wiring the power lines to the charger and the data lines to the ESP32 should do the trick, though this means I’ll want to run power in via the USB port at all times instead of trying to switch from 3V in to 5V via the on-board regulator.</p>
-<p>The main problem with the whole setup though is that the particular battery board I’m using doesn’t have any charge measurement capabilities. This means I run blind on how long I can expect the battery to last. It’s got a decent operational lifetime, I haven’t run it down enough to see if the board safely shuts off when the battery gets low but I have played for 4+hrs in a sitting without it flaking out - so it’s good enough for my purposes. A further revision would definitely change the battery board out for something that can measure charge too.</p>
-<p>Extra buttons or an 8-way joystick could be nice, but would require a shift register. If I go down this route I’ll probably design a PCB, and maybe see about bringing the battery charger on-board. At this point, it’d also be nice to implement a soft-touch power switch and allow the ESP32 to shut itself down if the device is left idle.</p>]]></summary>
 </entry>
 
 </feed>
