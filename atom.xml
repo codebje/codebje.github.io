@@ -46,17 +46,17 @@
 <tr class="odd">
 <td><code>00111110</code></td>
 <td><code>3E</code></td>
-<td></td>
+<td><code class="sourceCode z80asm">ld <span class="at">a</span>, <span class="bn">0</span></code></td>
 </tr>
 <tr class="even">
 <td><code>00000000</code></td>
 <td><code>00</code></td>
-<td><code class="sourceCode z80asm">ld <span class="at">a</span>, <span class="bn">0</span></code></td>
+<td></td>
 </tr>
 <tr class="odd">
 <td><code>11101101</code></td>
 <td><code>ED</code></td>
-<td></td>
+<td><code class="sourceCode z80asm">out0 (RCR), <span class="at">a</span></code></td>
 </tr>
 <tr class="even">
 <td><code>00111001</code></td>
@@ -66,12 +66,12 @@
 <tr class="odd">
 <td><code>00110110</code></td>
 <td><code>36</code></td>
-<td><code class="sourceCode z80asm">out0 (RCR), <span class="at">a</span></code></td>
+<td></td>
 </tr>
 <tr class="even">
 <td><code>11000011</code></td>
 <td><code>C3</code></td>
-<td></td>
+<td><code class="sourceCode z80asm">jp <span class="bn">$0038</span></code></td>
 </tr>
 <tr class="odd">
 <td><code>00111000</code></td>
@@ -81,7 +81,7 @@
 <tr class="even">
 <td><code>00000000</code></td>
 <td><code>00</code></td>
-<td><code class="sourceCode z80asm">jp <span class="bn">$0038</span></code></td>
+<td></td>
 </tr>
 <tr class="odd">
 <td><code>00000000</code></td>
