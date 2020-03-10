@@ -1,51 +1,220 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 500 100" style="width:100%">
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 285 115" style="width:100%">
     <style>
-        * { stroke-width: 0.5; }
+        * { stroke-width: 0.5; pointer-events: none; }
         line,path,rect {
             fill: none;
             stroke: black;
+            transition: stroke .5s ease;
+        }
+        circle {
+            transition: fill .5s ease;
         }
         path.NC {
             stroke: gray;
             stroke-width: 0.25;
         }
         text {
-            font: 6px normal fixed;
+            font: normal 5px monospace;
+        }
+        text.name {
+            fill: blue;
+            dominant-baseline: central;
+            text-anchor: middle;
+        }
+        text.pin {
+            font: normal 4px monospace;
+        }
+        text#title {
+            font: bold 7px serif;
+        }
+        text#desc {
+            font-family: serif;
+        }
+        path#back, path#next {
+            fill: #ddd;
+            stroke: none;
+            pointer-events: all;
+        }
+        path#back.active, path#next.active {
+            fill: #555;
+        }
+        @keyframes glow {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        path#back:hover, path#next:hover {
+            animation-name: glow;
+            animation-duration: 2s;
+            animation-iteration-count: infinite;
+        }
+        path#back.click, path#next.click {
+            stroke: #fff;
+        }
+        path.HIGH {
+            stroke: red;
+        }
+        circle.HIGH {
+            fill: red;
         }
     </style>
 
-    <!-- D flip-flop source from GND -->
-    <use href="circuit-parts.svg#dff" x="30" y="20"/>
-    <text x="29" y="44.5" dominant-baseline="central" text-anchor="end" text-decoration="overline">RESET</text>
-    <text x="29" y="35.5" dominant-baseline="central" text-anchor="end">
-        <tspan>V</tspan><tspan baseline-shift="sub" font-size="65%">CC</tspan>
-    </text>
-    <text x="61" y="34.5" dominant-baseline="bottom" text-anchor="start">BOOTUP</text>
-    <line x1="45" y1="20" x2="45" y2="15"/>
-    <path d="M 58,42.5 l 4,4 M 62,42.5 l-4,4" class="NC"/>
+    <defs>
+        <g id="or">
+            <path d="M 22.5,7.5 c -5,-7.5 -14,-7.5 -17.5,-7.5
+                              c 4,3 4,12 0,15
+                              c 2,0 12,0 17.5,-7.5 z" fill="none" stroke="black"/>
+        </g>
+        <g id="buffer">
+            <path d="M 5,0 v15 l 15,-7.5 z" fill="none" stroke="black"/>
+        </g>
+        <g id="inverter">
+            <use xlink:href="#buffer" x="0" y="0"/>
+            <circle cx="21.5" cy="7.5" r="1.5" fill="white" stroke="black"/>
+        </g>
+        <g id="dff">
+            <path d="M 5,5 h 20 v 30 h -20 z M 5,22.5 l3,2 l-3,2"/>
+            <circle cx="15" cy="3.5" r="1.5" fill="white" stroke="black"/>
+            <circle cx="15" cy="36.5" r="1.5" fill="white" stroke="black"/>
+            <text dominant-baseline="central" text-anchor="start"
+                  class="pin" x="6" y="15.5">D</text>
+            <text dominant-baseline="hanging" text-anchor="middle"
+                  text-decoration="overline"
+                  class="pin" x="15" y="7">PRE</text>
+            <text dominant-baseline="bottom" text-anchor="middle"
+                  text-decoration="overline"
+                  class="pin" x="15" y="34">CLR</text>
+            <text dominant-baseline="central" text-anchor="end"
+                  class="pin" x="24" y="15.5">Q</text>
+            <text dominant-baseline="central" text-anchor="end"
+                  text-decoration="overline"
+                  class="pin" x="24" y="24.5">Q</text>
+        </g>
+    </defs>
 
-    <line x1="60" y1="35.5" x2="150" y2="35.5"/>
-    <line x1="45" y1="15" x2="75" y2="15"/>
-    <line x1="30" y1="70" x2="140" y2="70"/>
-    <line x1="140" y1="70" x2="140" y2="15"/>
-    <circle cx="140" cy="43.5" r="1.5" fill="black"/>
-    <line x1="140" y1="43.5" x2="150" y2="43.5"/>
-    <line x1="140" y1="15" x2="100" y2="15"/>
+    <!-- Input labels from CPU -->
+    <g id="inputs">
 
-    <text x="29" y="70" dominant-baseline="central" text-anchor="end">
-        <tspan>A</tspan><tspan baseline-shift="sub" font-size="65%">19</tspan>
-    </text>
-    <text x="181" y="37" dominant-baseline="bottom" text-anchor="start">
-        <tspan>A</tspan><tspan baseline-shift="sub" font-size="65%">19</tspan><tspan>*</tspan>
-    </text>
+        <!-- RESET into clock of flip-flop -->
+        <text x="29" y="34.5" dominant-baseline="central" text-anchor="end" text-decoration="overline">RESET</text>
 
-    <!-- OR gate between BOOTUP and A19 -->
-    <use href="circuit-parts.svg#or" x="150" y="32"/>
+        <!-- Vcc into D of flip-flop -->
+        <text x="29" y="25.5" dominant-baseline="central" text-anchor="end">
+            <tspan>V</tspan><tspan baseline-shift="sub" font-size="65%">CC</tspan>
+        </text>
 
-    <!-- Inverter for A19 into flip-flop -->
-    <g transform="scale(-1, 1)">
-        <use href="circuit-parts.svg#inverter" x="-100" y="7.5"/>
+        <!-- A19 into OR gate and inverter to /CLR of flip-flop -->
+        <text x="29" y="70" dominant-baseline="central" text-anchor="end">
+            <tspan>A</tspan><tspan baseline-shift="sub" font-size="65%">19</tspan>
+        </text>
+
+        <!-- A18 into U4 2-of-3 decoder -->
+        <text x="29" y="78" dominant-baseline="central" text-anchor="end">
+            <tspan>A</tspan><tspan baseline-shift="sub" font-size="65%">18</tspan>
+        </text>
+
+        <!-- MREQ -->
+        <text x="29" y="86" dominant-baseline="central" text-anchor="end" text-decoration="overline">MREQ</text>
+
     </g>
+
+    <g id="outputs">
+        <text x="255" y="37" dominant-baseline="central" text-anchor="start" text-decoration="overline">RAM</text>
+        <text x="255" y="45" dominant-baseline="central" text-anchor="start" text-decoration="overline">ROM</text>
+        <text x="255" y="53" dominant-baseline="central" text-anchor="start" text-decoration="overline">ISA</text>
+    </g>
+
+    <!-- wiring the nets -->
+    <g id="nets">
+        <!-- from U1 /CLR to inverter U2 -->
+        <path class="A19x" d="M 50,45 v10 h30"/>
+
+        <!-- from U1 /PRE to Vcc -->
+        <path class="HIGH" d="M 50,12 v-7 h-15 v20.5 h-5 h10"/>
+        <circle class="HIGH" cx="35" cy="25.5" r="1.5" fill="black"/>
+
+        <!-- From U1 CLK to /RESET -->
+        <path class="RESET" d="M 30,34.5 h10"/>
+
+        <!-- from U1 (DFF) Q to U3 (OR) IN0 -->
+        <path class="U1Q" d="M60,25.5 h97.5"/>
+
+        <!-- from U1 (DFF) /Q to X -->
+        <path class="U1Qx" d="M60,34.5 h5"/>
+
+        <!-- from A19 to U3 (OR) IN1 and U2 (INV) IN -->
+        <path class="A19" d="M 30,70 h110 v-36.5 h17.5 M95,55 h45"/>
+        <circle class="A19" cx="140" cy="55" r="1.5" fill="black"/>
+
+        <!-- from A18 to U4 (2-3) A0 -->
+        <path class="A18" d="M 30,78 h170 v-33 h25"/>
+
+        <!-- from MREQ to U4 (2-3) G -->
+        <path class="MREQ" d="M 30,86 h178 v-33 h17"/>
+
+        <!-- from U3 (OR) OUT to U4 (2-3) A1 -->
+        <path class="A19a" d="M 172.5,29.5 h27.5 v7.5 h25"/>
+
+        <!-- Output: RAM, ROM, ISA -->
+        <path class="RAM" d="M 245,37 h10"/>
+        <path class="ROM" d="M 245,45 h10"/>
+        <path class="ISA" d="M 245,53 h10"/>
+
+    </g>
+
+    <!-- U1: D flip-flop source from GND -->
+    <g id="U1" transform="translate(35, 10)">
+        <use xlink:href="#dff"/>
+        <text class="name" x="15" y="20">U1</text>
+        <!-- outputs: Q to BOOTUP, /Q not connected -->
+        <text x="27" y="14.5" dominant-baseline="bottom" text-anchor="start">BOOTUP</text>
+        <path d="M 28,22.5 l 4,4 M 32,22.5 l-4,4" class="NC"/>
+    </g>
+
+    <!-- U2: Inverter (SN74LVC1G04, 5V supply) -->
+    <g id="U2" transform="translate(100, 47.5) scale(-1, 1)">
+        <use xlink:href="#inverter"/>
+        <text class="name" x="-10" y="7.5" transform="scale(-1, 1)">U2</text>
+    </g>
+
+    <!-- U3: A19a = A19 + BOOTUP -->
+    <g id="U3" transform="translate(150, 22)">
+        <use xlink:href="#or"/>
+        <text class="name" x="13.5" y="7.5">U3</text>
+
+        <!-- Output: transformed A19 -->
+        <text x="24" y="4" dominant-baseline="bottom" text-anchor="start">
+            <tspan>A</tspan><tspan baseline-shift="sub" font-size="65%">19a</tspan>
+        </text>
+    </g>
+
+    <!-- U4: 2-of-3 decoder -->
+    <g id="U4" transform="translate(220,30)">
+        <path d="M 5,0 h20 v30 h-20 z"/>
+                 M 5,7 h-5  M 5,15 h-5  M 5,23 h-5
+                 M 25,7 h5  M 25,15 h5  M 25,23 h5
+        <circle cx="3.5" cy="23" r="1.5" fill="white" stroke="black"/>
+        <text class="name" x="15" y="15">U4</text>
+        <text class="pin" x="6" y="7" dominant-baseline="central" text-anchor="start">A1</text>
+        <text class="pin" x="6" y="15" dominant-baseline="central" text-anchor="start">A0</text>
+        <text class="pin" x="6" y="23" dominant-baseline="central" text-anchor="start" text-decoration="overline">G</text>
+        <text class="pin" x="24" y="7" dominant-baseline="central" text-anchor="end">Y0</text>
+        <text class="pin" x="24" y="15" dominant-baseline="central" text-anchor="end">Y1</text>
+        <text class="pin" x="24" y="23" dominant-baseline="central" text-anchor="end">Y2</text>
+    </g>
+
+    <!-- controls -->
+    <g id="control" transform="translate(20,90)">
+        <path id="back" d="M 5 5 l-5,5 l5,5 z"/>
+        <path id="next" d="M 10 5 l5,5 l-5,5 z"/>
+        <text id="title" x="20" y="8" text-anchor="start"></text>
+        <text id="desc" x="20" y="16" text-anchor="start"></text>
+    </g>
+
+    <script xlink:href="https://code.jquery.com/jquery-3.4.1.slim.min.js"
+            integrity="sha256-pasqAKBDmFT4eHoN2ndd6lN370kFiGUFyTiUHWhU7k8="
+            crossorigin="anonymous"></script>
+    <script xlink:href="/js/shadow-rom.js"/>
 
 </svg>
