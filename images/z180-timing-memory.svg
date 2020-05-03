@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 10 630 400" style="width:100%" version="1.1">
+    <style>
+        text { font: normal 14px sans-serif; alignment-baseline: central; text-anchor: middle; }
+        line { fill: none; stroke: black; stroke-width: 1; }
+        path { fill: none; stroke: black; stroke-width: 2; }
+        circle { fill: white; stroke: black; }
+    </style>
+
+    <defs>
+        <marker id="end-arrow" markerWidth="5" markerHeight="5" refX="5" refY="2" orient="auto" markerUnits="strokeWidth">
+            <path d="M 0 0 L 0 4 L 5 2 z" style="fill: #000; stroke: none"/>
+        </marker>
+        <marker id="start-arrow" markerWidth="5" markerHeight="5" refX="0" refY="2" orient="auto" markerUnits="strokeWidth">
+            <path d="M 5 0 L 5 4 L 0 2 z" style="fill: #000; stroke: none"/>
+        </marker>
+    </defs>
+
+    <!-- Clock -->
+    <path d="M 50 90 h 10 l 10 -30 h 30 l 10 30 h 30 l 10 -30 h 30 l 10 30 h 30 l 10 -30 h 30
+             l 10 30 h 30 l 10 -30 h 30 l 10 30 h 30 l 10 -30 h 30 l 10 30 h 30 l 10 -30 h 30
+             l 10 30 h 30 l 10 -30 h 30 l 10 30 h 10"/>
+
+    <!-- Address -->
+    <path d="M 50 120 h 30 l 10  30 h 230 l 10 -30 h 230 l 10  30 h 30
+             M 50 150 h 30 l 10 -30 h 230 l 10  30 h 230 l 10 -30 h 30"/>
+
+    <!-- /MREQ -->
+    <path d="M 50 180 h 70 l 10 30 h 150 l 10 -30 h 70 l 10 30 h 150 l 10 -30 h 70"/>
+
+    <!-- /RD -->
+    <path d="M 50 240 h 70 l 10 30 h 150 l 10 -30 h 310"/>
+
+    <!-- /WR -->
+    <path d="M 50 300 h 350 l 10 30 h 110 l 10 -30 h 70"/>
+
+    <!-- DATA -->
+    <path d="M 50 375 h 150 l 5 -15 h 95 l 5 15 M 200 375 l 5 15 h 95 l 5 -15 h 75 l 5 -15 h 180 l 5 15 h 30
+             M 380 375 l 5 15 h 180 l 5 -15"/>
+
+    <!-- T1 rising edges -->
+    <line x1="67.5" y1="20" x2="67.5" y2="115"/>
+    <line x1="307.5" y1="20" x2="307.5" y2="115"/>
+    <line x1="547.5" y1="20" x2="547.5" y2="115"/>
+    <line x1="64" y1="67.5" x2="71" y2="67.5"/>
+    <line x1="304" y1="67.5" x2="311" y2="67.5"/>
+    <line x1="544" y1="67.5" x2="551" y2="67.5"/>
+
+    <!-- T1 falling edges -->
+    <line x1="107.5" y1="70" x2="107.5" y2="285"/>
+    <line x1="104" y1="82.5" x2="111" y2="82.5"/>
+    <line x1="347.5" y1="70" x2="347.5" y2="355"/>
+    <line x1="344" y1="82.5" x2="351" y2="82.5"/>
+
+    <!-- T2 rising edge -->
+    <line x1="387.5" y1="60" x2="387.5" y2="295"/>
+    <line x1="384" y1="67.5" x2="391" y2="67.5"/>
+
+    <!-- T3 rising edge -->
+    <line x1="222.5" y1="70" x2="222.5" y2="355"/>
+    <line x1="219" y1="82.5" x2="226" y2="82.5"/>
+
+    <!-- T3 falling edge -->
+    <line x1="267.5" y1="70" x2="267.5" y2="235"/>
+    <line x1="264" y1="82.5" x2="271" y2="82.5"/>
+    <line x1="507.5" y1="70" x2="507.5" y2="295"/>
+    <line x1="504" y1="82.5" x2="511" y2="82.5"/>
+
+    <!-- ADDR settling edges -->
+    <line x1="87.5" y1="100" x2="87.5" y2="175"/>
+    <line x1="84" y1="127.5" x2="91" y2="127.5"/>
+    <line x1="84" y1="142.5" x2="91" y2="142.5"/>
+    <line x1="322.5" y1="100" x2="322.5" y2="235"/>
+    <line x1="319" y1="127.5" x2="326" y2="127.5"/>
+    <line x1="319" y1="142.5" x2="326" y2="142.5"/>
+    <line x1="327.5" y1="100" x2="327.5" y2="235"/>
+    <line x1="324" y1="127.5" x2="331" y2="127.5"/>
+    <line x1="324" y1="142.5" x2="331" y2="142.5"/>
+    <line x1="562.5" y1="100" x2="562.5" y2="295"/>
+    <line x1="559" y1="127.5" x2="566" y2="127.5"/>
+    <line x1="559" y1="142.5" x2="566" y2="142.5"/>
+
+    <!-- MREQ falling edges -->
+    <line x1="127.5" y1="160" x2="127.5" y2="235"/>
+    <line x1="124" y1="202.5" x2="131" y2="202.5"/>
+    <line x1="367.5" y1="160" x2="367.5" y2="235"/>
+    <line x1="364" y1="202.5" x2="371" y2="202.5"/>
+
+    <!-- MREQ rising edges -->
+    <line x1="287.5" y1="160" x2="287.5" y2="200"/>
+    <line x1="284" y1="187.5" x2="291" y2="187.5"/>
+    <line x1="527.5" y1="160" x2="527.5" y2="200"/>
+    <line x1="524" y1="187.5" x2="531" y2="187.5"/>
+
+    <!-- RD falling edge -->
+    <line x1="127.5" y1="250" x2="127.5" y2="285"/>
+    <line x1="124" y1="262.5" x2="131" y2="262.5"/>
+
+    <!-- RD rising edges -->
+    <line x1="282.5" y1="250" x2="282.5" y2="355"/>
+    <line x1="279" y1="262.5" x2="286" y2="262.5"/>
+    <line x1="287.5" y1="220" x2="287.5" y2="260"/>
+    <line x1="284" y1="247.5" x2="291" y2="247.5"/>
+
+    <!-- WR falling edges -->
+    <line x1="402.5" y1="300" x2="402.5" y2="355"/>
+    <line x1="407.5" y1="270" x2="407.5" y2="330"/>
+    <line x1="399" y1="307.5" x2="406" y2="307.5"/>
+    <line x1="404" y1="322.5" x2="411" y2="322.5"/>
+
+    <!-- WR rising edge -->
+    <line x1="527.5" y1="270" x2="527.5" y2="355"/>
+    <line x1="524" y1="307.5" x2="531" y2="307.5"/>
+
+    <!-- DATA settling edges -->
+    <line x1="202.5" y1="340" x2="202.5" y2="395"/>
+    <line x1="199" y1="367.5" x2="206" y2="367.5"/>
+    <line x1="199" y1="382.5" x2="206" y2="382.5"/>
+    <line x1="302.5" y1="340" x2="302.5" y2="395"/>
+    <line x1="299" y1="367.5" x2="306" y2="367.5"/>
+    <line x1="299" y1="382.5" x2="306" y2="382.5"/>
+    <line x1="382.5" y1="340" x2="382.5" y2="395"/>
+    <line x1="379" y1="367.5" x2="386" y2="367.5"/>
+    <line x1="379" y1="382.5" x2="386" y2="382.5"/>
+    <line x1="567.5" y1="340" x2="567.5" y2="395"/>
+    <line x1="564" y1="367.5" x2="571" y2="367.5"/>
+    <line x1="564" y1="382.5" x2="571" y2="382.5"/>
+
+    <!-- Important time spans -->
+    <line x1="67.5" y1="35" x2="307.5" y2="35"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- Opcode fetch cycle -->
+    <line x1="307.5" y1="35" x2="547.5" y2="35"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- Memory write cycle -->
+    <line x1="67.5" y1="110" x2="87.5" y2="110"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T1 rise to addr (fetch) -->
+    <line x1="307.5" y1="110" x2="327.5" y2="110"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T1 rise to addr (write) -->
+    <line x1="87.5" y1="170" x2="127.5" y2="170"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- addr to MREQ fall (fetch) -->
+    <line x1="327.5" y1="170" x2="367.5" y2="170"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- addr to MREQ fall (write) -->
+    <line x1="107.5" y1="230" x2="127.5" y2="230"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T1 fall to MREQ fall (fetch) -->
+    <line x1="347.5" y1="230" x2="367.5" y2="230"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T1 fall to MREQ fall (write) -->
+    <line x1="107.5" y1="280" x2="127.5" y2="280"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T1 fall to RD fall -->
+    <line x1="202.5" y1="350" x2="222.5" y2="350"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- data start to T3 rise -->
+    <line x1="282.5" y1="350" x2="302.5" y2="350"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- RD fall to data end -->
+    <line x1="267.5" y1="170" x2="287.5" y2="170"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T3 fall to MREQ rise (fetch) -->
+    <line x1="507.5" y1="170" x2="527.5" y2="170"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T3 fall to MREQ rise (write) -->
+    <line x1="267.5" y1="230" x2="287.5" y2="230"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T3 fall to RD rise -->
+    <line x1="287.5" y1="170" x2="322.5" y2="170"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- MREQ rise to addr (fetch) -->
+    <line x1="527.5" y1="170" x2="562.5" y2="170"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- MREQ rise to addr (write) -->
+    <line x1="287.5" y1="230" x2="322.5" y2="230"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- RD rise to addr -->
+    <line x1="527.5" y1="290" x2="562.5" y2="290"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- WR rise to addr -->
+    <line x1="387.5" y1="290" x2="407.5" y2="290"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T2 rise to WR fall -->
+    <line x1="347.5" y1="350" x2="382.5" y2="350"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T1 fall to data start -->
+    <line x1="382.5" y1="350" x2="402.5" y2="350"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- data start to WR fall -->
+    <line x1="507.5" y1="290" x2="527.5" y2="290"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- T3 fall to WR rise -->
+    <line x1="527.5" y1="350" x2="567.5" y2="350"
+        marker-start="url(#start-arrow)" marker-end="url(#end-arrow)"/> <!-- WR rise to data hold -->
+
+    <text style="font-size: 8px">
+        <tspan x="79.5" y="108" style="alignment-baseline: baseline">6</tspan>
+        <tspan x="318" y="108" style="alignment-baseline: baseline">6</tspan>
+        <tspan x="119" y="168" style="alignment-baseline: baseline">7</tspan>
+        <tspan x="359" y="168" style="alignment-baseline: baseline">7</tspan>
+        <tspan x="119" y="228" style="alignment-baseline: baseline">8</tspan>
+        <tspan x="359" y="228" style="alignment-baseline: baseline">8</tspan>
+        <tspan x="119" y="278" style="alignment-baseline: baseline">9</tspan>
+        <tspan x="307" y="168" style="alignment-baseline: baseline">11</tspan>
+        <tspan x="307" y="228" style="alignment-baseline: baseline">11</tspan>
+        <tspan x="547" y="168" style="alignment-baseline: baseline">11</tspan>
+        <tspan x="547" y="288" style="alignment-baseline: baseline">11</tspan>
+        <tspan x="278" y="168" style="alignment-baseline: baseline">12</tspan>
+        <tspan x="518" y="168" style="alignment-baseline: baseline">12</tspan>
+        <tspan x="278" y="228" style="alignment-baseline: baseline">13</tspan>
+        <tspan x="213" y="348" style="alignment-baseline: baseline">15</tspan>
+        <tspan x="293" y="348" style="alignment-baseline: baseline">16</tspan>
+        <tspan x="398" y="288" style="alignment-baseline: baseline">22</tspan>
+        <tspan x="367" y="348" style="alignment-baseline: baseline">23</tspan>
+        <tspan x="393" y="348" style="alignment-baseline: baseline">24</tspan>
+        <tspan x="518" y="288" style="alignment-baseline: baseline">25</tspan>
+        <tspan x="548" y="348" style="alignment-baseline: baseline">27</tspan>
+    </text>
+
+    <text style="text-anchor: end">
+        <tspan x="45" y="80">PHI</tspan>
+        <tspan x="45" y="140">ADDR</tspan>
+        <tspan x="45" y="200" style="text-decoration: overline">MREQ</tspan>
+        <tspan x="45" y="260" style="text-decoration: overline">RD</tspan>
+        <tspan x="45" y="320" style="text-decoration: overline">WR</tspan>
+        <tspan x="45" y="380">DATA</tspan>
+    </text>
+    <text y="30">
+        <tspan x="165">Opcode Fetch Cycle</tspan>
+        <tspan x="405">Memory Write Cycle</tspan>
+    </text>
+    <text x="85" y="55">
+        <tspan x="85">T1</tspan>
+        <tspan x="165">T2</tspan>
+        <tspan x="245">T3</tspan>
+        <tspan x="325">T1</tspan>
+        <tspan x="405">T2</tspan>
+        <tspan x="485">T3</tspan>
+        <tspan x="565">T1</tspan>
+    </text>
+</svg>

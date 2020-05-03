@@ -8,8 +8,217 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2020-02-19T00:00:00Z</updated>
+    <updated>2020-05-03T00:00:00Z</updated>
     <entry>
+    <title>The TRS-20 - Timing check</title>
+    <link href="https://bje.id.au/blog/posts/trs20/010-timing-check.html" />
+    <id>https://bje.id.au/blog/posts/trs20/010-timing-check.html</id>
+    <published>2020-05-03T00:00:00Z</published>
+    <updated>2020-05-03T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>I am working on the CPU board design, which covers too many topics and decisions to fit into just one post. This particular post explores timing in depth, checking that I understand how fast my logic circuits must be to keep the bus contention free and the CPU state valid.</p>
+<!--more-->
+<h2 id="but-first-a-digression">But first, a digression…</h2>
+<p>When, say, an adder circuit in a CPU is presented with some values on its input wires, some brief amount of time will elapse before the correct value presents on its output wires. In the meantime, it’s even possible that the output value will pass through intermediate states before settling on the right answer. The clock in a processor is the solution to this: it doesn’t matter what the circuit does while computing its answer, so long as it’s got the right answer by the time the next clock transition happens. The clock signal synchronises all the circuits of the processor, shuffling data from circuit to circuit with metronomic regularity.</p>
+<p>When you pop out of the CPU and look at its immediate peripherals, the clock signal comes along for the ride. External components must march to the same drum as the processor, consuming data it outputs before the processor has moved on to the next task, and providing data as input before the processor acts on it.</p>
+<p>This manifests in data sheets and other documentation as <em>timing diagrams</em>. These diagrams have time as the horizontal axis, and signal levels as the vertical axis, with multiple signals on the same diagram to show how the signals must synchronise with each other. If there’s a clock synchronising the signals, it’ll usually be the first signal in the diagram. Since the diagram’s purpose is to show relative timing constraints, the time axis isn’t accurate - if two signals change at the same point horizontally, they’re only specified to change at the same time if the diagram indicates a zero time delay between them.</p>
+<figure>
+<img src="/images/timing-diagram-example.svg" alt="" /><figcaption>Three signals (one a bus), and two indicated timing data.</figcaption>
+</figure>
+<p>A timing diagram’s value is in explaining how one signal’s change in state is related to another signal. In the above diagram, a table would give an upper or lower bound for the intervals marked <code>1</code> and <code>2</code>. An upper bound for interval <code>1</code> would specify the maximum time that the address lines will settle after the rising edge of T1. A lower bound for interval <code>2</code> would specify the minimum time that the address lines will be settled before /MREQ falls.</p>
+<h2 id="processor-timing-details-for-the-z180">Processor timing details for the Z180</h2>
+<p>For the Z180 processor, there’s a feast of timing diagrams to dine on. They get their own section of the User Manual, and are one of the few pieces of information that appear in both the User Manual and the specification document. They’re accompanied by large data tables specifying bounds for various durations in the diagram. Time value t<sub>CYC</sub> is the clock cycle time - the time between each rising edge. For the Z8L180-20 t<sub>CYC</sub> lies between 50ns and DC, reflecting that the maximum speed of the processor is 20MHz (<span class="math inline">\(\frac{1}{20e^6} = 50e^{-9}\)</span>), and there is no minimum speed: you can stop its clock entirely.</p>
+<p>Some of these timing values tell me useful information for my board design - my clock should be able to satisfy not only the clock cycle time bounds, but also the high and low pulse width bounds, which are only specified as minimum values. The Z80180 expects that the low and high pulses are each at least 40ns long. The upper bound is determined by the actual clock cycle time and the other pulse time minimum - for a 100ns cycle, the maximum high or low pulse is 60ns. There’s also clock rise and fall times: signal levels don’t change instantaneously, and if they transition too slowly a CMOS input can oscillate between reading a high and a low, or if you’re lucky, just chew up relatively huge amounts of power.</p>
+<p>Others of these timing values tell me useful information for my component selection, when read in conjunction with a timing diagram. How fast does my SRAM have to be if I want to access it with no wait states? Well - in an opcode fetch cycle, the address pins will stabilise no more than t<sub>AD</sub> (30ns) after the first rising edge of the first clock cycle of the opcode fetch machine cycle, and no less than t<sub>AS</sub> (5ns) before /MREQ or /IORQ falls. In turn, /MREQ promises it will fall no later than t<sub>MED1</sub> (25ns) after the falling edge of that first clock cycle. Similarly, t<sub>RDD1</sub> (25ns) promises that /RD will fall at most that long after the falling edge as well. There’s nothing tying /RD and /MREQ together though, so there’s no commitment made as to which will fall first, or how much time will elapse between the two falling.</p>
+<p>It’s all a bit complicated. Perhaps a diagram would help…</p>
+<figure>
+<img src="/images/z180-timing-main.png" alt="" /><figcaption>z8018x User Manual (UM005004-0918), p.197, Figure 81.</figcaption>
+</figure>
+<p>There’s a lot going on in this one diagram, but I can use it to produce the information I really need - if I have 12ns SRAM, how fast does my glue logic have to be before I need a wait state? And for my Flash ROM and any on-board I/O devices, similar questions play out.</p>
+<h2 id="working-out-maximum-delays">Working out maximum delays</h2>
+<p>The figure I included above shows an opcode fetch cycle and I/O read/write cycles, but not a memory read or write cycle. As it turns out memory read cycles look almost the same as opcode fetch cycles with one key difference - the data lines are sampled on the falling edge of T3, not the rising edge. Taking a leaf from Application Note AN009602-0808 (“The Z180 Interfaced with the SCC at 10 MHz”) a simplified diagram showing a read and a write memory cycle will clear up the clutter nicely and show just what’s needed for memory timing constraints.</p>
+<table>
+<caption>Values for the timing parameters of the Z80L180-20. All times in ns.</caption>
+<thead>
+<tr class="header">
+<th style="text-align: left;">No.</th>
+<th style="text-align: left;">Label</th>
+<th style="text-align: left;">Time</th>
+<th style="text-align: left;">Purpose</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">6</td>
+<td style="text-align: left;">t<sub>AD</sub></td>
+<td style="text-align: left;">≤ 30</td>
+<td style="text-align: left;">PHI rise to Address Valid Delay</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">7</td>
+<td style="text-align: left;">t<sub>AS</sub></td>
+<td style="text-align: left;">≥ 5</td>
+<td style="text-align: left;">Address Valid to /MREQ or /IORQ fall</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">8</td>
+<td style="text-align: left;">t<sub>MED1</sub></td>
+<td style="text-align: left;">≤ 25</td>
+<td style="text-align: left;">PHI fall to /MREQ fall delay</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">9</td>
+<td style="text-align: left;">t<sub>RDD1</sub></td>
+<td style="text-align: left;">≤ 25</td>
+<td style="text-align: left;">PHI fall to /RD fall delay</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">11</td>
+<td style="text-align: left;">t<sub>AH</sub></td>
+<td style="text-align: left;">≥ 5</td>
+<td style="text-align: left;">Address Hold time from /MREQ, /IORQ, /RD, /WR high</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">12</td>
+<td style="text-align: left;">t<sub>MED2</sub></td>
+<td style="text-align: left;">≤ 25</td>
+<td style="text-align: left;">PHI fall to /MREQ rise delay</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">13</td>
+<td style="text-align: left;">t<sub>RDD2</sub></td>
+<td style="text-align: left;">≤ 25</td>
+<td style="text-align: left;">PHI fall to /RD rise delay</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">15</td>
+<td style="text-align: left;">t<sub>DRS</sub></td>
+<td style="text-align: left;">≥ 10</td>
+<td style="text-align: left;">Data Read Set-up time</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">16</td>
+<td style="text-align: left;">t<sub>DRH</sub></td>
+<td style="text-align: left;">≥ 0</td>
+<td style="text-align: left;">Data Read Hold time</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">22</td>
+<td style="text-align: left;">t<sub>WRD1</sub></td>
+<td style="text-align: left;">≤ 25</td>
+<td style="text-align: left;">PHI rise to /WR fall delay</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">23</td>
+<td style="text-align: left;">t<sub>WDD</sub></td>
+<td style="text-align: left;">≤ 25</td>
+<td style="text-align: left;">PHI fall to Write Data Delay time</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">24</td>
+<td style="text-align: left;">t<sub>WDS</sub></td>
+<td style="text-align: left;">≥ 10</td>
+<td style="text-align: left;">Write Data Set-up time to /WR fall</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">25</td>
+<td style="text-align: left;">t<sub>WRD2</sub></td>
+<td style="text-align: left;">≤ 25</td>
+<td style="text-align: left;">PHI fall to /WR rise delay</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">27</td>
+<td style="text-align: left;">t<sub>WDH</sub></td>
+<td style="text-align: left;">≥ 10</td>
+<td style="text-align: left;">Write Data Hold time from /WR rise</td>
+</tr>
+</tbody>
+</table>
+<figure>
+<img src="/images/z180-timing-memory.svg" alt="" /><figcaption>Memory access timing diagram, opcode fetch and write cycles.</figcaption>
+</figure>
+<p>The only timing not specified in the table above is 1 (t<sub>CYC</sub>, the clock cycle time). I will use an 18.432MHz MEMS oscillator, the DSC1001DE5. This part is accurate to 10ppm, which means t<sub>CYC</sub> will fall between 54.253ns and 54.254ns, which I will call 54ns. It outputs 0.9xV<sub>DD</sub>, or 2.97V, with a rise and fall time no longer than 2ns. The duty cycle could be anywhere between 45% and 55%, or 24.3ns to 29.7ns.</p>
+<p>A regular memory read cycle shortes the data window by only requiring that data has been set up t<sub>DRS</sub> before the falling edge of T3, rather than the rising edge. I/O read cycles are the same as regular memory read cycles, except that /IORQ replaces /MREQ and there is always at least one wait state. In Z80-compatible mode though, /IORQ and /RD fall after the rising edge of T2, so that’s a little trap to be wary of.</p>
+<p>To read a byte from a typical memory chip, one will decode the address lines plus /MREQ to activate the chip enable input of the memory, then activate either output enable or write enable depending on whether /RD or /WR is active. /MREQ activates 5ns after the address lines have settled, or 25ns after T1 falls. T1 could fall as late as 29.7ns after T1 rises, so /MREQ will not become active until 54.7ns have elapsed. /RD will become active at the same time. This is 1.7ns after T2 has begun, leaving 53.3ns until T3 begins, and 43.3ns until the data must be available.</p>
+<figure>
+<img src="/images/z180-memory-read-timing.svg" alt="" /><figcaption>Laid out as a timeline, it’s starting to make sense.</figcaption>
+</figure>
+<p>This 43.3ns is eaten up by address decoding to drive the SRAM’s /CE input, by any logic required to translate the CPU’s /RD and /WR outputs into the SRAM’s /OE and /WE inputs, by any buffering or logic level conversions required, and of course by the SRAM’s own timing constraints. Fortunately, these are easier to understand - in a nutshell, data will be ready at most 10ns after /CE is active and 6ns after /OE is active. The data outputs will be Hi-Z again 5ns after /OE goes high. These figures are specific to the SRAM chip I’m using: check your datasheet.</p>
+<p>There’s also parasitics that add delay to the signal. On my sized board, this will be well below 3.3ns - the <a href="https://blog.zuken.com/how-to-calculate-trace-length-from-time-delay-value-for-high-speed-signals/">speed of signals</a> on stripline traces is close to 150mm/ns, so it’ll take less than one nanosecond for a signal to traverse my 10cm^2 board corner to corner. This leaves me a tidy 40ns to work with.</p>
+<p>For SRAM, this is an enormous surplus of time, with a whopping 30ns available for logic. For Flash ROM, it’s not so much time. My chosen ROM is the SST39SF020A, a 2Mbit 55ns IC. 55ns is, of course, greater than 40ns. But all is not lost, because as with the SRAM the 55ns applies from the time /CE is active. Data will be available 35ns after /OE is active, so if I can decode the address lines and toggle /CE early enough I will have 5ns to activate /OE on the ROM and still have data available inside the zero wait state window. Data must be ready at t+98ns and the address lines are settled at t+30ns, leaving 10ns for address decoding and 3ns for parasitics.</p>
+<p>The Z180 has a 16-bit I/O space so A16-A19 should all be low for any I/O request. Address decoding on ADDR alone can be fairly sure that if the ROM bits are set (A18, A19) that it’s really going to be a ROM request. In a similar vein, if A18 is set and A19 is clear it’s going to be an off-board memory request, and a wait state could be immediately generated, but I’m quite comfortable requiring software to manage this via the CPU’s wait state generator if off-board memory is needed.</p>
+<figure>
+<img src="/images/z180-memory-write-timing.svg" alt="" /><figcaption>My eyes are starting to glaze.</figcaption>
+</figure>
+<p>When writing, the SRAM IC has from the fall of /WR to the fall of T3 to store data. /WR should fall no later than t+79ns, and T3 should fall no earlier than t+131.4ns. /WR will rise up to 25ns later. Timing constraint 26 (t<sub>WRP</sub>, write pulse width) guarantees that /WR will be low for at least 80ns. You could almost write the byte down on paper with that much time.</p>
+<h2 id="wait-state-generation">Wait state generation</h2>
+<p>Wait states are inserted between T2 and T3, either because the Z180’s internal wait state generator has been configure to insert them, or because the /WAIT signal is low when sampled at the fall of T2. The internal wait state generator can add zero to three wait states to every memory or I/O access, with three being added at reset.</p>
+<p>The /WAIT signal must be asserted low at least t<sub>WS</sub> (15ns) before T2 falls, and held low at least t<sub>WH</sub> (10ns) after T2 falls. To allow the processor to continue, it must be de-asserted at least t<sub>WS</sub> before a TW clock cycle falls, and held high at least t<sub>WH</sub> after it falls.</p>
+<p>T2 could fall as early as t+78.3ns, and /WAIT must be asserted low 15ns before that at t+63.3ns. If /WAIT is asserted in response to /MREQ falling at t+54.7ns then only 8.6ns is available. /WAIT transitions are ideally done on the rising edge of a system clock, but /MREQ might fall after T2 rises - if wait states are required for a memory read, they are likely to need to be generated either based on address alone or done using the internal wait state generator. For IO, there’s already one wait state inserted at a minimum, giving at least 62.6ns.</p>
+<h2 id="interrupt-acknowledgement">Interrupt acknowledgement</h2>
+<p>The Mode 0 and Mode 2 INT0 acknowledgement cycles both read a data byte from the bus, where only M1 and IORQ go low. In both cases there are two wait states, /M1 falls up to 35ns after T1 rises, /IORQ falls at least 125ns (2.5 clock cycles) after /M1 falls and at most 25ns after TW<sub>1</sub> falls. Data must be ready 10ns before T3 begins to rise. Assuming TW<sub>1</sub> falls late at 29.7ns and /IORQ falls 25ns after that, and a few ns for parasitics, there’ll be 40ns left in which to respond to the acknowledgement cycle with data on the bus.</p>
+<p>Memory writes</p>
+<ul>
+<li>10 t<sub>M1D1</sub> PHI rise to M1 fall ≤ 35ns</li>
+<li>28 t<sub>IOD1</sub> PHI rise/fall to IORQ fall ≤ 25ns</li>
+<li>29 t<sub>IOD2</sub> PHI fall to IORQ rise ≤ 25ns</li>
+<li>30 t<sub>IOD3</sub> M1 fall to IORQ fall ≥ 125ns</li>
+</ul>
+<h2 id="io-timing">IO timing</h2>
+<p>IO read and write cycles differ from memory only by the addition of one mandatory wait cycle. This adds 54ns to all timing constraints. In the case of t<sub>WRP</sub>, the minimum write pulse time is 150ns.</p>
+<h2 id="timing-constraint-summary">Timing constraint summary</h2>
+<table>
+<thead>
+<tr class="header">
+<th>Constraint</th>
+<th style="text-align: left;">Description</th>
+<th style="text-align: left;">Time</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Mem read</td>
+<td style="text-align: left;">ADDR to data available</td>
+<td style="text-align: left;">65ns</td>
+</tr>
+<tr class="even">
+<td>Mem read</td>
+<td style="text-align: left;">/MREQ, /RD fall to data available</td>
+<td style="text-align: left;">40ns</td>
+</tr>
+<tr class="odd">
+<td>Mem write</td>
+<td style="text-align: left;">/WR fall duration</td>
+<td style="text-align: left;">80ns</td>
+</tr>
+<tr class="even">
+<td>Mem wait</td>
+<td style="text-align: left;">/MREQ fall to clock rise</td>
+<td style="text-align: left;">-0.7ns</td>
+</tr>
+<tr class="odd">
+<td>IO read</td>
+<td style="text-align: left;">/IORQ, /RD fall to data available</td>
+<td style="text-align: left;">94ns</td>
+</tr>
+<tr class="even">
+<td>IO write</td>
+<td style="text-align: left;">/WR fall duration</td>
+<td style="text-align: left;">150ns</td>
+</tr>
+<tr class="odd">
+<td>IO wait</td>
+<td style="text-align: left;">/IORQ fall to clock rise</td>
+<td style="text-align: left;">50ns</td>
+</tr>
+<tr class="even">
+<td>INT0 read</td>
+<td style="text-align: left;">/M1 and /IORQ fall to data available</td>
+<td style="text-align: left;">40ns</td>
+</tr>
+</tbody>
+</table>]]></summary>
+</entry>
+<entry>
     <title>The TRS-20 - boot up</title>
     <link href="https://bje.id.au/blog/posts/trs20/009-boot-it.html" />
     <id>https://bje.id.au/blog/posts/trs20/009-boot-it.html</id>
@@ -1176,131 +1385,6 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
 <tbody>
 <tr class="odd">
 <td style="text-align: center;">$54.03 of $400</td>
-<td style="text-align: center;">█───</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">█───</td>
-</tr>
-</tbody>
-</table>]]></summary>
-</entry>
-<entry>
-    <title>The TRS-20 - a homebrew Z80 machine</title>
-    <link href="https://bje.id.au/blog/posts/trs20/001-ideas.html" />
-    <id>https://bje.id.au/blog/posts/trs20/001-ideas.html</id>
-    <published>2019-11-10T00:00:00Z</published>
-    <updated>2019-11-10T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>My first computer was a TRS-80 Model I, a device that was first sold before I was born. Some time after I was born, I got my hands on one, starting my 30-odd year journey in computing.</p>
-<p>For the sake of nostalgia, I’m embarking on a journey to build a homebrew Z80-based machine, loosely based on the TRS-80 Model I. The build will take place in 2020, and so the machine will be called the TRS-20.</p>
-<!--more-->
-<p>The Model I is not a particularly high bar to reach, these days. It had 4KB of memory, a cassette drive for storage, and a monochrome video display capable of 64 characters over 16 rows - selected to fill exactly 1024 bytes of video memory. In graphics mode, each character cell becomes a 2x3 grid of addressable pixels. My Model I was a low-end model, with no expansions of note. Wikipedia can provide a <a href="https://en.wikipedia.org/wiki/TRS-80">thorough background</a> on the original compter.</p>
-<figure>
-<img src="/images/trs80-model1.jpg" alt="" /><figcaption>The TRS-80 Model I. Image by <a href="https://www.flickr.com/photos/eevblog/14761087591/">Dave Jones</a>.</figcaption>
-</figure>
-<p>The basics of my computer are set by my inspiration: I’ll be using a processor from the Z80 family, it will have RAM and ROM occupying the same 64K space, and peripherals will mostly also steal a bit of memory space instead of using the Z80’s (originally absurdly limited) I/O space.</p>
-<p>I will use a Z180 processor, most likely the <a href="https://en.wikipedia.org/wiki/Zilog_Z180">Z8S180</a>. This is not perfectly compatible with the original Z80, though I anticipate being able to manage the incompatibilities in the glue logic for the sake of running original TRS-80 software.</p>
-<p>I will need to design a series of boards, roughly broken down along these lines:</p>
-<ol type="1">
-<li>A motherboard or CPU board.</li>
-<li>A ROM and RAM board.</li>
-<li>An I/O board for USB keyboard input.</li>
-<li>A video display board for VGA or HDMI output.</li>
-<li>Development and debugging</li>
-<li>External storage</li>
-</ol>
-<p>The constraints on the system are a total budget target of AUD400, the use of the free edition of Eagle PCB software, and only parts I can solder with a reasonable extrapolation of my current abilities. These constraints limit me to a maximum board size of 100x100mm, to through-hole and the larger SMD parts where all solder surfaces are accessible to an iron, and to avoiding the need for costly new tools.</p>
-<p>The first round of spending will largely be experimental - DIP adapter boards to try my hand at soldering TSSOP logic chips and TSOP SRAM chips, an STM32F401 to try as a USB Host for keyboard input, and a now quite aged Altera EPM7128S CPLD chip for video signal generation. Adding in a 20x4 character LED board for debug output takes me up to around $50, an eighth of my budget spent without any actual board progress, so I’ll round the spend up to $50 with a cheap Z8018010VSC processor, a 10MHz Z180 in a PLCC68 package, because mounting my CPU in a socket feels like a good plan.</p>
-<table>
-<caption>Aliexpress offers a fine selection of electronics of dubious origin and veracity.</caption>
-<colgroup>
-<col style="width: 21%" />
-<col style="width: 12%" />
-<col style="width: 65%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Price</th>
-<th style="text-align: left;">Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">Z8018010SVC</td>
-<td style="text-align: left;">$2.46</td>
-<td style="text-align: left;">Low-cost PLCC68 Z180 processor for initial prototyping</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">USB Blaster</td>
-<td style="text-align: left;">$4.29</td>
-<td style="text-align: left;">Altera CPLD/FPGA programmer</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">PLCC sockets</td>
-<td style="text-align: left;">$5.51</td>
-<td style="text-align: left;">5 each of PLCC68 and PLCC84 through-hole sockets</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">PLCC IC tool</td>
-<td style="text-align: left;">$1.17</td>
-<td style="text-align: left;">Tool for yanking PLCC chips out of sockets</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">STM32F401</td>
-<td style="text-align: left;">$5.00</td>
-<td style="text-align: left;">STM32F401CCU6 development board, for USB host trials</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">20x4 LCD, I²C adapter, acrylic case</td>
-<td style="text-align: left;">$9.02</td>
-<td style="text-align: left;">Display for debug output</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">TSSOP and TSOP adapters</td>
-<td style="text-align: left;">$10.38</td>
-<td style="text-align: left;">10xTSSOP-24 and 5xTSOP56 adapters for soldering trials</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">Pin headers</td>
-<td style="text-align: left;">$11.19</td>
-<td style="text-align: left;">Pin headers, whose purpose is the subject of the next post</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">STM32F03, EPM7128S</td>
-<td style="text-align: left;">$3.61</td>
-<td style="text-align: left;">TSSOP MCU for soldering, PLCC84 CPLD for trials</td>
-</tr>
-</tbody>
-</table>
-<p>There was a discount of $4.44 applied this order, bringing the total down to under $50. This order alone doesn’t give me any single workable item: I will see if I can make my cheap STM32F03 (50c!) function as a driver for the debug LCD display, and begin putting together what I’ll need to drive the processor with data lines tied to run a NOP through the address space. With 30 to 50 days delivery on most of the above, I’ve now got plenty of lead time to prepare.</p>
-<p>Below is my project status update table. Each component gains a bar of progress meter for having a rough design, a proof of concept, a completed design, all parts ready, and a working board. Components may backslide if the produced board has enough flaws to send me back to the design or experimental stage. I am using box drawing characters in preparation for my return the glory that is a TRS-80’s graphics system.</p>
-<table style="width:86%;">
-<caption>Project status update</caption>
-<colgroup>
-<col style="width: 21%" />
-<col style="width: 8%" />
-<col style="width: 10%" />
-<col style="width: 13%" />
-<col style="width: 10%" />
-<col style="width: 11%" />
-<col style="width: 11%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: center;">Budget</th>
-<th style="text-align: center;">CPU</th>
-<th style="text-align: center;">Power</th>
-<th style="text-align: center;">Keyboard</th>
-<th style="text-align: center;">Video</th>
-<th style="text-align: center;">Memory</th>
-<th style="text-align: center;">Debug</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: center;">$48.19 of $400</td>
 <td style="text-align: center;">█───</td>
 <td style="text-align: center;">────</td>
 <td style="text-align: center;">────</td>

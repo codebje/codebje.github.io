@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1580 100" style="width:100%" version="1.1">
+    <style>
+        text { font: normal 24px sans-serif; text-anchor: start; }
+        line { fill: none; stroke: black; stroke-width: 1; }
+        rect { fill: none; stroke: black; stroke-width: 1; stroke-dasharray: 4 1; }
+        path { fill: none; stroke: black; stroke-width: 0.5; stroke-dasharray: 1 1; }
+        circle { fill: white; stroke: black; }
+        line.deadline { stroke: red; }
+        text.markers { font-size: 16px; }
+        text.markers tspan { alignment-baseline: central; text-anchor: middle; }
+    </style>
+
+    <rect x="5" y="38" width="1570" height="24" rx="5"/>
+
+    <g transform="translate(85, 20)">
+
+        <!-- tick marks -->
+        <path d="M -70 20 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24 m 10 -24 v24
+                 "/>
+        <text class="markers" y="30">
+            <tspan x="-50">-5</tspan>
+            <tspan x="0">0</tspan>
+            <tspan x="50">5</tspan>
+            <tspan x="100">10</tspan>
+            <tspan x="150">15</tspan>
+            <tspan x="200">20</tspan>
+            <tspan x="250">25</tspan>
+            <tspan x="300">30</tspan>
+            <tspan x="350">35</tspan>
+            <tspan x="400">40</tspan>
+            <tspan x="450">45</tspan>
+            <tspan x="500">50</tspan>
+            <tspan x="550">55</tspan>
+            <tspan x="600">60</tspan>
+            <tspan x="650">65</tspan>
+            <tspan x="700">70</tspan>
+            <tspan x="750">75</tspan>
+            <tspan x="800">80</tspan>
+            <tspan x="850">85</tspan>
+            <tspan x="900">90</tspan>
+            <tspan x="950">95</tspan>
+            <tspan x="1000">100</tspan>
+            <tspan x="1050">105</tspan>
+            <tspan x="1100">110</tspan>
+            <tspan x="1150">115</tspan>
+            <tspan x="1200">120</tspan>
+            <tspan x="1250">125</tspan>
+            <tspan x="1300">130</tspan>
+            <tspan x="1350">135</tspan>
+            <tspan x="1400">140</tspan>
+            <tspan x="1450">145</tspan>
+        </text>
+
+        <!-- T1 rises: 0ns -->
+        <line x1="0" y1="5" x2="0" y2="42"/>
+        <text x="4" y="12" alignment-baseline="baseline">T1 ↑</text>
+
+        <!-- T1 falls: 29.7ns -->
+        <line x1="297" y1="18" x2="297" y2="55"/>
+        <text x="301" y="47" alignment-baseline="hanging">T1 ↓</text>
+
+        <!-- ADDR valid: 30ns -->
+        <line x1="300" y1="5" x2="300" y2="42"/>
+        <text x="304" y="12" alignment-baseline="baseline">ADDR valid</text>
+
+        <!-- T2 rises: 54ns -->
+        <line x1="540" y1="5" x2="540" y2="42"/>
+        <text x="544" y="12" alignment-baseline="baseline">T2 ↑</text>
+
+        <!-- /MREQ fall, DATA ready: 54.7ns -->
+        <line x1="547" y1="18" x2="547" y2="55"/>
+        <text x="551" y="47" alignment-baseline="hanging">MREQ ↓, DATA</text>
+
+        <!-- /WR fall: 79ns -->
+        <line x1="790" y1="5" x2="790" y2="42"/>
+        <text x="794" y="12" alignment-baseline="baseline">WR ↓</text>
+
+        <!-- T2 falls: 81ns -->
+        <line x1="810" y1="18" x2="810" y2="55"/>
+        <text x="814" y="47" alignment-baseline="hanging">T2 ↓</text>
+
+        <!-- T3 rises: 108ns -->
+        <line x1="1080" y1="5" x2="1080" y2="42"/>
+        <text x="1084" y="12" alignment-baseline="baseline">T3 ↑</text>
+
+        <!-- T3 falls: 131.4ns -->
+        <line x1="1314" y1="18" x2="1314" y2="55"/>
+        <text x="1318" y="47" alignment-baseline="hanging">T3 ↓</text>
+
+        <!-- data is gone: 141.4ns -->
+        <line x1="1414" y1="5" x2="1414" y2="55" class="deadline"/>
+
+    </g>
+
+</svg>
