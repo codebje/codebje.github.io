@@ -41,10 +41,8 @@ $(function() {
         var spans = [];
         // split on /PIN
         t.split(/(?=\/[A-Z]+)/).forEach(tt => {
-            console.log(tt);
             if (tt.startsWith('/')) {
                 var [pin, ...text] = tt.split(/(?=\s)/);
-                console.log(pin, text);
                 var pspan = tspan(pin.substring(1));
                 pspan.setAttribute('text-decoration', 'overline');
                 spans.push(pspan);
