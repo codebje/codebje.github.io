@@ -8,8 +8,55 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2020-06-26T00:00:00Z</updated>
+    <updated>2020-07-10T00:00:00Z</updated>
     <entry>
+    <title>The TRS-20 - ROM programming</title>
+    <link href="https://bje.id.au/blog/posts/trs20/013-program-roms.html" />
+    <id>https://bje.id.au/blog/posts/trs20/013-program-roms.html</id>
+    <published>2020-07-10T00:00:00Z</published>
+    <updated>2020-07-10T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>The <a href="012-build-it.html">last post</a> left off after soldering on the FPGA and its companion parts: the SPI Flash ROM, the 100MHz oscillator, all the power parts, and the programmable LEDs. The only way to know if it’s been designed properly and attached to the board without error is to have it do something observable, like control the LEDs. And the only way to do that is to program the SPI ROM.</p>
+<p>The easy way is to order a ROM programmer that can handle SPI Flash ROMs (and, preferably, also handle the parallel ROM). But what would I learn from that?</p>
+<!--more-->
+<p>Instead, let’s use my STM32 “black pill” board as a programmer, using the USB serial interface to control it. The STM32 is a 3.3v board with an on-die SPI controller - with only one hitch. My black pill no longer powers up. I’ve no idea why, it seems to be failing to get power through the USB C socket, but there’s nothing wrong by a visual inspection.</p>
+<p>Oh well.</p>
+<p>The idea works well enough for me that I don’t want to just leave it there. Instead, I’m replacing my black pill board with a Nucleo-64, specifically the NUCLEO-F411RE. This is a slightly improved IC compared to the black pill’s STM32F401CC, and the Nucleo board is likely to be a higher quality product than a $6 part from an anonymous manufacturer. The Nucleo-64 board format has enough pins for me to directly program the parallel ROM without using shift registers.</p>
+<h1 id="spi-flash-wiring">SPI Flash wiring</h1>
+<p>Pin selection for the SPI ROM is a little fiddly, as STM32CubeMX presents me with an image of the IC’s pins, but I care about the board’s layout. The ’F411 has five SPI peripherals, and each peripheral has a few options for pins; after not too much time I’d selected SPI3 using pins PC10, 11, and 12 for SCK, MISO, and MOSI respectively. These pins are all grouped together on a pair of pin headers on one side of the board, close enough to the power pins that a <a href="https://docs.wemos.cc/en/latest/d1_mini_shiled/protoboard.html">D1 protoshield board</a> with a 2x8 female header can cover GND, 3V3, the three SPI pins, and an arbitrary pin (PD2) for slave select.</p>
+<p>The circuit on the protoshield is trivial - a pull-up for /CS and a socket for the ROM - and you can see my handiwork in the image at the top of the post.</p>
+<p>I won’t go into detail on the code work involved. I wrote a simple <a href="https://github.com/codebje/romble/blob/master/Src/flashrom.c">interface</a> for the Flash ROM, and implemented a <a href="https://github.com/codebje/romble/blob/master/Src/ymodem.c">YModem</a> receiver so I could upload over the ST-LINK’s USB serial port.</p>
+<p>I burned on a simple image that just sets one LED to be always off, and binds the other to the 100MHz oscillator’s input via a 26-bit counter. This is around a 1.5Hz blink - if it works.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode verilog"><code class="sourceCode verilog"><span id="cb1-1"><a href="#cb1-1"></a><span class="kw">module</span> poc(CLK1, LED1, LED2);</span>
+<span id="cb1-2"><a href="#cb1-2"></a></span>
+<span id="cb1-3"><a href="#cb1-3"></a>    <span class="dt">input</span> CLK1;</span>
+<span id="cb1-4"><a href="#cb1-4"></a>    <span class="dt">output</span>              LED1, LED2;</span>
+<span id="cb1-5"><a href="#cb1-5"></a></span>
+<span id="cb1-6"><a href="#cb1-6"></a>    <span class="kw">assign</span> LED1 = <span class="dv">0</span>;</span>
+<span id="cb1-7"><a href="#cb1-7"></a></span>
+<span id="cb1-8"><a href="#cb1-8"></a>    <span class="dt">reg</span> [<span class="dv">25</span>:<span class="dv">0</span>]          counter;</span>
+<span id="cb1-9"><a href="#cb1-9"></a>    <span class="dt">reg</span>                 toggle;</span>
+<span id="cb1-10"><a href="#cb1-10"></a></span>
+<span id="cb1-11"><a href="#cb1-11"></a>    <span class="kw">always</span> @(<span class="kw">posedge</span> CLK1)</span>
+<span id="cb1-12"><a href="#cb1-12"></a>        counter &lt;= counter + <span class="bn">1&#39;b1</span>;</span>
+<span id="cb1-13"><a href="#cb1-13"></a></span>
+<span id="cb1-14"><a href="#cb1-14"></a>    <span class="kw">assign</span> LED2 = counter[<span class="dv">25</span>];</span>
+<span id="cb1-15"><a href="#cb1-15"></a></span>
+<span id="cb1-16"><a href="#cb1-16"></a><span class="kw">endmodule</span></span></code></pre></div>
+<p>While I was at it, I figured I may as well make two images like this, one with <code>assign LED1 = 0;</code> and the other with <code>assign LED1 = 1;</code>. <a href="http://www.clifford.at/icestorm/">Project IceStorm</a> supports multi-image bitstreams, so I can exercise my boot selector jumpers as well.</p>
+<p>After straightening the ROM’s pins back out (use a removal tool: flat tweezers are excellent, fingers are not) and plugging it into the main board, well:</p>
+<video controls="true" autoplay="true" loop="true" style="width: 100%">
+<source type="video/mp4" src="/images/trs20/blinky-led.mp4">
+</video>
+<p>I stared at a blinking light for a somewhat absurd amount of time. The FPGA works. The oscillator works. The ROM works. The power works. Job more or less done!</p>
+<h1 id="the-parallel-rom">The parallel ROM</h1>
+<p>I thought about how I might want to do this. A neat job would be female headers on a board for the Nucleo to plug into, programming the ROM IC in a PLCC socket beside it. I could add a DIP8 socket and have a programmer for both ROMs in short order. But this is a lot of jumper wires to mess about with, and frankly I’m not really keen on it. So - pretty much every jumper lead I have is now in Frankenprogrammer.</p>
+<figure>
+<img src="/images/trs20/plcc-programmer.jpg" alt="" /><figcaption>So much better than a TL866II, right?</figcaption>
+</figure>
+<p>I hope to minimise my programming cycles - I need to work out how I can verify the whole CPU board is good, then work on producing enough of a ROM that I can boot up to something that’ll program other parts of the ROM over USB. PLCC sockets are only good for a few tens of insertions, so I want to be bootstrapped on-board ASAP.</p>
+<p>Next up: completing the CPU board assembly.</p>]]></summary>
+</entry>
+<entry>
     <title>The TRS-20 - Assembling the board</title>
     <link href="https://bje.id.au/blog/posts/trs20/012-build-it.html" />
     <id>https://bje.id.au/blog/posts/trs20/012-build-it.html</id>
@@ -1391,111 +1438,6 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
 <td style="text-align: center;">────</td>
 <td style="text-align: center;">────</td>
 <td style="text-align: center;">██──</td>
-</tr>
-</tbody>
-</table>]]></summary>
-</entry>
-<entry>
-    <title>The TRS-20 - make it run</title>
-    <link href="https://bje.id.au/blog/posts/trs20/003-basic-board.html" />
-    <id>https://bje.id.au/blog/posts/trs20/003-basic-board.html</id>
-    <published>2019-12-30T00:00:00Z</published>
-    <updated>2019-12-30T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>My Z8018010VSC processor is here!</p>
-<p>Also arrived is the LCD screen, the STM32F401CC dev board, and most of the other junk I ordered. This post explores what else I need to prepare to be able to make something operational.</p>
-<!--more-->
-<p>The minimum circuit for the Z180 will need a power source and a clock. With only these things supplied, the processor will be shouting addresses into the void and receiving opcodes to execute from the ether, so tying some of the address lines to LEDs, the data lines to 00H (aka NOP), and other input lines high will let me confirm the processor is running.</p>
-<p>The PLCC sockets are through-hole parts, allowing me to simply use perf board to get some kind of initial circuit up and running. Power can be supplied by header pins fed from a 5V breadboard supply, and a cheap oscillator in a DIP socket gets me a clock source quickly.</p>
-<p>With clock and power sorted out, it’s time to look at the signals. The PLCC chip has 68 pins, of which 5 are supply pins (four Vss, one Vcc) and two are clock input pins (EXTAL and XTAL, only EXTAL needed with an oscillator). This leaves 61 signals and two power lines to sort out. TEST must be left floating, and RFSH is pointless without DRAM, which leaves me with 61 lines to assign. I can use a 10-pin header for the serial signals and a 50-pin IDC header for everything else, with one signal to discard. I’ve chosen to leave out the E secondary bus signal, which is active only when bus requests are active.</p>
-<figure>
-<img src="/images/trs20-basic-circuit.png" alt="" /><figcaption>The basic circuit wires the processor to a 50-pin IDC socket and an oscillator.</figcaption>
-</figure>
-<p>Soldering 60+ wires to perfboard is a fiddly task, as I need to take care to solder wires on in an order that doesn’t leave me melting one wire while trying to solder another. I also don’t want to wind up with something looking like the banner image of this post. This means carefully inspecting the processor’s pin diagram and arranging the order of signals on the IDC connector to avoid crossing the wires. Selecting a non-interfering wire order now will have later benefits should I get a PCB made up, as I can stick to routing signals on the top layer and have a broad ground plane.</p>
-<figure>
-<img src="/images/trs20-basic-circuit-wiring.png" alt="" /><figcaption>It’s a work of art. Not, you know, great art. More the sort of art that goes on a parent’s fridge for a few months, then quietly thrown out when the child has forgotten it.</figcaption>
-</figure>
-<p>I need to run supply and ground on the bottom layer in a few places, and there’s a short stint on the bottom layer for DREQ0, but otherwise everything is on the top layer. This particular circuit is more of a wiring plan for a breadboard than anything else, as I think it would not be a good idea to run traces underneath an oscillator, for example.</p>
-<p>The Z80180 cannot run slower than 0.5MHz, by the datasheet. The processor’s clock runs at one-half of the external oscillator’s rate, so a 1MHz oscillator is the slowest that I can use. However, if I want to communicate over the USART, I need a clock rate that can work with the USART’s baud rate generator divider pipeline. This pipeline first divides my external clock by two to get the system clock. This can then be divided by a power of two from 1 to 64, then by 10 or 30, and then by 16 or 64. If I want to run my ASCI at 9600 baud, I need a clock that’s at least 16 x 10 x 2 x 9600 = 3.072MHz. Regrettably, DigiKey don’t want to sell me a through-hole oscillator at that speed, nor at 9.216MHz, or in fact any of the speeds that divide into a common baud rate, except for 6.144MHz and 18.432MHz. The latter clocks my processor at 9.216MHz and allows me to operate at baud rates from 57600 down to 300.</p>
-<p>Alternatively, an external clock that’s less than or equal to the system clock divided by 40 can be used, divided by 16 or 64. A 1MHz oscillator is a 500KHz system clock, requiring an external clock slower than 12.5KHz. Since I have to divide it by 16, I’d need a 4.8KHz oscillator, which I’m pretty sure don’t exist. I’m calling this option a dead end - I don’t want to have a large BOM just to be generating a USART-compatible clock when I can use a system clock that’s suitable.</p>
-<figure>
-<img src="/images/z8x180-asci-clock.png" alt="" /><figcaption>This little flow chart is responsible for a lot of time staring at oscillator product lists. Source: Z8018x MPU user manual, page 141.</figcaption>
-</figure>
-<p>So: two oscillators. One to run the processor at its lowest speed of 500KHz with no serial access, and one to run it near its top speed at 9.216MHz. At low speeds, don’t expect serial comms to work: it’s flashing lights and I/O decoders all the way. At the higher speed, I should be able to run a USART link at up to 57600 baud. I can also consider a third oscillator at 3.57MHz, which runs the processor at 1.785MHz, as close as I’m likely to get to the 1.774MHz of the original TRS-80 Model I. To have both a TRS-80 Model I and USART at the same time would require an external clock source for the USART. An MCP2221 USB to USART bridge can output various clocks, with a stack of glue to divide down to a useful speed, or the CPLD may be able to generate a useful clock signal.</p>
-<p>The 50-way IDC connector needs 2x25 holes, and is 2.54mm x 25 + 7.62 + 0.3 = 71.42mm wide. Jaycar’s got a 29x50 hole perf board that comfortably fits everything with plenty of space for wires. And a handful of other stuff: some sockets for logic chips, a larger 24x67 perfboard, and a 50-pin IDC header. Jaycar also gave me a $10 loyalty reward, bringing the price of this little splurge down to a more manageable level.</p>
-<table>
-<caption>Parts from Jaycar</caption>
-<colgroup>
-<col style="width: 34%" />
-<col style="width: 6%" />
-<col style="width: 58%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Price</th>
-<th style="text-align: left;">Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">PI6501</td>
-<td style="text-align: left;">$1.35</td>
-<td style="text-align: left;">14-pin IC sockets, for debug board</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">PI6502</td>
-<td style="text-align: left;">$0.90</td>
-<td style="text-align: left;">16-pin IC sockets, for debug board</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">HP9554</td>
-<td style="text-align: left;">$8.95</td>
-<td style="text-align: left;">24x67 hole perf board, debug board</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">HP9552</td>
-<td style="text-align: left;">$6.95</td>
-<td style="text-align: left;">29x50 hole perf board, as initial CPU board</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">PP1116</td>
-<td style="text-align: left;">$0.95</td>
-<td style="text-align: left;">50-pin IDC header</td>
-</tr>
-</tbody>
-</table>
-<p>This board is beyond bare-bones: the CPU won’t run correctly with just this board. There’s a handful of inputs that need to be tied high or low, including /RESET. With everything except E exposed, however, it’s fairly straightforward to plug into a breadboard to get something going, and to subsequently build a companion board with the STM32F4 to get some traction on doing more interesting things with the CPU.</p>
-<table style="width:86%;">
-<caption>Project status update</caption>
-<colgroup>
-<col style="width: 21%" />
-<col style="width: 8%" />
-<col style="width: 10%" />
-<col style="width: 13%" />
-<col style="width: 10%" />
-<col style="width: 11%" />
-<col style="width: 11%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: center;">Budget</th>
-<th style="text-align: center;">CPU</th>
-<th style="text-align: center;">Power</th>
-<th style="text-align: center;">Keyboard</th>
-<th style="text-align: center;">Video</th>
-<th style="text-align: center;">Memory</th>
-<th style="text-align: center;">Debug</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: center;">$63.13 of $400</td>
-<td style="text-align: center;">█───</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">█───</td>
 </tr>
 </tbody>
 </table>]]></summary>

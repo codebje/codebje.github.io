@@ -46,6 +46,29 @@
       
         <img class="post-logo" src="images/trs80.jpg">
       
+      <h1 class="post-title"><a href="./posts/trs20/013-program-roms.html" class="plain">The TRS-20 - ROM programming</a></h1>
+      <p class="post-meta">July 10, 2020 • bje</p>
+    </header>
+
+    <article class="post-content">
+      <a href="./posts/trs20/013-program-roms.html"><img class="post-hero" src="./images/rom-programmer.jpg"></a>
+      
+        <div class="post-hero-note">I can't believe there's no shorts in that mess. <a href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
+      
+      
+        <p>The <a href="012-build-it.html">last post</a> left off after soldering on the FPGA and its companion parts: the SPI Flash ROM, the 100MHz oscillator, all the power parts, and the programmable LEDs. The only way to know if it’s been designed properly and attached to the board without error is to have it do something observable, like control the LEDs. And the only way to do that is to program the SPI ROM.</p>
+<p>The easy way is to order a ROM programmer that can handle SPI Flash ROMs (and, preferably, also handle the parallel ROM). But what would I learn from that?</p>
+
+        <a href="./posts/trs20/013-program-roms.html">Read more…</a>
+      
+    </article>
+  </section>
+
+  <section class="anim fadeinup">
+    <header class="post-header">
+      
+        <img class="post-logo" src="images/trs80.jpg">
+      
       <h1 class="post-title"><a href="./posts/trs20/012-build-it.html" class="plain">The TRS-20 - Assembling the board</a></h1>
       <p class="post-meta">June 26, 2020 • bje</p>
     </header>
@@ -81,28 +104,6 @@
         <p>In this post I’ll document my progress on the design of the CPU board. I’m still happy with the PC104 form factor, so into a 10cm² area I’ll see if I can pack on the socketed processor, a clock, the PC104 headers, a power supply, SRAM, and ROM. Snuck in around this needs to be the address decoding logic, glue logic, and a few status LEDs.</p>
 
         <a href="./posts/trs20/011-motherboard.html">Read more…</a>
-      
-    </article>
-  </section>
-
-  <section class="anim fadeinup">
-    <header class="post-header">
-      
-        <img class="post-logo" src="images/trs80.jpg">
-      
-      <h1 class="post-title"><a href="./posts/trs20/010-timing-check.html" class="plain">The TRS-20 - Timing check</a></h1>
-      <p class="post-meta">May  3, 2020 • bje</p>
-    </header>
-
-    <article class="post-content">
-      <a href="./posts/trs20/010-timing-check.html"><img class="post-hero" src="./images/banners/cpu-board.png"></a>
-      
-        <div class="post-hero-note">A render of a WIP board design, courtesy of KiCad. <a href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
-      
-      
-        <p>I am working on the CPU board design, which covers too many topics and decisions to fit into just one post. This particular post explores timing in depth, checking that I understand how fast my logic circuits must be to keep the bus contention free and the CPU state valid.</p>
-
-        <a href="./posts/trs20/010-timing-check.html">Read more…</a>
       
     </article>
   </section>

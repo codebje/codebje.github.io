@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - The TRS-20 - ROM programming</title>
+    <link rel="stylesheet" type="text/css" href="../../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../../about.html">About</a>
+            <a class="page-link" href="../../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../../images/trs80.jpg">
+  
+  <h1 class="post-title">The TRS-20 - ROM programming</h1>
+  <p class="post-meta">July 10, 2020 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../../images/rom-programmer.jpg">
+
+  <div class="post-hero-note">I can't believe there's no shorts in that mess. <a href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
+
+
+  <p>The <a href="012-build-it.html">last post</a> left off after soldering on the FPGA and its companion parts: the SPI Flash ROM, the 100MHz oscillator, all the power parts, and the programmable LEDs. The only way to know if it’s been designed properly and attached to the board without error is to have it do something observable, like control the LEDs. And the only way to do that is to program the SPI ROM.</p>
+<p>The easy way is to order a ROM programmer that can handle SPI Flash ROMs (and, preferably, also handle the parallel ROM). But what would I learn from that?</p>
+<!--more-->
+<p>Instead, let’s use my STM32 “black pill” board as a programmer, using the USB serial interface to control it. The STM32 is a 3.3v board with an on-die SPI controller - with only one hitch. My black pill no longer powers up. I’ve no idea why, it seems to be failing to get power through the USB C socket, but there’s nothing wrong by a visual inspection.</p>
+<p>Oh well.</p>
+<p>The idea works well enough for me that I don’t want to just leave it there. Instead, I’m replacing my black pill board with a Nucleo-64, specifically the NUCLEO-F411RE. This is a slightly improved IC compared to the black pill’s STM32F401CC, and the Nucleo board is likely to be a higher quality product than a $6 part from an anonymous manufacturer. The Nucleo-64 board format has enough pins for me to directly program the parallel ROM without using shift registers.</p>
+<h1 id="spi-flash-wiring">SPI Flash wiring</h1>
+<p>Pin selection for the SPI ROM is a little fiddly, as STM32CubeMX presents me with an image of the IC’s pins, but I care about the board’s layout. The ’F411 has five SPI peripherals, and each peripheral has a few options for pins; after not too much time I’d selected SPI3 using pins PC10, 11, and 12 for SCK, MISO, and MOSI respectively. These pins are all grouped together on a pair of pin headers on one side of the board, close enough to the power pins that a <a href="https://docs.wemos.cc/en/latest/d1_mini_shiled/protoboard.html">D1 protoshield board</a> with a 2x8 female header can cover GND, 3V3, the three SPI pins, and an arbitrary pin (PD2) for slave select.</p>
+<p>The circuit on the protoshield is trivial - a pull-up for /CS and a socket for the ROM - and you can see my handiwork in the image at the top of the post.</p>
+<p>I won’t go into detail on the code work involved. I wrote a simple <a href="https://github.com/codebje/romble/blob/master/Src/flashrom.c">interface</a> for the Flash ROM, and implemented a <a href="https://github.com/codebje/romble/blob/master/Src/ymodem.c">YModem</a> receiver so I could upload over the ST-LINK’s USB serial port.</p>
+<p>I burned on a simple image that just sets one LED to be always off, and binds the other to the 100MHz oscillator’s input via a 26-bit counter. This is around a 1.5Hz blink - if it works.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode verilog"><code class="sourceCode verilog"><span id="cb1-1"><a href="#cb1-1"></a><span class="kw">module</span> poc(CLK1, LED1, LED2);</span>
+<span id="cb1-2"><a href="#cb1-2"></a></span>
+<span id="cb1-3"><a href="#cb1-3"></a>    <span class="dt">input</span> CLK1;</span>
+<span id="cb1-4"><a href="#cb1-4"></a>    <span class="dt">output</span>              LED1, LED2;</span>
+<span id="cb1-5"><a href="#cb1-5"></a></span>
+<span id="cb1-6"><a href="#cb1-6"></a>    <span class="kw">assign</span> LED1 = <span class="dv">0</span>;</span>
+<span id="cb1-7"><a href="#cb1-7"></a></span>
+<span id="cb1-8"><a href="#cb1-8"></a>    <span class="dt">reg</span> [<span class="dv">25</span>:<span class="dv">0</span>]          counter;</span>
+<span id="cb1-9"><a href="#cb1-9"></a>    <span class="dt">reg</span>                 toggle;</span>
+<span id="cb1-10"><a href="#cb1-10"></a></span>
+<span id="cb1-11"><a href="#cb1-11"></a>    <span class="kw">always</span> @(<span class="kw">posedge</span> CLK1)</span>
+<span id="cb1-12"><a href="#cb1-12"></a>        counter &lt;= counter + <span class="bn">1'b1</span>;</span>
+<span id="cb1-13"><a href="#cb1-13"></a></span>
+<span id="cb1-14"><a href="#cb1-14"></a>    <span class="kw">assign</span> LED2 = counter[<span class="dv">25</span>];</span>
+<span id="cb1-15"><a href="#cb1-15"></a></span>
+<span id="cb1-16"><a href="#cb1-16"></a><span class="kw">endmodule</span></span></code></pre></div>
+<p>While I was at it, I figured I may as well make two images like this, one with <code>assign LED1 = 0;</code> and the other with <code>assign LED1 = 1;</code>. <a href="http://www.clifford.at/icestorm/">Project IceStorm</a> supports multi-image bitstreams, so I can exercise my boot selector jumpers as well.</p>
+<p>After straightening the ROM’s pins back out (use a removal tool: flat tweezers are excellent, fingers are not) and plugging it into the main board, well:</p>
+<video controls="true" autoplay="true" loop="true" style="width: 100%">
+<source type="video/mp4" src="../../images/trs20/blinky-led.mp4">
+</video>
+<p>I stared at a blinking light for a somewhat absurd amount of time. The FPGA works. The oscillator works. The ROM works. The power works. Job more or less done!</p>
+<h1 id="the-parallel-rom">The parallel ROM</h1>
+<p>I thought about how I might want to do this. A neat job would be female headers on a board for the Nucleo to plug into, programming the ROM IC in a PLCC socket beside it. I could add a DIP8 socket and have a programmer for both ROMs in short order. But this is a lot of jumper wires to mess about with, and frankly I’m not really keen on it. So - pretty much every jumper lead I have is now in Frankenprogrammer.</p>
+<figure>
+<img src="../../images/trs20/plcc-programmer.jpg" alt /><figcaption>So much better than a TL866II, right?</figcaption>
+</figure>
+<p>I hope to minimise my programming cycles - I need to work out how I can verify the whole CPU board is good, then work on producing enough of a ROM that I can boot up to something that’ll program other parts of the ROM over USB. PLCC sockets are only good for a few tens of insertions, so I want to be bootstrapped on-board ASAP.</p>
+<p>Next up: completing the CPU board assembly.</p>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </body>
+</html>

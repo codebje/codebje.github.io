@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     viewBox="0 0 500 500">
+
+    <path stroke="black" fill="none" stroke-width="45" stroke-linecap="round" stroke-linejoin="round"
+          d="M 211.797 33.342
+             A 220 220 0 0,0 50.612 342.976
+             L 220 240
+             L 250 160
+             L 280 240
+             L 449.388 342.976
+             A 220 220 0 0,0 288.203 33.342
+             M 250 300
+             L 157.024 449.388
+             A 220 220 0 0,0 342.976 449.388
+             L 250 300
+             "/>
+
+</svg>
