@@ -54,7 +54,7 @@
   <div class="post-hero-note">I can't believe there's no shorts in that mess. <a href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
 
 
-  <p>The <a href="012-build-it.html">last post</a> left off after soldering on the FPGA and its companion parts: the SPI Flash ROM, the 100MHz oscillator, all the power parts, and the programmable LEDs. The only way to know if it’s been designed properly and attached to the board without error is to have it do something observable, like control the LEDs. And the only way to do that is to program the SPI ROM.</p>
+  <p>The <a href="../../posts/trs20/012-build-it.html">last post</a> left off after soldering on the FPGA and its companion parts: the SPI Flash ROM, the 100MHz oscillator, all the power parts, and the programmable LEDs. The only way to know if it’s been designed properly and attached to the board without error is to have it do something observable, like control the LEDs. And the only way to do that is to program the SPI ROM.</p>
 <p>The easy way is to order a ROM programmer that can handle SPI Flash ROMs (and, preferably, also handle the parallel ROM). But what would I learn from that?</p>
 <!--more-->
 <p>Instead, let’s use my STM32 “black pill” board as a programmer, using the USB serial interface to control it. The STM32 is a 3.3v board with an on-die SPI controller - with only one hitch. My black pill no longer powers up. I’ve no idea why, it seems to be failing to get power through the USB C socket, but there’s nothing wrong by a visual inspection.</p>
