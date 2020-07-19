@@ -8,8 +8,64 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2020-07-10T00:00:00Z</updated>
+    <updated>2020-07-21T00:00:00Z</updated>
     <entry>
+    <title>The TRS-20 - Finishing assembly</title>
+    <link href="https://bje.id.au/blog/posts/trs20/014-finish-assembly.html" />
+    <id>https://bje.id.au/blog/posts/trs20/014-finish-assembly.html</id>
+    <published>2020-07-21T00:00:00Z</published>
+    <updated>2020-07-21T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>I claimed in the last post that, with blinking lights achieved, the job was done.</p>
+<p>Of course, the job is not really done. Most of the board’s parts aren’t soldered on, and while it’s great that the FPGA works I’ve still yet to get the CPU on. Not to mention all the supporting chips. Time to break out the heat gun and get on with the task.</p>
+<!--more-->
+<p>I put on the FT230X USB IC first, plus its supporting connector and passives. This is for two reasons: I can program the GPIOs on it to ensure the correct VBus sense function and LED output, and because this is the last checkpoint beore I solder on every other part. This worked out fine - the device enumerates correctly, programs fine, and the RX LED flickers in time to keystrokes via USB serial.</p>
+<figure>
+<img src="/images/trs20/enumerated.png" alt="" /><figcaption>My shell history is chockers full of <code>lsusb</code> commands now.</figcaption>
+</figure>
+<p>Soldering everything else took a few evenings. My process was to squeeze a blob of solder paste onto the DDPAK tab copper area on a board with a bad FPGA solder job, align the target IC with its pads, then use a toothpick to place a sparing amount of paste on the pins. The heat gun then melts the paste onto the pins, and any faults are touched up with the iron.</p>
+<figure>
+<img src="/images/trs20/memory-pins.jpg" alt="" /><figcaption>I really should get some kind of macro lens for this stuff.</figcaption>
+</figure>
+<p>The best result was the SRAM. It’s possible there’s not quite enough solder on these pins, but I tested every one - I actually found two cold solder joints on the FPGA during this process - and I’m confident they’re all wetted properly.</p>
+<p>The worst result was the 18.432MHz oscillator. I underestimated the difficulty of this job, and wound up with far too much solder on it. Solder from the NC pad reached the ground-connected case, and removing it was difficult. I do not feel confident that this part is healthy now.</p>
+<h2 id="install-a-rom">Install a ROM</h2>
+<p>The trouble with having finished the soldering is that I don’t much want to blindly power up. The ROM should contain <code>FF</code> endlessly, which will result in the CPU executing <code class="sourceCode z80asm">RST <span class="bn">$38</span></code> forever, but it’d be nice to be able to verify in some way that everything’s working as it should. This takes me back to writing a ROM again, but this time for the CPU.</p>
+<p>So I wrote a <a href="https://github.com/codebje/trs20-bootrom/blob/master/src/bootrom.asm">ROM image</a> that sets up ASCI0 to 38400 baud, 8n1, and starts transmitting single character “printf debugging” style progress markers. The only things I do first are to disable DRAM refresh, disable external interrupts, and set the clock rate to the full oscillator speed.</p>
+<p>After that, the boot ROM attempts to copy ROM into RAM, reset the ROM overlay D flip-flop, configure the MMU, set up a 100Hz timer, set up a stack, then run a very simple boot monitor that permits a binary to be uploaded using ymodem and executed.</p>
+<p>Because I really don’t want to yank the PLCC-32 ROM chip in and out frequently, I don’t want too many rounds of corrections. My <a href="https://github.com/codebje/vtrs20">emulator</a> is therefore developing more or less in lockstep with the needs of the boot ROM so that I at least have to implement the same bug twice in more or less the same way to miss it. This is a feat I have accomplished in the past, and it’s surprisingly easy to do.</p>
+<p>I burned the ROM, plugged it into the board, and with bated breath powered the board up. Good news: the FLT light doesn’t immediately go on, so there’s no major short circuit anywhere. The FPGA still blinks its LED, and the rest sits there, reminding me that I didn’t design in an obvious indicator of CPU health.</p>
+<p>I plugged the USART USB cable in, and …</p>
+<p><img src="/images/trs20/whereswally.png" /></p>
+<p>… used some adult language.</p>
+<h2 id="debugging-a-usb-ic">Debugging a USB IC</h2>
+<p>Nothing felt warm. The FLT light was still off. The FPGA was still blinking its LED, now looking more like a taunt than a sign of success.</p>
+<p>I busted out the multimeter and did a bit of a probe around, carefully - there’s 3V3 and GND pins right next to each other on the FT230X - only to see all the expected levels. The reset supervisor is not touching /RESET, so it is pulled high by a resistor. The USB cable is delivering ~5V to the voltage divider network. With power removed, I rechecked everything for good solder joints or shorts - everything seems fine.</p>
+<p>At a loss, I thought I may as well also test whether the CPU is at least clocking along, so I ran a logic analyser on PHI (and /RESET, to verify the supervisor at the logic level) - and saw only a flat line. The clock was not ticking. It turns out the oscillator just isn’t at all happy, and is not generating any signals. It may still have a short, it may just be toast, either way it’s gotta come off.</p>
+<p>I’ve never had much luck desoldering through-hole parts. Solder wick takes a <em>lot</em> of heat to work, and isn’t great even then. My solder sucker was bundled with a cheap soldering iron, and was broken on arrival. I never replaced it. So with a bit of concern that it’d go wrong, I put some heatproof tape on the CPU’s socket and got to work with the heat gun.</p>
+<p>To my surprise, I removed the oscillator quite easily. I figured I may as well also remove the FT230X - and this also went far better than I anticipated. Well enough, in fact, that I soldered the removed IC onto a TSSOP-16 breakout board. I replicated the CPU board’s USB circuitry fairly closely on a breadboard, then plugged it in.</p>
+<figure>
+<img src="/images/trs20/enumerated.png" alt="" /><figcaption>wat.</figcaption>
+</figure>
+<p>The chip is (I think) fine. I can dump its ROM, and I can make an LED flicker by sending to it using the virtual COM port driver.</p>
+<p>So I rechecked the CPU board. I checked all the connections into the CPU, which are the only parts I didn’t replicate on the breadboard. I checked all the passives, in case I had a dud resistor or capacitor. Everything looked fine - so, not having much to lose here, I desoldered the poor IC from the breakout board and resoldered it to the CPU board.</p>
+<figure>
+<img src="/images/trs20/whereswally.png" alt="" /><figcaption>I admit I felt a little glum.</figcaption>
+</figure>
+<p>Well, that’s it. I can’t communicate with the CPU, I can’t see if it’s working, I’ve no idea what I could possibly do. I am unwilling to risk the price of another board assembly when there’s no apparent reason for failure.</p>
+<p>I packed everything away, and nearly didn’t even write this post.</p>
+<h2 id="the-next-day">The next day</h2>
+<p>The only substantive difference between the breadboard setup and the CPU board setup is my admittedly less than perfect USB socket. So after <del>sulking</del>sleeping on it I tried measuring voltage levels on the breadboard vs. on the CPU board. I ran the USB socket without the main USB power applied to the board: this <em>in theory</em> is perfectly fine, as the FT230X tolerances are absolute, not expressed in terms of its supply voltage. But what I noticed was that VBUS was running at 2V, and D- at -0.5V, relative to ground supplied via the data USB. I checked an unconnected USB socket and got 5V and 0V respectively, with D+ at 3.3V. Hmm.</p>
+<p>I reconnected the supply power for the CPU board, and re-measured. Now I saw 5V, 3.3V, and 0V for VBus, D+, and D-, which seemed right. At a loss, I tried one last thing:</p>
+<figure>
+<img src="/images/trs20/enumerated.png" alt="" /><figcaption>Why do you taunt me so?</figcaption>
+</figure>
+<p>It was enumerating again.</p>
+<p>This should feel like a victory, but in truth it does not. I don’t know why it didn’t work, I don’t know why it started working, I don’t know whether it will stop working again in the future. But I ordered a replacement oscillator, and may as well press on.</p>
+<figure>
+<img src="/images/trs20/assembled%20board.jpg" alt="" /><figcaption>The fully assembled board.</figcaption>
+</figure>]]></summary>
+</entry>
+<entry>
     <title>The TRS-20 - ROM programming</title>
     <link href="https://bje.id.au/blog/posts/trs20/013-program-roms.html" />
     <id>https://bje.id.au/blog/posts/trs20/013-program-roms.html</id>
@@ -1276,163 +1332,6 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
 <tr class="odd">
 <td style="text-align: center;">$209.35 of $400</td>
 <td style="text-align: center;">██──</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">██──</td>
-</tr>
-</tbody>
-</table>]]></summary>
-</entry>
-<entry>
-    <title>The TRS-20 - arrivals from China</title>
-    <link href="https://bje.id.au/blog/posts/trs20/004-china-cargo.html" />
-    <id>https://bje.id.au/blog/posts/trs20/004-china-cargo.html</id>
-    <published>2020-01-01T00:00:00Z</published>
-    <updated>2020-01-01T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>Ordering a stack of parts from China always brings to my mind the idea of space-based mining operations loading packages of extracted minerals onto a linear accelerator, resulting in a line of packages drifting towards a rendezvous point to be collected on arrival. Since AliExpress is a brokerage for individual traders, placing an order like mine means almost everything comes in its own separate package.</p>
-<!--more-->
-<p>The space rocks have been arriving at my Lagrange point since the start of December. My STM32F401 “black pill” board and LCD panel arrived first, followed by my Z180 processor and the PLCC extractor tool. Just before Christmas, my practice SMD kits and logic analyzer arrived, along with a brand new order from Digi-Key detailed below, followed shortly by a USB Blaster for programming a CPLD. The CPLD and some PLCC sockets are awaiting collection from my Lagrange point now.</p>
-<p>Sadly, one space rock has been stuck in Sydney awaiting clearance since November. Unfortunately it will probably never arrive. Fortunately, though, it’s the PC/104 headers, which I can go without while I wait for the delivery window to expire, get a refund, and order more.</p>
-<h2 id="damaged-goods">Damaged goods</h2>
-<p>Ordering from AliExpress is usually a mixed bag of results, and this set of orders is no different. The LCD panel has a lovely big impact fracture in it, obsuring ten characters. Despite this, it works, and I have the black pill STM32 driving it happily - all I/O ports on the STM32F4 are 5V tolerant, so there’s no problem controlling the 5V LCD panel from the 3.3V STM32. A refund should be processed shortly, but I don’t think I’ll bother ordering another - I’d need to order the I²C adapter as well, and it’ll take a month to arrive. I’ll work around the damage.</p>
-<figure>
-<img src="/images/lcd-cracked.jpg" alt="" /><figcaption>Taking a photo of a backlit LCD panel is surprisingly difficult.</figcaption>
-</figure>
-<p>The logic analyzer powered up its LEDs just fine, but wasn’t recognised as a USB device. It’s easy to take apart, but scanning over the circuit board showed no obvious problems. This device is quite simple, with a Cypress CY7C68013A USB controller with integrated 8051 μC at its heart. The μC is supported by a 2K EEPROM and a 24MHz crystal, and the usual scattering of resistors and such. With no obvious problems on the board, I took a peek at the USB socket. The ground pin was missing, which is a problem and a surprise - despite this missing pin, the board was powering up, so it was finding a return path somewhere.</p>
-<figure>
-<img src="/images/logic-analyzer.jpg" alt="" /><figcaption>This photo shows the part markings, with a hint of ghetto repair.</figcaption>
-</figure>
-<p>A $5 part is worth taking the risk on for a repair, so I took the shield off the USB socket and found the ground pin was present but not inserted correctly. It’s possible the board was getting an intermittent connection from it. I straightened the pin out a little and the board was recognised immediately, and could analyze my I²C link to the LCD panel. Of course without the shield and its solder connections, the remaining stub of USB socket quickly broke off, so I lopped the head off the supplied USB cable and soldered it directly to the board, which you can see at the bottom of the image, beside the exposed FR4 substrate where I ripped the pad right off removing the shield. Hot glue will provide sufficient strain relief for this device.</p>
-<h2 id="soldering-with-fire">Soldering with fire</h2>
-<p>My SMD practice kits also arrived, so I took a moment to solder two QFP 44s, some SOT-23s, 0612 resistor arrays, and even some 0402 resistors. I tried drag soldering, heating solder paste with the iron, and heating paste with a butane hot air torch. The image below shows the hot air soldering on the QFP on the left, and the SOIC and SOT-23s at the top. Heating paste with an iron is the QFP on the right, and the SOIC/SOTs at the bottom. The drag soldering was an attept to correct the hot air QFP having been lifted slightly off the pads on one side, and since I dont have any flux that isn’t inside a solder wire or in the paste, it went very poorly. You can see a big ol’ solder bridge between the 4th and 5th pins from the bottom.</p>
-<figure>
-<img src="/images/qfp-solder-kit.jpg" alt="" /><figcaption>I don’t even know what these chips do. They’re probably not functional though, since they’re in a cheap practice kit.</figcaption>
-</figure>
-<p>The hot air soldering did a very neat job on the SOICs and the SOT-23s, and a reasonably neat job on the 0402s. I’ll still call 0603 my lower limit, but if I ever need a 0402 in a pinch I’m confident I could manage. The 0612 arrays (marked as 0606 on the board, but definitely not square parts) were surprisingly fiddly, but also went on okay. I singed the board in two places trying to fiddle with the arrays, though.</p>
-<p>I’ll definitely use the hot air approach for most SMD work. The solder paste heated with an iron leaves a lot of mess behind that I suspect may corrode the board or cause bridges down the line, and I don’t see any reason to use flux paste and try again on the drag soldering given how quick and effective the hot air soldering was. The fact that one row of legs didn’t make contact means I’ll try again on the second practice board and see if it was insufficient paste, bent pins, or a lack of pressure on the chip, but I expect that a cheap butane torch is enough to run with QFPs and even stuff with thermal pads.</p>
-<h2 id="christmas-shopping">Christmas shopping</h2>
-<p>Meanwhile, I placed and received an order from Digi-Key, and I got a refund for the broken LCD panel. This puts me $5.32 up, and $66.28 down, or $124 through my $400 budget, with no operational circuits or PCBs yet. With Jaycar putting a hot air rework station on special, I need to pay close attention to my spending habits, lest I wind up $400 in with a bunch of loose parts and nothing else.</p>
-<p>The Digi-Key order gives me a handful of 74 logic ICs from the HC and AHCT families - NAND gates, D flip-flops, multivibrators, and in/out shift registers. These logic ICs will allow my STM32F4 to link up to the system bus. With a 1MHz oscillator the processor will be running at 500KHz, giving me a whopping 2ms to establish /WAIT and process signals. The STM has 64Kb of SRAM, it can deliver 16Kb to the Z180 comfortably, and 16Kb of its 256Kb of Flash can serve as a ROM.</p>
-<table>
-<colgroup>
-<col style="width: 34%" />
-<col style="width: 6%" />
-<col style="width: 58%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Price</th>
-<th style="text-align: left;">Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">AE11164-ND</td>
-<td style="text-align: left;">$6.24</td>
-<td style="text-align: left;">2x right-angle 50-pin IDC header</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">ED3044-5-ND</td>
-<td style="text-align: left;">$1.20</td>
-<td style="text-align: left;">5x 8-pin IC sockets, for oscillators</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">2015-CY7C1049CV33-12ZSXA-ND</td>
-<td style="text-align: left;">$6.96</td>
-<td style="text-align: left;">2x 4Mbit 12ns SRAM, TSOP-II, total 1Mbyte</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">MCP2221A-I/P-ND</td>
-<td style="text-align: left;">$3.42</td>
-<td style="text-align: left;">USB to I2C/UART IC, for serial comms</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">296-36142-5-ND</td>
-<td style="text-align: left;">$4.30</td>
-<td style="text-align: left;">5x 74HC595 shift registers (DIP), debug board</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">296-8251-5-ND</td>
-<td style="text-align: left;">$3.60</td>
-<td style="text-align: left;">5x 74HC165 shift registers (DIP), debug board</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">296-4632-5-ND</td>
-<td style="text-align: left;">$5.89</td>
-<td style="text-align: left;">10x 74AHCT00 NAND gates (DIP), debug board</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">296-4772-5-ND</td>
-<td style="text-align: left;">$5.89</td>
-<td style="text-align: left;">10x 74ACHT74 D-type flip flops (DIP), debug board</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">296-41620-5-ND</td>
-<td style="text-align: left;">$4.50</td>
-<td style="text-align: left;">5x 74AHCT123 multivibrators (DIP), debug board</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">CKN12306-ND</td>
-<td style="text-align: left;">$1.50</td>
-<td style="text-align: left;">10x through-hole tactile switches, debug board</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">CKN12219-1-ND</td>
-<td style="text-align: left;">$1.56</td>
-<td style="text-align: left;">10x SMD tactile switches</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">H3DDH-5018G-ND</td>
-<td style="text-align: left;">$5.60</td>
-<td style="text-align: left;">450mm 50-way IDC ribbon cable</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">H3DDH-5006G-ND</td>
-<td style="text-align: left;">$3.99</td>
-<td style="text-align: left;">150mm 50-way IDC ribbon cable</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">110-MXO45HS-3C-1M000000-ND</td>
-<td style="text-align: left;">$3.26</td>
-<td style="text-align: left;">1MHz oscillator, processor board</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">AE10059-ND</td>
-<td style="text-align: left;">$2.34</td>
-<td style="text-align: left;">68-pin PLCC socket, processor board</td>
-</tr>
-</tbody>
-</table>
-<p>The next task is to bust out the soldering iron to get some wires hooked up on the perf board. I can’t put it off forever: if I wait much longer I may as well have just ordered a PCB instead.</p>
-<table style="width:86%;">
-<caption>Project status update</caption>
-<colgroup>
-<col style="width: 21%" />
-<col style="width: 8%" />
-<col style="width: 10%" />
-<col style="width: 13%" />
-<col style="width: 10%" />
-<col style="width: 11%" />
-<col style="width: 11%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: center;">Budget</th>
-<th style="text-align: center;">CPU</th>
-<th style="text-align: center;">Power</th>
-<th style="text-align: center;">Keyboard</th>
-<th style="text-align: center;">Video</th>
-<th style="text-align: center;">Memory</th>
-<th style="text-align: center;">Debug</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: center;">$124.09 of $400</td>
-<td style="text-align: center;">█───</td>
 <td style="text-align: center;">────</td>
 <td style="text-align: center;">────</td>
 <td style="text-align: center;">────</td>

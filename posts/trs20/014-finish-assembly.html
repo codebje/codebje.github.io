@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - The TRS-20 - Finishing assembly</title>
+    <link rel="stylesheet" type="text/css" href="../../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../../about.html">About</a>
+            <a class="page-link" href="../../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../../images/trs80.jpg">
+  
+  <h1 class="post-title">The TRS-20 - Finishing assembly</h1>
+  <p class="post-meta">July 21, 2020 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../../images/trs20/FTDI.png">
+
+  <div class="post-hero-note">A partial EEPROM dump from the FT230X USB USART IC. <a href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
+
+
+  <p>I claimed in the last post that, with blinking lights achieved, the job was done.</p>
+<p>Of course, the job is not really done. Most of the board’s parts aren’t soldered on, and while it’s great that the FPGA works I’ve still yet to get the CPU on. Not to mention all the supporting chips. Time to break out the heat gun and get on with the task.</p>
+<!--more-->
+<p>I put on the FT230X USB IC first, plus its supporting connector and passives. This is for two reasons: I can program the GPIOs on it to ensure the correct VBus sense function and LED output, and because this is the last checkpoint beore I solder on every other part. This worked out fine - the device enumerates correctly, programs fine, and the RX LED flickers in time to keystrokes via USB serial.</p>
+<figure>
+<img src="../../images/trs20/enumerated.png" alt /><figcaption>My shell history is chockers full of <code>lsusb</code> commands now.</figcaption>
+</figure>
+<p>Soldering everything else took a few evenings. My process was to squeeze a blob of solder paste onto the DDPAK tab copper area on a board with a bad FPGA solder job, align the target IC with its pads, then use a toothpick to place a sparing amount of paste on the pins. The heat gun then melts the paste onto the pins, and any faults are touched up with the iron.</p>
+<figure>
+<img src="../../images/trs20/memory-pins.jpg" alt /><figcaption>I really should get some kind of macro lens for this stuff.</figcaption>
+</figure>
+<p>The best result was the SRAM. It’s possible there’s not quite enough solder on these pins, but I tested every one - I actually found two cold solder joints on the FPGA during this process - and I’m confident they’re all wetted properly.</p>
+<p>The worst result was the 18.432MHz oscillator. I underestimated the difficulty of this job, and wound up with far too much solder on it. Solder from the NC pad reached the ground-connected case, and removing it was difficult. I do not feel confident that this part is healthy now.</p>
+<h2 id="install-a-rom">Install a ROM</h2>
+<p>The trouble with having finished the soldering is that I don’t much want to blindly power up. The ROM should contain <code>FF</code> endlessly, which will result in the CPU executing <code class="sourceCode z80asm">RST <span class="bn">$38</span></code> forever, but it’d be nice to be able to verify in some way that everything’s working as it should. This takes me back to writing a ROM again, but this time for the CPU.</p>
+<p>So I wrote a <a href="https://github.com/codebje/trs20-bootrom/blob/master/src/bootrom.asm">ROM image</a> that sets up ASCI0 to 38400 baud, 8n1, and starts transmitting single character “printf debugging” style progress markers. The only things I do first are to disable DRAM refresh, disable external interrupts, and set the clock rate to the full oscillator speed.</p>
+<p>After that, the boot ROM attempts to copy ROM into RAM, reset the ROM overlay D flip-flop, configure the MMU, set up a 100Hz timer, set up a stack, then run a very simple boot monitor that permits a binary to be uploaded using ymodem and executed.</p>
+<p>Because I really don’t want to yank the PLCC-32 ROM chip in and out frequently, I don’t want too many rounds of corrections. My <a href="https://github.com/codebje/vtrs20">emulator</a> is therefore developing more or less in lockstep with the needs of the boot ROM so that I at least have to implement the same bug twice in more or less the same way to miss it. This is a feat I have accomplished in the past, and it’s surprisingly easy to do.</p>
+<p>I burned the ROM, plugged it into the board, and with bated breath powered the board up. Good news: the FLT light doesn’t immediately go on, so there’s no major short circuit anywhere. The FPGA still blinks its LED, and the rest sits there, reminding me that I didn’t design in an obvious indicator of CPU health.</p>
+<p>I plugged the USART USB cable in, and …</p>
+<p><img src="../../images/trs20/whereswally.png" /></p>
+<p>… used some adult language.</p>
+<h2 id="debugging-a-usb-ic">Debugging a USB IC</h2>
+<p>Nothing felt warm. The FLT light was still off. The FPGA was still blinking its LED, now looking more like a taunt than a sign of success.</p>
+<p>I busted out the multimeter and did a bit of a probe around, carefully - there’s 3V3 and GND pins right next to each other on the FT230X - only to see all the expected levels. The reset supervisor is not touching /RESET, so it is pulled high by a resistor. The USB cable is delivering ~5V to the voltage divider network. With power removed, I rechecked everything for good solder joints or shorts - everything seems fine.</p>
+<p>At a loss, I thought I may as well also test whether the CPU is at least clocking along, so I ran a logic analyser on PHI (and /RESET, to verify the supervisor at the logic level) - and saw only a flat line. The clock was not ticking. It turns out the oscillator just isn’t at all happy, and is not generating any signals. It may still have a short, it may just be toast, either way it’s gotta come off.</p>
+<p>I’ve never had much luck desoldering through-hole parts. Solder wick takes a <em>lot</em> of heat to work, and isn’t great even then. My solder sucker was bundled with a cheap soldering iron, and was broken on arrival. I never replaced it. So with a bit of concern that it’d go wrong, I put some heatproof tape on the CPU’s socket and got to work with the heat gun.</p>
+<p>To my surprise, I removed the oscillator quite easily. I figured I may as well also remove the FT230X - and this also went far better than I anticipated. Well enough, in fact, that I soldered the removed IC onto a TSSOP-16 breakout board. I replicated the CPU board’s USB circuitry fairly closely on a breadboard, then plugged it in.</p>
+<figure>
+<img src="../../images/trs20/enumerated.png" alt /><figcaption>wat.</figcaption>
+</figure>
+<p>The chip is (I think) fine. I can dump its ROM, and I can make an LED flicker by sending to it using the virtual COM port driver.</p>
+<p>So I rechecked the CPU board. I checked all the connections into the CPU, which are the only parts I didn’t replicate on the breadboard. I checked all the passives, in case I had a dud resistor or capacitor. Everything looked fine - so, not having much to lose here, I desoldered the poor IC from the breakout board and resoldered it to the CPU board.</p>
+<figure>
+<img src="../../images/trs20/whereswally.png" alt /><figcaption>I admit I felt a little glum.</figcaption>
+</figure>
+<p>Well, that’s it. I can’t communicate with the CPU, I can’t see if it’s working, I’ve no idea what I could possibly do. I am unwilling to risk the price of another board assembly when there’s no apparent reason for failure.</p>
+<p>I packed everything away, and nearly didn’t even write this post.</p>
+<h2 id="the-next-day">The next day</h2>
+<p>The only substantive difference between the breadboard setup and the CPU board setup is my admittedly less than perfect USB socket. So after <del>sulking</del>sleeping on it I tried measuring voltage levels on the breadboard vs. on the CPU board. I ran the USB socket without the main USB power applied to the board: this <em>in theory</em> is perfectly fine, as the FT230X tolerances are absolute, not expressed in terms of its supply voltage. But what I noticed was that VBUS was running at 2V, and D- at -0.5V, relative to ground supplied via the data USB. I checked an unconnected USB socket and got 5V and 0V respectively, with D+ at 3.3V. Hmm.</p>
+<p>I reconnected the supply power for the CPU board, and re-measured. Now I saw 5V, 3.3V, and 0V for VBus, D+, and D-, which seemed right. At a loss, I tried one last thing:</p>
+<figure>
+<img src="../../images/trs20/enumerated.png" alt /><figcaption>Why do you taunt me so?</figcaption>
+</figure>
+<p>It was enumerating again.</p>
+<p>This should feel like a victory, but in truth it does not. I don’t know why it didn’t work, I don’t know why it started working, I don’t know whether it will stop working again in the future. But I ordered a replacement oscillator, and may as well press on.</p>
+<figure>
+<img src="../../images/trs20/assembled%20board.jpg" alt /><figcaption>The fully assembled board.</figcaption>
+</figure>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </body>
+</html>
