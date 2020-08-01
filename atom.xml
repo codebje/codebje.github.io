@@ -8,8 +8,55 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2020-07-21T00:00:00Z</updated>
+    <updated>2020-08-01T00:00:00Z</updated>
     <entry>
+    <title>The TRS-20 - Will it work?</title>
+    <link href="https://bje.id.au/blog/posts/trs20/015-testing-continues.html" />
+    <id>https://bje.id.au/blog/posts/trs20/015-testing-continues.html</id>
+    <published>2020-08-01T00:00:00Z</published>
+    <updated>2020-08-01T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>With the board fully assembled, and USB enumeration working well enough to see the device, it’s time to see if the design is valid. Do I have a working Z180-based computer, or an expensive paperweight?</p>
+<!--more-->
+<h1 id="first-blink-the-lights">First, blink the lights</h1>
+<p>My <a href="https://github.com/codebje/trs20-bootrom">initial bootrom</a> changes the CPU clock divider from EXTAL/2 to EXTAL/1 a few bytes into execution. With the FPGA reprogrammed to flash LED1 on a 24-bit divider, a 9.216MHz PHI will blink LED1 at 0.55Hz and an 18.432MHz PHI will blink it at 1.1Hz. With LED2 still on a 26-bit divider of the 100MHz oscillator, this provides an easy to observe visual guide to whether my boot ROM is executing at all.</p>
+<p>Which lead me to discover that my boot ROM was not executing at all. The CPU was putting out a clock signal just fine, but at 9.216MHz, not 18.432MHz.</p>
+<p>To verify the CPU was still okay after all my earlier fumbling about I put it back into the old debug board I built early on in the process, with an 18.432MHz can oscillator. My logic analyser showed it doing the expected signal dance - but I also recorded what happened as the CPU came out of /RESET, and saw that A19 stays high after /RESET has gone high. It stubbornly doesn’t fall until the address lines are being settled for the first machine cycle, which is up to 30ns after PHI rises for clock cycle T1. On top of that /M1 falls at most 35ns after PHI rises for T1. To the limits of accuracy of my very cheap 24MHz analyser, in practice /M1 falls at the same time as A19.</p>
+<p>This is a significant oversight in my board design - the datasheet shows, if you look properly, that /M1 could fall before the address lines have settled. An earlier revision of my design used /MREQ instead of /M1, which can be seen in <a href="011-motherboard.html#memory">the design post</a> diagram. Despite my excessively detailed blog posts I neglected to document why I changed to /M1, but I believe it’s because I only wanted execution accesses to ROM to trigger the flip-flop. If I’d stuck with /MREQ then A19 would be settled low before /MREQ goes low, and this would have gone a bit smoother.</p>
+<p>The consequence of all this is that the ROM overlay DFF is reset before the first memory read even happens, and ROM never gets read.</p>
+<p>The good news is that there’s a simple fix to get the ROM overlay active at boot: I’ve put a 10kΩ 0603 resistor between the A19 and GND pins of the CPU socket, underneath the board. This pulls A19 low during reset, and it’s still low when /M1 falls for the first opcode fetch. Thereafter, the CPU continues to hold A19 low for each access.</p>
+<p>With this fix in place, the LED starts to blink at twice the speed. I now have a computer that can run code!</p>
+<h1 id="communication">Communication?</h1>
+<p>After adjusting the clock speed the boot code’s next task is to set up ASCI0. As the ROM progresses from here it prints out the character sequence ‘1234567’, with each character indicating successful completion of another step of the boot-up.</p>
+<p>Perhaps predictably by now, my serial terminal remained stubbornly blank. No output at all - but due to another questionable design choice, I wasn’t sure this meant the boot code was failing to transmit a character or not. This time it was the fact that the /RESET line also resets the FT230X USB IC. This causes the serial port to disconnect and reconnect; the FT230X datasheet doesn’t specify a time range for this but it will read the internal memory to configure the USB descriptors, enumerate as a USB device, and negotiate a connection. That’s enough work to be a non-trivial amount of time.</p>
+<p>So - with no way to talk to the CPU to find out what’s going on, I resorted to the logic analyser. My analyser has eight lines, so it cannot monitor the entire bus at once, but it can watch some pins and check they’re behaving. I checked the ROM’s /CE and /OE pins, which were firing properly. I checked, rechecked, triple checked, and dispiritedly checked the ASCI0 lines to the FT230X. Without a reset button, I resorted to five second samples at a slow rate, before finally cluing in that I could pull /WAIT low through the bus header, and freeze the CPU to inspect what it was doing.</p>
+<p>Freezing the CPU after it had run for a little while showed it had gone out to lunch in the middle of memory where no predictable value could be expected. It also showed that the transceiver pin for A12 was poorly soldered, but while that needed fixing it wasn’t in a position to be causing any faults.</p>
+<p>Freezing the CPU before it finished the first opcode fetch showed the right values on address and data lines.</p>
+<p>So - somewhere in between the first byte read, and thousands of cycles later, the CPU goes a bit nuts.</p>
+<h1 id="debugging-a-cpu-board">Debugging a CPU board</h1>
+<p>It’s impractical to try and whip a jumper lead in and out of the /WAIT header and expect to see anything meaningful going on. However, my board has a powerful tool available on in the form of the FPGA. Most of the board’s signals are connected to an FPGA pin so it has broad insight into the workings of the CPU. It also has a view of the /WAIT signal.</p>
+<p>What it does need is a way to tell me what’s going on. Since the FPGA is expected to eventually run an I2C bus, I thought it’d be convenient to give it an I2C slave interface for a µC to drive. The FPGA can drive /WAIT low when /MREQ or /IORQ falls, capture address and data lines, and send all that information to the µC in a four byte burst.</p>
+<p>Rather than trying to greenfields my own I2C module, I read over a handful of existing implementations. In the end I used one by Daniel Beer that has <a href="https://dlbeer.co.nz/articles/i2c.html">a truly excellent explanation</a>. Since it’s unlicensed, my FPGA code for this single step debugger is unpublished, but it’s not rocket surgery. I did get to learn about crossing clock domains though, to have an effective signal between an I2C event indicating the CPU should proceed to the next instruction and the CPU’s <em>much faster</em> clock cycle.</p>
+<p>This work uncovered a bad solder job on A5 of the FPGA, which I also fixed. And amazingly, I had completely failed to solder one side of one of the I2C pull-up resistors. I hope that’s it for bad solder jobs, because the volume of them makes a mockery of the amount of connectivity testing I did.</p>
+<p>The FPGA sends /MREQ, /IORQ, /RD, /RW, and the high four bits of the address bus in the first byte. The next two bytes are the rest of the address bus, and the data bus follows. After all four bytes have been read, the CPU is permitted to proceed.</p>
+<p>On the µC side of things I just used an ESP8266 as a convenient 3v3 device, and programmed it using Arduino IDE. After a few iterations I wound up with something that could single step, run a number of steps, run to an address access, and set breakpoints. Its output looks something like this:</p>
+<pre><code>MiRw 0016D  ED (11101101)
+MiRw 0016E  39 (00111001)
+MiRw 0016F  38 (00111000)</code></pre>
+<p>… which is the CPU fetching and executing <code class="sourceCode z80asm">out0 (CBR), <span class="at">a</span></code>.</p>
+<p>The debug tool showed that without a USB connection, the boot ROM pauses waiting for the transmit data register empty (TDRE) flag to be set for ASCI0. When that flag is set, the CPU writes ‘1’ - and the serial terminal receives it. This confirms my hunch that the USB IC is still resetting when the CPU starts writing to it. And confirms that the serial link works!</p>
+<p>I had mixed up my boot code somehow and tried to do the MMU work right in the middle of setting up the DMA registers. Once I fixed this, I could watch the DMA executing its copy loop, reading from ROM and writing to RAM byte by byte.</p>
+<p>I also discovered that the MMU base registers are added to the logical address: if Common Area 1 starts at <code class="sourceCode z80asm"><span class="bn">$F000</span></code> with a base register of <code class="sourceCode z80asm"><span class="bn">$80</span></code> the physical address is <code class="sourceCode z80asm"><span class="bn">$8F000</span></code>. This makes sense from an implementation perspective - it’s a single 8-bit adder involved - and was an easy fix to set CBAR to <code class="sourceCode z80asm"><span class="bn">$71</span></code> instead.</p>
+<p>The remaining consequences of my choice to use /M1 then became apparent. A memory access to ROM space would set A19 high, with /M1 also high, no problem so far. But the next machine cycle would lower /M1 at around the same time as A19, with enough overlap between them for my flip-flop to be reset. The safest action is to jump to ROM as soon as possible, without allowing any other access to ROM space to happen first.</p>
+<p>I re-ordered the boot code to set up the MMU first, jumped to ROM space, ran the DMA copy from there, then jumped back to, in theory, SRAM.</p>
+<p>A transmit test that modified code showed that yes, I had code running out of SRAM.</p>
+<h1 id="rough-consensus-and-running-code"><del>Rough consensus and</del> running code</h1>
+<p>Let’s take a moment to absorb this.</p>
+<p>I have a <em>working computer</em>. It has boot ROM, working memory, and enough peripherals for me to interact with it.</p>
+<p>There’s plenty more to do from here, the Y-modem upload doesn’t work, I have nothing useful to upload, the FPGA isn’t capable of self-programming yet, and there are other boards I expect to add on over time. There’s even a laundry list of things I’d do differently on a second revision of the CPU board.</p>
+<p>But none of that matters just as this exact moment: demonstrating running code on the board means this project is now a success.</p>
+<p><img src="/images/trs20/logo.svg" /></p>]]></summary>
+</entry>
+<entry>
     <title>The TRS-20 - Finishing assembly</title>
     <link href="https://bje.id.au/blog/posts/trs20/014-finish-assembly.html" />
     <id>https://bje.id.au/blog/posts/trs20/014-finish-assembly.html</id>
@@ -1165,147 +1212,6 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
 </canvas>
 <p>There are two advantages to using a strong pull-up in my design. Assisting the Z180 to pull the data lines high will help the STM32 see a higher voltage level on its inputs, and configuring the STM32’s pins as open-drain outputs means they will never be driving a line high while the Z180 is driving it low. Unfortunately the reverse is not true, as the Z180 operates its data lines in push-pull mode, and will push high when it needs a high signal. If it pushes high when the STM32 is pulling low, both ICs will be at risk of damage. A ’245 transceiver is still the real answer to this problem.</p>
 <p>The next step is to <a href="https://github.com/codebje/trs20-debug/">write the code</a> to implement chip configuration. My logic probe is a 24MHz device, so it can’t directly observe an 84MHz clock, but I can certainly drive a timer on the STM32 to produce what I think should be a 1MHz signal, and observe that. Then I can observe the μC reacting to the CPU’s control signals, and verify that an 84MHz μC can react fast enough to appear like RAM to a 1MHz CPU.</p>
-<table style="width:86%;">
-<caption>Project status update</caption>
-<colgroup>
-<col style="width: 21%" />
-<col style="width: 8%" />
-<col style="width: 10%" />
-<col style="width: 13%" />
-<col style="width: 10%" />
-<col style="width: 11%" />
-<col style="width: 11%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: center;">Budget</th>
-<th style="text-align: center;">CPU</th>
-<th style="text-align: center;">Power</th>
-<th style="text-align: center;">Keyboard</th>
-<th style="text-align: center;">Video</th>
-<th style="text-align: center;">Memory</th>
-<th style="text-align: center;">Debug</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: center;">$209.35 of $400</td>
-<td style="text-align: center;">██──</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">██──</td>
-</tr>
-</tbody>
-</table>]]></summary>
-</entry>
-<entry>
-    <title>The TRS-20 - apply power here</title>
-    <link href="https://bje.id.au/blog/posts/trs20/005-power-up.html" />
-    <id>https://bje.id.au/blog/posts/trs20/005-power-up.html</id>
-    <published>2020-01-15T00:00:00Z</published>
-    <updated>2020-01-15T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>With my plan for a perfboard in hand, I finally broke out the soldering iron and started assembling. The board has a socket for an oscillator, a socket for the CPU, and IDC connectors for both 50-pin and 10-pin links. This is a <em>lot</em> of little wires to cut, strip, and solder. Let’s see how it goes.</p>
-<!--more-->
-<h2 id="data-address-and-more">Data, address, and more</h2>
-<figure>
-<img src="/images/z80-basic-wiring.jpg" alt="" /><figcaption>Marge! We need more red, blue, yellow, white, red, and black hookup wire!</figcaption>
-</figure>
-<p>The first pass at it all involved 8 white wires for data, 16 yellow wires for address, some black and red for power lines, and not quite enough blue left for all the signals. There’s a capacitor that snuck its way on the board, since it’ll be noisy enough as it is. The soldering went as well as one might expect, you can see a few wires where the insulation has melted apart, a few suspiciously large blobs of solder, but everything’s clean and bridge-free.</p>
-<p>The set of signals I chose to hook up with the blue I had are the CPU’s inputs: the four interrupts, reset, wait, and bus request. Wiring these seven signals high, and the eight data signals low, will put the CPU into a NOP loop through the low 8 bits of address space.</p>
-<figure>
-<img src="/images/z80-low-address-probe.png" alt="" /><figcaption>A0 to A4 showing doubling of frequency at each bit. Just ignore the noise…</figcaption>
-</figure>
-<p>Using my ghetto fixed logic probe, the main thing I see is a smattering of chaos. The CPU has not been told otherwise, and so it is refreshing DRAM it doesn’t have. Each DRAM refresh sets some address lines and leaves others floating. The result on the probe is that I can find spans in which the low order address lines show a satisfying binary counting pattern, but the high order lines barely show structure at all.</p>
-<figure>
-<img src="/images/z80-basic-board.jpg" alt="" /><figcaption>Eight address lines into the probe, seven signal lines tied high, eight data lines tied low.</figcaption>
-</figure>
-<h2 id="wiring-up-the-rest">Wiring up the rest</h2>
-<p>That’s okay. It’s time to wire up the remaining signals anyway. A quick trip to the local Jaycar (shout out to the Jaycar Aspley folks who’re super helpful every time I come in!) and I’m $9 down, but two packs of jumper wire up, and I can finish off the soldering. Except for the USART stuff to the 10-pin header, which I’ll leave for when I need it.</p>
-<p>This time around, I’ll want to see what’s going on with the CPU status pins. I know that it should only be doing opcode fetches and refreshes, which means M1, MREQ, and RD are the only interesting signals. Connecting four pins of the probe to A0 through A3, and the other four pins to M1, MREQ, RD, and PHI lets me take a peek at what’s going on.</p>
-<figure>
-<img src="/images/z80-rfsh-probe.png" alt="" /><figcaption>Ah logic probe, well worth what I paid for you. I think I forgot to include you in my costings, though…</figcaption>
-</figure>
-<p>This image shows <em>exactly</em> what I expect. When M1 and RD are high but MREQ is low, the CPU is in a refresh cycle. The address lines will make some sort of sense, but not the sense I’m looking for. When M1. RD, and MREQ are all low, the CPU is fetching an opcode. The address lines are behaving as they should at these times.</p>
-<figure>
-<img src="/images/z180%20timing%20diagram.png" alt="" /><figcaption>This timing diagram is from PS014005-0817, the Z80180 MPU product specification document, page 31.</figcaption>
-</figure>
-<p>The synchronisation of signals matches the data sheet. Very shortly after Ф rises for T1, M1 falls. So shortly, in fact, my cheap logic probe records them as happening simultaneously, which means they are less than 41.7ns apart. At 10MHz, the data sheet promises these two events happen no slower than 60ns apart, and that looks to hold true at 1MHz as well. T1’s falling edge MREQ and RD both falling, no more than 50ns after. These three events coincide at a finer resolution than my probe. With T3’s rise, M1 rises. With T3’s fall, MREQ and RD rise.</p>
-<figure>
-<img src="/images/z180%20one%20cycle.png" alt="" /><figcaption>Zoomed in on one opcode fetch machine cycle.</figcaption>
-</figure>
-<p>Since the CPU is only executing NOP instructions, all registers are at their RESET defaults. This includes the DMA/WAIT Control (DCNTL) register, which sets bits MWI0 and MWI1 at RESET, inserting three wait states to memory access cycles. The Refresh Control (RCR) register is also in its RESET state, which enables DRAM refresh, inserts one wait state in the refresh cycle to take it to three clocks, and requires one refresh cycle every 10 clock cycles. In practice, this means that there’s a memory refresh cycle between almost every opcode fetch cycle - every 7th fetch cycle skips a refresh cycle. In the image above, you can see a refresh cycle beginning. M1 and RD are high, MREQ is low.</p>
-<p>The Z8018x Family MPU User Manual (UM005004-0918) has a table on page 287 that indicates a memory refresh cycle has M1, IORQ, RD, WR, HALT, and BUSACK high, and has MREQ and RFSH low. No other operating modes have MREQ active without either RD or WR active, that is <span class="math inline">\(\overline{RFSH} = \overline{MREQ} \land \lnot(\overline{RD} \lor \overline{WR})\)</span>. I don’t need to expose the RFSH line to know when a refresh cycle is active, and my boot ROM will disable memory refresh very early on in any case, so there’s no need to expose this signal.</p>
-<p>One oddity does stand out. The system clock on PHI is running at 1MHz, the same as the oscillator. However, the Z8018x User Manual claims that “[T]he frequency of this output is equal to one-half that of the crystal or input clock frequency.” (UM005004-0918, pp. 7) This same claim is repeated in the Z80180 MPU Product Specification (PS014005-0817, pp. 9) for the CLOCK signal. This isn’t a problem, exactly, save that I have an 18MHz oscillator on back order, and that’ll be far too fast for my 10MHz rated chip.</p>
-<p>Nevertheless, my chip starts up and looks on the surface to be behaving correctly. And perhaps more surprisingly, my soldering looks to have been done correctly!</p>
-<h2 id="spending-is-a-habit">Spending is a habit</h2>
-<table>
-<caption>I warned myself about a Jaycar spree…</caption>
-<colgroup>
-<col style="width: 34%" />
-<col style="width: 6%" />
-<col style="width: 58%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: left;">Item</th>
-<th style="text-align: left;">Price</th>
-<th style="text-align: left;">Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">SM1024</td>
-<td style="text-align: left;">$2.40</td>
-<td style="text-align: left;">8-way DIP switch</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">WH3009</td>
-<td style="text-align: left;">$24.95</td>
-<td style="text-align: left;">8 spools of 25m hookup wire</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">PB8819</td>
-<td style="text-align: left;">$9.95</td>
-<td style="text-align: left;">Breadboard w/ power supply and jumpers</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">RC5360</td>
-<td style="text-align: left;">$1.60</td>
-<td style="text-align: left;">10x 100nF ceramic cap, through hole</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">RR0596</td>
-<td style="text-align: left;">$1.65</td>
-<td style="text-align: left;">24x 10kΩ ±1% 0.5W resistor</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">PP1116</td>
-<td style="text-align: left;">$0.95</td>
-<td style="text-align: left;">1x 50-pin IDC header</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">PP1100</td>
-<td style="text-align: left;">$1.90</td>
-<td style="text-align: left;">2x 10-pin IDC header</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">HP9540</td>
-<td style="text-align: left;">$4.50</td>
-<td style="text-align: left;">Stripboard, 95x75mm</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">WH3032</td>
-<td style="text-align: left;">$9.00</td>
-<td style="text-align: left;">2x breadboard jumper wire</td>
-</tr>
-</tbody>
-</table>
-<p>I picked up 8 spools of hookup wire. It’s wider than the jumper wire, and multi-core, so I haven’t used any yet. It’s great stuff for crimping into connectors and the like, but not so fun for soldering with - I expect it to last for years, but probably not see much use on this project. Towards the end of my $400 budget I will sort out what’s been used on the project and what hasn’t, so I can assess costs better.</p>
-<p>The ceramic caps are handy for decoupling ICs: you can see one embedded in the processor board. The resistors are for pulling signals high or low. One 50-pin IDC header is now attached to a small section of stripboard, with male headers soldered beneath, as an IDC-to-DIP connector. It’s tricky, soldering to both sides of one-sided stripboard. The DIP switch was bought with dreams of toggling data lines high or low, but I’m not sure I’ll ever want to do that.</p>
-<p>My PC104 stackable headers have failed to clear customs. I’ve received a refund, though sadly it looks like my refund doesn’t include the GST I paid for, so I’m out a dollar or so out of pocket, and I’ll need to re-order them sooner or later. Also from Aliexpress, I bought the logic probe from the last post for $12.93, but forgot to list it in any post, and have since also bought a MAX II CPLD minimum system board for $11.56 so I can experiment with a CPLD without soldering a hundred little wires, and some brass spacers for $5.20 for the PC/104 stack.</p>
-<p>I think I can claim an extra mark on the CPU progress meter, since I have a working CPU.</p>
 <table style="width:86%;">
 <caption>Project status update</caption>
 <colgroup>
