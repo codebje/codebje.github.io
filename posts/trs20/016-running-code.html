@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - Running code on the TRS-20</title>
+    <link rel="stylesheet" type="text/css" href="../../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../../about.html">About</a>
+            <a class="page-link" href="../../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../../images/trs80.jpg">
+  
+  <h1 class="post-title">Running code on the TRS-20</h1>
+  <p class="post-meta">October 11, 2020 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../../images/banners/basic-run.png">
+
+  <div class="post-hero-note">Original image from <a href="https://en.scratch-wiki.info/wiki/File:Simons_Basic_Programm.png">Scratch Wiki</a> <a href="https://creativecommons.org/licenses/by-sa/4.0/"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
+
+
+  <p>After proving that my computer board actually works, it’s time to switch over to software design. This is my core competency, where I’ve spent years professionally, and something I’ve done as a hobby since before I even had a computer. You’d think this part would be easy…</p>
+<!--more-->
+<p>On the <a href="https://github.com/codebje/vtrs20">Virtual TRS-20</a>, the boot rom starts up, accepts a Y-modem upload, and then jumps to it, happy as Larry. On the real TRS-20, the Y-modem upload fails on the first packet, with nothing more than metadata sent.</p>
+<p>The emulator is reasonably faithful to the behaviour of the TRS-20 as I discover its nuances. Memory reads now carry an /M1 flag to allow the ROM masking to more accurately replicate the board, though I didn’t go as far as emulating the timing issue. It’s useful when debugging the boot ROM code as I can stop it, inspect memory and registers, single-step it with ease, and <em>in theory</em> get code working before it hits the real device where debugging is much harder.</p>
+<p>In the case of the Y-modem upload, this isn’t the case.</p>
+<h1 id="on-with-the-debug">On with the debug</h1>
+<p>During the serial debug described in the <a href="015-testing-continues.html">last post</a> I found one possibly significant difference between what I expected to happen and what really happens. The <code>/RTS0</code> signal is not asserted automatically by the Z180 when its own ASCI0 receive buffer is full. The signal is entirely up to software - so I cannot rely on it to prevent overruns when uploading bytes. It may be that I’m dropping bits by blasting Y-modem packets at the CPU as fast as the UART can handle them.</p>
+<p>The heart of my Y-modem code is the <code>recv_packet</code> function. The general idea is that it waits for a packet command byte for up to five seconds, then (re)transmits the ACK code assuming the sender didn’t receive it. After that, if it’s a data packet it receives the packet index then the data, with a timeout of one second for each byte. On completion it checks that the CRC matches.</p>
+<p>I can work out a lot about what’s going on using some black-box probing of the behaviour. Not transmitting anything gets ‘C’ repeated every five seconds until it gives up after ten failures (‘C’ is used for the first packet to indicate CRC-mode, rather than an ACK). Sending an invalid command byte does the same, but faster. Sending a valid data packet byte <em>appears</em> to work - but then fails. After that, both the number of retry attempts and the ACK byte are corrupted.</p>
+<p>This suggests the CRC function isn’t working.</p>
+<p>It also suggests I have a way to keep going without removing the IC and flashing new code. The metadata packet is received before the CRC error kicks in, after which the transfer can be aborted with 2x<code>CAN</code>. The metadata packet, however, is stored right where the first data packet should subsequently get written to - and where the boot monitor will jump when executing uploaded code. Using the 1024-byte packet command this gives me a full 1026 bytes of data (packet plus two CRC bytes) that I can upload and execute.</p>
+<p>Using a combination of uploading bits of code to run and replacement editions of <code>recv_packet</code> to patch in place of the boot code version, I tracked down my <em>multiple</em> errors. I present them here in source file order, but this is not the order I discovered them.</p>
+<h1 id="timeouts-dont-stop-the-transfer">Timeouts don’t stop the transfer</h1>
+<p>Failing ten times should abort the transfer. But it doesn’t - the code just keeps on spitting out retry bytes. Eventually I tracked this down to the following few lines of code:</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb1-1"><a href="#cb1-1"></a><span class="fu">retry:</span>		djnz	metadata</span>
+<span id="cb1-2"><a href="#cb1-2"></a></span>
+<span id="cb1-3"><a href="#cb1-3"></a><span class="fu">done:</span>		pop	<span class="at">hl</span></span>
+<span id="cb1-4"><a href="#cb1-4"></a>		pop	<span class="at">de</span></span>
+<span id="cb1-5"><a href="#cb1-5"></a>		ret</span></code></pre></div>
+<p>A successful run through the code jumps to <code>done</code> with the zero flag reset. An unsuccessful run jumps to <code>done</code> with the zero flag set. I thought that <code class="sourceCode z80asm">djnz</code> would set the zero flag - but instead it doesn’t affect flags at all. Whatever the zero flag was on entry to <code>retry</code> is what it will be after the <code class="sourceCode z80asm">djnz</code> has decremented <code class="sourceCode z80asm"><span class="at">b</span></code> to zero. Just adding <code class="sourceCode z80asm">xor <span class="at">a</span></code> will set the zero flag.</p>
+<h1 id="the-retry-byte-gets-corrupted">The retry byte gets corrupted</h1>
+<p>After attempting to send a valid (meta)data packet the retry byte becomes corrupted. After a failed packet transfer instead of getting a ‘C’ back I start getting NULs. I tracked this down to the code invoked after a data packet command is received.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb2-1"><a href="#cb2-1"></a><span class="fu">recv_body:</span>	ld	(cmd), <span class="at">a</span></span>
+<span id="cb2-2"><a href="#cb2-2"></a>		ld	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
+<span id="cb2-3"><a href="#cb2-3"></a>		call	recv_byte</span>
+<span id="cb2-4"><a href="#cb2-4"></a>		jr	z, retry</span>
+<span id="cb2-5"><a href="#cb2-5"></a>		ld	<span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb2-6"><a href="#cb2-6"></a>		call	recv_byte</span>
+<span id="cb2-7"><a href="#cb2-7"></a>		jr	z, retry</span>
+<span id="cb2-8"><a href="#cb2-8"></a>		cpl</span>
+<span id="cb2-9"><a href="#cb2-9"></a>		cp	<span class="at">a</span>, <span class="at">c</span></span>
+<span id="cb2-10"><a href="#cb2-10"></a>		jr	nz, retry</span>
+<span id="cb2-11"><a href="#cb2-11"></a>		ld	(seq), <span class="at">a</span></span></code></pre></div>
+<p>The problem, of course, is that I assumed early on that <code class="sourceCode z80asm"><span class="at">c</span></code> would be preserved as my retry byte value, and subsequently also decided to use <code class="sourceCode z80asm"><span class="at">c</span></code> to store the sequence number to compare to its complement. Oops. I accepted that there’s not many registers on the Z180 and stored the retry byte in memory instead.</p>
+<h1 id="going-too-far-the-other-way">Going too far the other way</h1>
+<p>Now we come to the headline problem - the CRC validation is failing. The other problems would happen in emulation, if I’d exhaustively tested all possible code paths. My <code class="sourceCode z80asm">djnz</code> emulation didn’t set flags. Yes, that’s right, I wrote assembly code that assumed one thing about an instruction, and code to emulate that instruction assuming something else. People are fallible, tests never exhaustively test all possible code paths, and trusting to discipline to catch problems is naive.</p>
+<p>But this problem was different: the bytes were being received correctly. I could send binary code and run it, which wouldn’t be possible if the transfer were corrupted. The CRC code works fine when testing. There’s only one answer left: the CRC code isn’t being called correctly.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb3-1"><a href="#cb3-1"></a>		push	<span class="at">hl</span></span>
+<span id="cb3-2"><a href="#cb3-2"></a>		push	<span class="at">bc</span></span>
+<span id="cb3-3"><a href="#cb3-3"></a></span>
+<span id="cb3-4"><a href="#cb3-4"></a>		ld	<span class="at">bc</span>, <span class="bn">130</span></span>
+<span id="cb3-5"><a href="#cb3-5"></a>		ld	<span class="at">a</span>, (cmd)</span>
+<span id="cb3-6"><a href="#cb3-6"></a>		cp	<span class="at">a</span>, YM_SOH</span>
+<span id="cb3-7"><a href="#cb3-7"></a>		jr	z, <span class="bn">$</span>+<span class="bn">5</span></span>
+<span id="cb3-8"><a href="#cb3-8"></a>		ld	<span class="at">bc</span>, <span class="bn">1026</span></span>
+<span id="cb3-9"><a href="#cb3-9"></a></span>
+<span id="cb3-10"><a href="#cb3-10"></a>		ld	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
+<span id="cb3-11"><a href="#cb3-11"></a>		call	recv_wait</span>
+<span id="cb3-12"><a href="#cb3-12"></a></span>
+<span id="cb3-13"><a href="#cb3-13"></a>		pop	<span class="at">bc</span></span>
+<span id="cb3-14"><a href="#cb3-14"></a>		pop	<span class="at">hl</span></span></code></pre></div>
+<p>This little bit of code is responsible for receiving either 130 or 1026 bytes, the payload and its CRC, depending on whether it’s a SOH or STX command. I carefully preserve <code class="sourceCode z80asm"><span class="at">bc</span></code> because <code class="sourceCode z80asm"><span class="at">b</span></code> contains my retry counter and <code class="sourceCode z80asm"><span class="at">c</span></code> contains (hah!) my retry byte. Then I set up <code class="sourceCode z80asm"><span class="at">bc</span></code> to hold the size of the payload and CRC, and receive the data.</p>
+<p>Then I restore <code class="sourceCode z80asm"><span class="at">bc</span></code>.</p>
+<p>At this point in receiving the metadata packet <code class="sourceCode z80asm"><span class="at">bc</span></code> contains <code class="sourceCode z80asm"><span class="bn">$0a00</span></code>. There are still ten retries allowed, and the retry byte has been replaced by NUL. The payload length I calculated is gone.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb4-1"><a href="#cb4-1"></a>		jr	z, retry</span>
+<span id="cb4-2"><a href="#cb4-2"></a>		call	ym_crc		<span class="co">; CRC should be zero</span></span></code></pre></div>
+<p>Then I call the CRC code. This expects the data to checksum in <code class="sourceCode z80asm"><span class="at">hl</span></code> (check: I preserved <code class="sourceCode z80asm"><span class="at">hl</span></code> for exactly this reason) and the length of the data in <code class="sourceCode z80asm"><span class="at">bc</span></code> … but that’s not the length of the received data any more. It’s much, much bigger than the received data.</p>
+<p>The Y-modem 16-bit CRC isn’t the world’s best choice of checksum. It’s definitely an improvement over X-modem’s naive 8-bit checksum but it’s a long way short of a reliable hash. In this case one simple flaw plays out: <code class="sourceCode c">crc16(<span class="dv">0</span>, <span class="dv">0</span>) == <span class="dv">0</span></code>.</p>
+<p>My emulator’s SRAM is initialised to zero. Real SRAM is initialised to the background noise of the universe. On my emulator, I checksum 2560 bytes and come up with the same answer I would if I only checksummed the first 130 or 1026 bytes: zero. On the real board the CRC computes over 130 or 1026 bytes of data, getting zero - and then goes on to incorporate the noise.</p>
+<p>Well - SRAM’s initial state isn’t actually noise. It’s the consequence of unstable states in (more-or-less) flip-flops resolving one way or the other, which usually comes down to microscopic manufacturing differences. As a result, I always get the <em>same</em> wrong value, because my SRAM on power-on always got the <em>same</em> uninitialised junk in it.</p>
+<p>Nifty.</p>
+<h1 id="fixing-it-all">Fixing it all</h1>
+<p>I wrote a <a href="https://github.com/codebje/scomm">simple program</a> to transmit a patch for <code>recv_packet</code>, then do a full Y-modem transfer of something bigger.</p>
+<p>The code for this, I called the <a href="https://github.com/codebje/isp-writer/blob/ymodem-patch/src/ispwriter.asm">in-system programming writer</a>.</p>
+<p>At ths point, I can patch the bad code to upload up to 52k of arbitrary code and run it. But it’s not too satisfying to just have a low effort boot monitor with a Y-modem upload for running new code, so rather than focusing on updating the Flash ROM itself the next task will be to upload an operating system.</p>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </body>
+</html>
