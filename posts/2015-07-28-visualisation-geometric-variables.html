@@ -7,11 +7,15 @@
     <title>λbje - Geometric variables for visualisation</title>
     <link rel="stylesheet" type="text/css" href="../css/main.css">
     <link rel="stylesheet" type="text/css" href="../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -50,9 +54,16 @@
   
 
 
-  <p>How to map some data into a factor for visualisation is one of the key questions to answer when designing a new graphic. Sometimes, the variables available are fixed by some external consideration, such as a requirement for a particular type of chart, and sometimes the only constraints are those inherent in the message to convey and the data available.</p>
+  <p>How to map some data into a factor for visualisation is one of the key
+questions to answer when designing a new graphic. Sometimes, the variables
+available are fixed by some external consideration, such as a requirement for a
+particular type of chart, and sometimes the only constraints are those inherent
+in the message to convey and the data available.</p>
 <!--more-->
-<p>The table below from a <a href="http://www2.parc.com/istl/groups/uir/publications/items/UIR-1986-02-Mackinlay-TOG-Automating.pdf">paper</a> by J.D. Mackinlay in ’86 signals which variables are the most effective for which types of data. This isn’t anything new or groundbreaking, it’s just sufficiently important to aspects of my work that I wanted to reproduce it here.</p>
+<p>The table below from a <a href="http://www2.parc.com/istl/groups/uir/publications/items/UIR-1986-02-Mackinlay-TOG-Automating.pdf">paper</a> by J.D. Mackinlay in ’86 signals which
+variables are the most effective for which types of data. This isn’t anything
+new or groundbreaking, it’s just sufficiently important to aspects of my work
+that I wanted to reproduce it here.</p>
 <table>
 <thead>
 <tr class="header">
@@ -129,8 +140,13 @@
 </tr>
 </tbody>
 </table>
-<p>Which of course also implies that position should map to your most important metric, or if possible, your two most important metrics. For a bar chart, the choice of X axis can sometimes fall between category or time, with the Y axis often representing amount. This choice can be informed by these relative strengths.</p>
-<p>Hue decreases accessibility, though, so for nominal items I would still favour texture over hue when possible.</p>
+<p>Which of course also implies that position should map to your most important
+metric, or if possible, your two most important metrics. For a bar chart, the
+choice of X axis can sometimes fall between category or time, with the Y axis
+often representing amount. This choice can be informed by these relative
+strengths.</p>
+<p>Hue decreases accessibility, though, so for nominal items I would still favour
+texture over hue when possible.</p>
 </article>
 
 
@@ -166,4 +182,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

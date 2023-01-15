@@ -7,11 +7,15 @@
     <title>λbje - Church encoding of a monoid</title>
     <link rel="stylesheet" type="text/css" href="../css/main.css">
     <link rel="stylesheet" type="text/css" href="../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -52,30 +56,46 @@
   
 
 
-  <p>This article shows how a Church encoding can be derivied from an abstract data type, and intuitively but not rigorously demonstrates their equivalence.</p>
+  <p>This article shows how a Church encoding can be derivied from an abstract data
+type, and intuitively but not rigorously demonstrates their equivalence.</p>
 <!--more-->
-<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1"></a><span class="ot">{-# LANGUAGE GADTs, RankNTypes #-}</span></span></code></pre></div>
-<p>We start out by defining a sum type for a monoid, with empty, embed, and append operations. To ease the transformation to Church encoding, we use <code>GADTs</code> to give explicit type signatures to the three constructors.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1"></a><span class="kw">data</span> <span class="dt">MonoidAST</span> a <span class="kw">where</span></span>
-<span id="cb2-2"><a href="#cb2-2"></a>    <span class="dt">MEmbed</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</span>
-<span id="cb2-3"><a href="#cb2-3"></a>    <span class="dt">MEmpty</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a</span>
-<span id="cb2-4"><a href="#cb2-4"></a>    <span class="dt">MAppend</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</span></code></pre></div>
-<p>A Church encoding represents the interpretation of a data structure; for each construction in the type, the Church encoding will require a function to interpret that construction. Thus, the Church encoding of the above structure can be obtained by replacing <code>MonoidAST a</code> with a type variable <span class="math inline">\(r\)</span>, and describing a function which takes one function for each of the ADT constructors, finally returning an <span class="math inline">\(r\)</span> :</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1"></a><span class="kw">newtype</span> <span class="dt">CEMonoid</span> a <span class="ot">=</span> <span class="dt">CEMonoid</span> {<span class="ot"> mrun ::</span></span>
-<span id="cb3-2"><a href="#cb3-2"></a>    <span class="kw">forall</span> r<span class="op">.</span>        <span class="co">-- ≡ MonoidAST</span></span>
-<span id="cb3-3"><a href="#cb3-3"></a>    (a <span class="ot">-&gt;</span> r)         <span class="co">-- ≡ MEmbed</span></span>
-<span id="cb3-4"><a href="#cb3-4"></a>    <span class="ot">-&gt;</span> r             <span class="co">-- ≡ MEmpty</span></span>
-<span id="cb3-5"><a href="#cb3-5"></a>    <span class="ot">-&gt;</span> (r <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="co">-- ≡ MAppend</span></span>
-<span id="cb3-6"><a href="#cb3-6"></a>    <span class="ot">-&gt;</span> r }</span></code></pre></div>
-<p>The <code>mrun</code> function will take a Church encoded monoid and the functions for each interpretation, and produce a monoidal value. If we consider <code>CEMonoid  Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline">\(a\)</span> and <span class="math inline">\(r\)</span> are not necessarily the same type. We could execute a monoid which first transforms the integer value to something else, such as <code>mrun _ show "" (++)</code>.</p>
-<p>Now we have a way to execute a monoid, but not to construct one. We provide functions for constructors, effectively taking the lower-case of the ADT’s constructors:</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1"></a>membed' a <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ d _ _ <span class="ot">-&gt;</span> d a</span>
-<span id="cb4-2"><a href="#cb4-2"></a>mempty' <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ _ e _ <span class="ot">-&gt;</span> e</span>
-<span id="cb4-3"><a href="#cb4-3"></a>mappend' a b <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ d e f <span class="ot">-&gt;</span> f (mrun a d e f) (mrun b d e f)</span></code></pre></div>
-<p>To demonstrate the equivalence of these constructors to the ADT’s value constructors, we can inspect the types of the functions and observe their similarity to the ADT:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1"></a><span class="op">:</span>t mempty'</span>
-<span id="cb5-2"><a href="#cb5-2"></a><span class="op">:</span>t membed'</span>
-<span id="cb5-3"><a href="#cb5-3"></a><span class="op">:</span>t mappend'</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ot">{-# LANGUAGE GADTs, RankNTypes #-}</span></span></code></pre></div>
+<p>We start out by defining a sum type for a monoid, with empty, embed, and append
+operations. To ease the transformation to Church encoding, we use <code>GADTs</code> to
+give explicit type signatures to the three constructors.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">data</span> <span class="dt">MonoidAST</span> a <span class="kw">where</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MEmbed</span><span class="ot"> ::</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MEmpty</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">MAppend</span><span class="ot"> ::</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a <span class="ot">-&gt;</span> <span class="dt">MonoidAST</span> a</span></code></pre></div>
+<p>A Church encoding represents the interpretation of a data structure; for each
+construction in the type, the Church encoding will require a function to
+interpret that construction. Thus, the Church encoding of the above structure
+can be obtained by replacing <code>MonoidAST a</code> with a type variable <span class="math inline">\(r\)</span>, and
+describing a function which takes one function for each of the ADT
+constructors, finally returning an <span class="math inline">\(r\)</span> :</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">CEMonoid</span> a <span class="ot">=</span> <span class="dt">CEMonoid</span> {<span class="ot"> mrun ::</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">forall</span> r<span class="op">.</span>        <span class="co">-- ≡ MonoidAST</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    (a <span class="ot">-&gt;</span> r)         <span class="co">-- ≡ MEmbed</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>    <span class="ot">-&gt;</span> r             <span class="co">-- ≡ MEmpty</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    <span class="ot">-&gt;</span> (r <span class="ot">-&gt;</span> r <span class="ot">-&gt;</span> r) <span class="co">-- ≡ MAppend</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="ot">-&gt;</span> r }</span></code></pre></div>
+<p>The <code>mrun</code> function will take a Church encoded monoid and the functions for
+each interpretation, and produce a monoidal value. If we consider <code>CEMonoid  Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product
+monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline">\(a\)</span> and <span class="math inline">\(r\)</span> are not
+necessarily the same type. We could execute a monoid which first transforms
+the integer value to something else, such as <code>mrun _ show "" (++)</code>.</p>
+<p>Now we have a way to execute a monoid, but not to construct one. We provide
+functions for constructors, effectively taking the lower-case of the ADT’s
+constructors:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>membed' a <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ d _ _ <span class="ot">-&gt;</span> d a</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>mempty' <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ _ e _ <span class="ot">-&gt;</span> e</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>mappend' a b <span class="ot">=</span> <span class="dt">CEMonoid</span> <span class="op">$</span> \ d e f <span class="ot">-&gt;</span> f (mrun a d e f) (mrun b d e f)</span></code></pre></div>
+<p>To demonstrate the equivalence of these constructors to the ADT’s value
+constructors, we can inspect the types of the functions and observe their
+similarity to the ADT:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="op">:</span>t mempty'</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="op">:</span>t membed'</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="op">:</span>t mappend'</span></code></pre></div>
 <style>/* Styles used for the Hoogle display in the pager */
 .hoogle-doc {
 display: block;
@@ -326,17 +346,20 @@ font-weight: bold;
 </style>
 <p><span class="get-type">mappend’ :: forall a. CEMonoid a -&gt; CEMonoid a -&gt; CEMonoid a</span></p>
 <p>Now we have all the elements in place to create and run a few monoids:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1"></a><span class="kw">let</span> mon <span class="ot">=</span> membed' <span class="dv">5</span> <span class="ot">`mappend'`</span> membed' <span class="dv">3</span> <span class="kw">in</span></span>
-<span id="cb6-2"><a href="#cb6-2"></a>    (mrun mon <span class="fu">id</span> <span class="dv">0</span> (<span class="op">+</span>), mrun mon <span class="fu">id</span> <span class="dv">1</span> (<span class="op">*</span>), mrun mon <span class="fu">show</span> <span class="st">&quot;&quot;</span> (<span class="op">++</span>))</span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> mon <span class="ot">=</span> membed' <span class="dv">5</span> <span class="ot">`mappend'`</span> membed' <span class="dv">3</span> <span class="kw">in</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>    (mrun mon <span class="fu">id</span> <span class="dv">0</span> (<span class="op">+</span>), mrun mon <span class="fu">id</span> <span class="dv">1</span> (<span class="op">*</span>), mrun mon <span class="fu">show</span> <span class="st">&quot;&quot;</span> (<span class="op">++</span>))</span></code></pre></div>
 <pre><code>(8,15,&quot;53&quot;)</code></pre>
-<p>When transforming to the Church encoding, at the type level we exchanged a definition of how to construct the type for a definition of how to interpret the type, and needed to provide functions to construct values in the type.</p>
-<p>Conversely, the ADT describes at the type level how to construct values, and so needs a function to interpret those values:</p>
-<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1"></a>runM <span class="dt">MEmpty</span> d e f <span class="ot">=</span> e</span>
-<span id="cb8-2"><a href="#cb8-2"></a>runM (<span class="dt">MEmbed</span> a) d e f <span class="ot">=</span> d a</span>
-<span id="cb8-3"><a href="#cb8-3"></a>runM (<span class="dt">MAppend</span> a b) d e f <span class="ot">=</span> f (runM a d e f) (runM b d e f)</span>
-<span id="cb8-4"><a href="#cb8-4"></a><span class="op">:</span>t runM</span>
-<span id="cb8-5"><a href="#cb8-5"></a><span class="kw">let</span> mon <span class="ot">=</span> <span class="dt">MEmbed</span> <span class="dv">3</span> <span class="ot">`MAppend`</span> <span class="dt">MEmbed</span> <span class="dv">5</span> <span class="kw">in</span></span>
-<span id="cb8-6"><a href="#cb8-6"></a>    (runM mon <span class="fu">id</span> <span class="dv">0</span> (<span class="op">+</span>), runM mon <span class="fu">id</span> <span class="dv">1</span> (<span class="op">*</span>), runM mon <span class="fu">show</span> <span class="st">&quot;&quot;</span> (<span class="op">++</span>))</span></code></pre></div>
+<p>When transforming to the Church encoding, at the type level we exchanged a
+definition of how to construct the type for a definition of how to interpret
+the type, and needed to provide functions to construct values in the type.</p>
+<p>Conversely, the ADT describes at the type level how to construct values, and so
+needs a function to interpret those values:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>runM <span class="dt">MEmpty</span> d e f <span class="ot">=</span> e</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>runM (<span class="dt">MEmbed</span> a) d e f <span class="ot">=</span> d a</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>runM (<span class="dt">MAppend</span> a b) d e f <span class="ot">=</span> f (runM a d e f) (runM b d e f)</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="op">:</span>t runM</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> mon <span class="ot">=</span> <span class="dt">MEmbed</span> <span class="dv">3</span> <span class="ot">`MAppend`</span> <span class="dt">MEmbed</span> <span class="dv">5</span> <span class="kw">in</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>    (runM mon <span class="fu">id</span> <span class="dv">0</span> (<span class="op">+</span>), runM mon <span class="fu">id</span> <span class="dv">1</span> (<span class="op">*</span>), runM mon <span class="fu">show</span> <span class="st">&quot;&quot;</span> (<span class="op">++</span>))</span></code></pre></div>
 <style>/* Styles used for the Hoogle display in the pager */
 .hoogle-doc {
 display: block;
@@ -456,4 +479,5 @@ font-weight: bold;
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

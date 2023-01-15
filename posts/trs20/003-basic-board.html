@@ -7,11 +7,15 @@
     <title>λbje - The TRS-20 - make it run</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -61,17 +65,20 @@
 <p>The PLCC sockets are through-hole parts, allowing me to simply use perf board to get some kind of initial circuit up and running. Power can be supplied by header pins fed from a 5V breadboard supply, and a cheap oscillator in a DIP socket gets me a clock source quickly.</p>
 <p>With clock and power sorted out, it’s time to look at the signals. The PLCC chip has 68 pins, of which 5 are supply pins (four Vss, one Vcc) and two are clock input pins (EXTAL and XTAL, only EXTAL needed with an oscillator). This leaves 61 signals and two power lines to sort out. TEST must be left floating, and RFSH is pointless without DRAM, which leaves me with 61 lines to assign. I can use a 10-pin header for the serial signals and a 50-pin IDC header for everything else, with one signal to discard. I’ve chosen to leave out the E secondary bus signal, which is active only when bus requests are active.</p>
 <figure>
-<img src="../../images/trs20-basic-circuit.png" alt /><figcaption>The basic circuit wires the processor to a 50-pin IDC socket and an oscillator.</figcaption>
+<img src="../../images/trs20-basic-circuit.png" alt="The basic circuit wires the processor to a 50-pin IDC socket and an oscillator." />
+<figcaption aria-hidden="true">The basic circuit wires the processor to a 50-pin IDC socket and an oscillator.</figcaption>
 </figure>
 <p>Soldering 60+ wires to perfboard is a fiddly task, as I need to take care to solder wires on in an order that doesn’t leave me melting one wire while trying to solder another. I also don’t want to wind up with something looking like the banner image of this post. This means carefully inspecting the processor’s pin diagram and arranging the order of signals on the IDC connector to avoid crossing the wires. Selecting a non-interfering wire order now will have later benefits should I get a PCB made up, as I can stick to routing signals on the top layer and have a broad ground plane.</p>
 <figure>
-<img src="../../images/trs20-basic-circuit-wiring.png" alt /><figcaption>It’s a work of art. Not, you know, great art. More the sort of art that goes on a parent’s fridge for a few months, then quietly thrown out when the child has forgotten it.</figcaption>
+<img src="../../images/trs20-basic-circuit-wiring.png" alt="It’s a work of art. Not, you know, great art. More the sort of art that goes on a parent’s fridge for a few months, then quietly thrown out when the child has forgotten it." />
+<figcaption aria-hidden="true">It’s a work of art. Not, you know, great art. More the sort of art that goes on a parent’s fridge for a few months, then quietly thrown out when the child has forgotten it.</figcaption>
 </figure>
 <p>I need to run supply and ground on the bottom layer in a few places, and there’s a short stint on the bottom layer for DREQ0, but otherwise everything is on the top layer. This particular circuit is more of a wiring plan for a breadboard than anything else, as I think it would not be a good idea to run traces underneath an oscillator, for example.</p>
 <p>The Z80180 cannot run slower than 0.5MHz, by the datasheet. The processor’s clock runs at one-half of the external oscillator’s rate, so a 1MHz oscillator is the slowest that I can use. However, if I want to communicate over the USART, I need a clock rate that can work with the USART’s baud rate generator divider pipeline. This pipeline first divides my external clock by two to get the system clock. This can then be divided by a power of two from 1 to 64, then by 10 or 30, and then by 16 or 64. If I want to run my ASCI at 9600 baud, I need a clock that’s at least 16 x 10 x 2 x 9600 = 3.072MHz. Regrettably, DigiKey don’t want to sell me a through-hole oscillator at that speed, nor at 9.216MHz, or in fact any of the speeds that divide into a common baud rate, except for 6.144MHz and 18.432MHz. The latter clocks my processor at 9.216MHz and allows me to operate at baud rates from 57600 down to 300.</p>
 <p>Alternatively, an external clock that’s less than or equal to the system clock divided by 40 can be used, divided by 16 or 64. A 1MHz oscillator is a 500KHz system clock, requiring an external clock slower than 12.5KHz. Since I have to divide it by 16, I’d need a 4.8KHz oscillator, which I’m pretty sure don’t exist. I’m calling this option a dead end - I don’t want to have a large BOM just to be generating a USART-compatible clock when I can use a system clock that’s suitable.</p>
 <figure>
-<img src="../../images/z8x180-asci-clock.png" alt /><figcaption>This little flow chart is responsible for a lot of time staring at oscillator product lists. Source: Z8018x MPU user manual, page 141.</figcaption>
+<img src="../../images/z8x180-asci-clock.png" alt="This little flow chart is responsible for a lot of time staring at oscillator product lists. Source: Z8018x MPU user manual, page 141." />
+<figcaption aria-hidden="true">This little flow chart is responsible for a lot of time staring at oscillator product lists. Source: Z8018x MPU user manual, page 141.</figcaption>
 </figure>
 <p>So: two oscillators. One to run the processor at its lowest speed of 500KHz with no serial access, and one to run it near its top speed at 9.216MHz. At low speeds, don’t expect serial comms to work: it’s flashing lights and I/O decoders all the way. At the higher speed, I should be able to run a USART link at up to 57600 baud. I can also consider a third oscillator at 3.57MHz, which runs the processor at 1.785MHz, as close as I’m likely to get to the 1.774MHz of the original TRS-80 Model I. To have both a TRS-80 Model I and USART at the same time would require an external clock source for the USART. An MCP2221 USB to USART bridge can output various clocks, with a stack of glue to divide down to a useful speed, or the CPLD may be able to generate a useful clock signal.</p>
 <p>The 50-way IDC connector needs 2x25 holes, and is 2.54mm x 25 + 7.62 + 0.3 = 71.42mm wide. Jaycar’s got a 29x50 hole perf board that comfortably fits everything with plenty of space for wires. And a handful of other stuff: some sockets for logic chips, a larger 24x67 perfboard, and a 50-pin IDC header. Jaycar also gave me a $10 loyalty reward, bringing the price of this little splurge down to a more manageable level.</p>
@@ -187,4 +194,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

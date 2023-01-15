@@ -7,11 +7,15 @@
     <title>λbje - The TRS-20 - Assembling the board</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -59,7 +63,8 @@
 <h2 id="soldering-round-one">Soldering, round one</h2>
 <p>I’ve attempted the iCE40 IC first, as the most likely to fail. And indeed, it hasn’t gone at all well. There were terrible solder bridges on two sides, and while I’ve eventually figured out the technique for dealing with these I’ve applied substantial heat to get there. The board looks in good nick, perhaps due to the two large inner copper planes wicking heat away, but there’s a persistent short from 3.3V to GND that, obviously, is a deal-breaker. I’ve tested the other four boards and they’re all short-free so it’s very likely this is a soldering issue. I found and removed another short on two address lines, and think everything else is clear (no test points - a board design issue), but I don’t even know which of the supply/ground pin pairs has the short. I fear it may have somehow happened beneath the IC where I can’t see it, or with excess heat down a ground via delaminating the board enough for solder to worm its way to a connection with the power layer. It may just be solder sitting sneakily behind some pins, but there’s only two supply pins that are adjacent and I’ve inspected the everloving out of them both.</p>
 <figure>
-<img src="../../images/trs20/dodgy-solder.png" alt /><figcaption>That big one on the left I’ve nicknamed ‘The Bridge of Sighs’.</figcaption>
+<img src="../../images/trs20/dodgy-solder.png" alt="That big one on the left I’ve nicknamed ‘The Bridge of Sighs’." />
+<figcaption aria-hidden="true">That big one on the left I’ve nicknamed ‘The Bridge of Sighs’.</figcaption>
 </figure>
 <p>I’ve ordered three more FPGAs, and I’ll try again, armed perhaps with a greater fear of excessive solder paste, a new multimeter that doesn’t have one lead replaced by an alligator clip holding a screw, and my improved techniques for fixing small bridges. They won’t arrive until the end of the week, so I’ve put board assembly aside for now.</p>
 <h2 id="programming-roms">Programming ROMs</h2>
@@ -71,7 +76,8 @@
 <p>I tried a third FPGA on a fresh board. I have one spare FPGA and two spare boards. This time, I carefully lined up the IC then used a toothpick to put as little solder paste on as I could, then cracked in with the heat gun. There were a few bridges left, but this time I was able to get in and clean them up without using crazy heating cycles. I’ve checked all 100 pins to confirm they’re connected to what they should be, and not to what they shouldn’t be, and it’s all looking good.</p>
 <p>So I got stuck into getting a few more components on the board. I have <em>absolutely no idea</em> if my 100MHz oscillator is on right. It’s a tiny QFN - the only no-lead part on the board - and I can see that at least two pads are soldered, the others <em>probably</em> are, and maybe it doesn’t have bridges, or heat damage from the hot air gun. I can’t really test it, and I didn’t have any particular use for it.</p>
 <figure>
-<img src="../../images/trs20/power-components.png" alt /><figcaption>100 0.5mm pitch pins soldered neatly - and a handful of capacitors on crazy angles.</figcaption>
+<img src="../../images/trs20/power-components.png" alt="100 0.5mm pitch pins soldered neatly - and a handful of capacitors on crazy angles." />
+<figcaption aria-hidden="true">100 0.5mm pitch pins soldered neatly - and a handful of capacitors on crazy angles.</figcaption>
 </figure>
 <p>The 1.2V regulator is a DDPAK, an absolutely enormous beast of a part. It features a large tab for heat transfer, and again I can’t see underneath it to know if solder paste melted or not. The DDPAK is designed to dissipate heat, so it fights every step of the way when soldering. Even the three pins wick heat magically away into the large copper pours and are difficult to solder. It’s on - but the tab might not be soldered down as well as it should be.</p>
 <p>I am filled with regrets about choosing to use 0603 bypass capacitors, they’re fiddly. I’ve put on a half dozen or so, plus a few larger capacitors around the power management. My goal is to get enough soldered on to verify the power circuitry, and then to verify the FPGA is on safely, so I’ve done the DDPAK, the eFuse, and capacitors. I’ve yet to do the resistors, diode, and the R-78 3.3V regulator, more caps, and perhaps the MIC803.</p>
@@ -83,7 +89,8 @@
 <h2 id="powering-up-round-one">Powering up, round one</h2>
 <p>I pushed the USB cable into the socket, fearing the worst, hoping for the best. Today, I got the best: the power LED lit up. The board has juice! This LED is wired straight to the USB power supply, so it tells me that I don’t have a critical short somewhere, and that I do have a successfully soldered USB port, resistor, and correctly oriented LED. That’s quite a moment, but not the end of the story, not just yet.</p>
 <figure>
-<img src="../../images/trs20/power-on.jpg" alt /><figcaption>Just an LED - and an important milestone.</figcaption>
+<img src="../../images/trs20/power-on.jpg" alt="Just an LED - and an important milestone." />
+<figcaption aria-hidden="true">Just an LED - and an important milestone.</figcaption>
 </figure>
 <p>I have two regulators and a voltage divider network in my power circuitry. The RECOM should be converting the 5V supply from USB via the eFuse into 3.3V, while the DDPAK linear regulator supplies 1.2V from the same source. I gave them both a probe with the multimeter, and to my delight, both are showing the expected levels. The voltage divider for the MIC2774 reset controller is also performing properly, delivering 315mV to the 300mV comparator input. Nothing is unduly warm, so I feel confident in declaring my power circuitry design and assembly a success.</p>
 <p>I have no idea just yet whether the FPGA, ROM, and 100MHz oscillator are in a good place. Tomorrow’s soldering task will be to add the remaining LEDs (including the two USR LEDs wired to the FPGA), the MIC803 supervisor, and the pull-up for the ROM’s Slave Select that I missed - U20 and R13 in the above image. After that I’ll choose between testing the FPGA out before committing RAM, ROM, and CPU, or pressing on with the actual computer part of this circuit.</p>
@@ -177,4 +184,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

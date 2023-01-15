@@ -7,11 +7,15 @@
     <title>λbje - The TRS-20 - arrivals from China</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -61,17 +65,20 @@
 <h2 id="damaged-goods">Damaged goods</h2>
 <p>Ordering from AliExpress is usually a mixed bag of results, and this set of orders is no different. The LCD panel has a lovely big impact fracture in it, obsuring ten characters. Despite this, it works, and I have the black pill STM32 driving it happily - all I/O ports on the STM32F4 are 5V tolerant, so there’s no problem controlling the 5V LCD panel from the 3.3V STM32. A refund should be processed shortly, but I don’t think I’ll bother ordering another - I’d need to order the I²C adapter as well, and it’ll take a month to arrive. I’ll work around the damage.</p>
 <figure>
-<img src="../../images/lcd-cracked.jpg" alt /><figcaption>Taking a photo of a backlit LCD panel is surprisingly difficult.</figcaption>
+<img src="../../images/lcd-cracked.jpg" alt="Taking a photo of a backlit LCD panel is surprisingly difficult." />
+<figcaption aria-hidden="true">Taking a photo of a backlit LCD panel is surprisingly difficult.</figcaption>
 </figure>
 <p>The logic analyzer powered up its LEDs just fine, but wasn’t recognised as a USB device. It’s easy to take apart, but scanning over the circuit board showed no obvious problems. This device is quite simple, with a Cypress CY7C68013A USB controller with integrated 8051 μC at its heart. The μC is supported by a 2K EEPROM and a 24MHz crystal, and the usual scattering of resistors and such. With no obvious problems on the board, I took a peek at the USB socket. The ground pin was missing, which is a problem and a surprise - despite this missing pin, the board was powering up, so it was finding a return path somewhere.</p>
 <figure>
-<img src="../../images/logic-analyzer.jpg" alt /><figcaption>This photo shows the part markings, with a hint of ghetto repair.</figcaption>
+<img src="../../images/logic-analyzer.jpg" alt="This photo shows the part markings, with a hint of ghetto repair." />
+<figcaption aria-hidden="true">This photo shows the part markings, with a hint of ghetto repair.</figcaption>
 </figure>
 <p>A $5 part is worth taking the risk on for a repair, so I took the shield off the USB socket and found the ground pin was present but not inserted correctly. It’s possible the board was getting an intermittent connection from it. I straightened the pin out a little and the board was recognised immediately, and could analyze my I²C link to the LCD panel. Of course without the shield and its solder connections, the remaining stub of USB socket quickly broke off, so I lopped the head off the supplied USB cable and soldered it directly to the board, which you can see at the bottom of the image, beside the exposed FR4 substrate where I ripped the pad right off removing the shield. Hot glue will provide sufficient strain relief for this device.</p>
 <h2 id="soldering-with-fire">Soldering with fire</h2>
 <p>My SMD practice kits also arrived, so I took a moment to solder two QFP 44s, some SOT-23s, 0612 resistor arrays, and even some 0402 resistors. I tried drag soldering, heating solder paste with the iron, and heating paste with a butane hot air torch. The image below shows the hot air soldering on the QFP on the left, and the SOIC and SOT-23s at the top. Heating paste with an iron is the QFP on the right, and the SOIC/SOTs at the bottom. The drag soldering was an attept to correct the hot air QFP having been lifted slightly off the pads on one side, and since I dont have any flux that isn’t inside a solder wire or in the paste, it went very poorly. You can see a big ol’ solder bridge between the 4th and 5th pins from the bottom.</p>
 <figure>
-<img src="../../images/qfp-solder-kit.jpg" alt /><figcaption>I don’t even know what these chips do. They’re probably not functional though, since they’re in a cheap practice kit.</figcaption>
+<img src="../../images/qfp-solder-kit.jpg" alt="I don’t even know what these chips do. They’re probably not functional though, since they’re in a cheap practice kit." />
+<figcaption aria-hidden="true">I don’t even know what these chips do. They’re probably not functional though, since they’re in a cheap practice kit.</figcaption>
 </figure>
 <p>The hot air soldering did a very neat job on the SOICs and the SOT-23s, and a reasonably neat job on the 0402s. I’ll still call 0603 my lower limit, but if I ever need a 0402 in a pinch I’m confident I could manage. The 0612 arrays (marked as 0606 on the board, but definitely not square parts) were surprisingly fiddly, but also went on okay. I singed the board in two places trying to fiddle with the arrays, though.</p>
 <p>I’ll definitely use the hot air approach for most SMD work. The solder paste heated with an iron leaves a lot of mess behind that I suspect may corrode the board or cause bridges down the line, and I don’t see any reason to use flux paste and try again on the drag soldering given how quick and effective the hot air soldering was. The fact that one row of legs didn’t make contact means I’ll try again on the second practice board and see if it was insufficient paste, bent pins, or a lack of pressure on the chip, but I expect that a cheap butane torch is enough to run with QFPs and even stuff with thermal pads.</p>
@@ -239,4 +246,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

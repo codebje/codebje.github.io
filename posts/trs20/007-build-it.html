@@ -7,11 +7,15 @@
     <title>λbje - The TRS-20 - STM32F4 driver</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -59,9 +63,9 @@
 <h2 id="build-first">Build first</h2>
 <p>I find it to be good practice for any project to start with the build and deployment processes. I want to be able to evolve my processes as my project evolves, and I don’t want to encounter infrastructure surprises late in the project when everything is more complicated and change is costlier.</p>
 <p>My initial build process was a straightforward Makefile to build a single assembly source file with a single <code class="sourceCode armasm"><span class="dt">.text</span></code> section and link it as per the <a href="http://www.martinhubacek.cz/arm/arm-cortex-bare-metal-assembly/stm32f0-cortex-m0-bare-metal-assembly">Cortex M0 example</a> I mentioned in the last post. This got me far enough to inspect binary outputs, which leads to understanding why my assembly sources should begin with the following three directives.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb1-1"><a href="#cb1-1"></a>        .thumb</span>
-<span id="cb1-2"><a href="#cb1-2"></a>        .cpu            cortex-m4</span>
-<span id="cb1-3"><a href="#cb1-3"></a>        .unified</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.thumb</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.cpu</span>            cortex-m4</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        .unified</span></code></pre></div>
 <p>The STM32F series is based on a Cortex M4 design. The M4 permits two instruction sets, the ARMv7 and Thumb sets - the Thumb set has 32-bit extensions (sometimes called Thumb v2), and the STM32F4 only supports Thumb mode. The directives then tell the assembler to emit Thumb opcodes, to use the set of opcodes supported by the M4, and to use a unified syntax common to both sets as the original Thumb mnemonics kind of sucked.</p>
 <p>Switching between ARMv7 and Thumb modes is accomplished with a couple of branch-and-exchange-mode instructions. If the target address has its least significant bit set, then Thumb mode is enabled. Otherwise, ARMv7 mode is enabled. I’ll never use the <code class="sourceCode armasm"><span class="kw">bx</span></code> instructions, but this LSB signal also crops up for the processor’s vector table.</p>
 <p>You could simply set the LSB on each address in the vector table with something like <code class="sourceCode armasm"><span class="dt">.word</span> _start + <span class="bn">1</span></code>, but the GNU ARM assembler knows its business and will set the bit for you if you tell it that a symbol is for a function entry point, with <code class="sourceCode armasm">.type _start, %function</code>.</p>
@@ -102,8 +106,10 @@
 </tr>
 <tr class="odd">
 <td style="text-align: center;">TIM2_CCMR2</td>
-<td style="text-align: center;">OC3M CC3S</td>
-<td style="text-align: center;">Output compare mode. Set to 0b100 for PWM mode 1. Capture/Compare selection. Set to 0b00 for output mode.</td>
+<td style="text-align: center;">OC3M
+CC3S</td>
+<td style="text-align: center;">Output compare mode. Set to 0b100 for PWM mode 1.
+Capture/Compare selection. Set to 0b00 for output mode.</td>
 </tr>
 <tr class="even">
 <td style="text-align: center;">TIM2_CCER</td>
@@ -132,7 +138,8 @@
 <h2 id="experiments">Experiments</h2>
 <p>Because I have no facility to test register configuration, I’m taking a cautious approach. I’ve commented out all code to write to the clock configuration registers, leaving only the timer output. With the HSI running at 16MHz, I expect to see a signal of <span class="math inline">\(\frac{16\mathrm{MHz}}{42} = ~381\mathrm{KHz}\)</span>.</p>
 <figure>
-<img src="../../images/timers%20-%20flatline.png" alt /><figcaption>I’m no electrical engineer, but I’m pretty sure that’s a 0Hz signal.</figcaption>
+<img src="../../images/timers%20-%20flatline.png" alt="I’m no electrical engineer, but I’m pretty sure that’s a 0Hz signal." />
+<figcaption aria-hidden="true">I’m no electrical engineer, but I’m pretty sure that’s a 0Hz signal.</figcaption>
 </figure>
 <p>I made several mistakes, which isn’t entirely unexpected. I can’t debug on the device itself, because my st-link clone appears to be broken, possibly fried by my own actions, but I can inspect my code in a debugger.</p>
 <p>The first problem is that my linker script wasn’t quite right. You are free to name your output sections anything you like, and I chose <code>.vectors</code> for my vector table. However, that freedom is limited by your output format. In an ELF binary, however, certain section names are magical.</p>
@@ -147,29 +154,32 @@
                   CONTENTS, READONLY</code></pre>
 <p>As I planned it, my <code>.vectors</code> section is at VMA 0x08000000, hooray. But its flags don’t include ALLOC or LOAD, so the section is never loaded into memory, or flashed onto the device. Instead, the <code>.text</code> section is loaded at VMA 0x08000000, and the processor attempts to jump to 0x60b00000 to run code, as shown in gdb with <code>x/2xw 0x08000000</code>. This does not succeed. The problem is easily solved: I put the <code>.vectors</code> input section into the <code>.text</code> output section.</p>
 <p>The next problem is in this little excerpt of code, that is supposed to set pin A2’s mode to its alternate function.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb3-1"><a href="#cb3-1"></a>        <span class="kw">ldr</span>     <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_MODER]</span>
-<span id="cb3-2"><a href="#cb3-2"></a>        orr     <span class="at">r0</span>, <span class="at">r0</span>, GPIOx_MODER_MODE_ALT</span>
-<span id="cb3-3"><a href="#cb3-3"></a>        <span class="kw">str</span>     <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_MODER]   // set PA2 to mode AF</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>        <span class="kw">ldr</span>     <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_MODER]</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>        orr     <span class="at">r0</span>, <span class="at">r0</span>, GPIOx_MODER_MODE_ALT</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">str</span>     <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_MODER]   // set PA2 to mode AF</span></code></pre></div>
 <p>Symbolic constants abound. I can check those by cross-referencing where they’re defined, but I can also fire up a debugger and look at what code is in the byte stream.</p>
 <pre><code>0x080000a2 &lt;+46&gt;:	ldr	r0, [r6, #0]
 0x080000a4 &lt;+48&gt;:	orr.w	r0, r0, #2
 0x080000a8 &lt;+52&gt;:	str	r0, [r6, #0]</code></pre>
 <p><code>#0</code> is the right offset for <code>GPIOx_MODER</code>, but what’s this? <code>#2</code> is definitely not the right constant for setting pin 2 to AF - it’s the right constant for setting pin 0 to AF. I neglected to shift my symbolic constant into the right spot for the pin I want to affect.</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb5-1"><a href="#cb5-1"></a>        orr     <span class="at">r0</span>, <span class="at">r0</span>, GPIOx_MODER_MODE_ALT &lt;&lt; <span class="bn">4</span></span></code></pre></div>
+<div class="sourceCode" id="cb5"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>        orr     <span class="at">r0</span>, <span class="at">r0</span>, GPIOx_MODER_MODE_ALT &lt;&lt; <span class="bn">4</span></span></code></pre></div>
 <p>And now, I see output.</p>
 <figure>
-<img src="../../images/timers%20-%20heartbeat.png" alt /><figcaption>The earlier peaks here measure as 375KHz, so I cherry picked the best one.</figcaption>
+<img src="../../images/timers%20-%20heartbeat.png" alt="The earlier peaks here measure as 375KHz, so I cherry picked the best one." />
+<figcaption aria-hidden="true">The earlier peaks here measure as 375KHz, so I cherry picked the best one.</figcaption>
 </figure>
 <p>I see the output I predicted, no less. The time there is 2.625μs, which is exactly 42 divided by 16. Every few intervals, the measured frequency is 375KHz, which I would expect is because either the internal oscillator or my cheap logic analyser’s clock are not perfectly accurate. A 2.625μs measurement is 63 samples at 24MHz, while a 2.667μs measurement is 64 samples.</p>
 <h2 id="changing-clocks">Changing clocks</h2>
 <p>Able to see output, it’s now time to start changing my clock speeds. I’ll start by verifying I can change the APB1 divider, because that’s the one I need to get right before mucking with the system clock. This means re-including stores to <code>RCC_CFGR</code>. While I’m there, I’ll also turn on the HSE and wait for it to be ready, and as the last thing I do in my <code>main</code>, I’ll turn on PC13 as a push-pull output, driven low, to turn on the board’s blue LED. This will give me a quick visual indicator that my code has made it through all of the configuration, instead of hitting a trap or an endless loop.</p>
 <p>With the APB1 divider set to 2, I now expect to see 5.25μs between peaks, a 190KHz rate, taking 126 samples. I may see 189KHz as well, which is 127 samples. Let’s take a look.</p>
 <figure>
-<img src="../../images/timers%20-%20heartbeat.png" alt /><figcaption>Yes, this is the same image as before.</figcaption>
+<img src="../../images/timers%20-%20heartbeat.png" alt="Yes, this is the same image as before." />
+<figcaption aria-hidden="true">Yes, this is the same image as before.</figcaption>
 </figure>
 <p>Well, hmm. Am I failing to configure the APB1 clock divider? If so, how? A peek at my code shows I forgot to actually set <code class="sourceCode armasm"><span class="at">r6</span></code> to <code>RCC</code>, so I’m attempting to set the clock by writing a word into Flash. This does not succeed. I fix that up, and…</p>
 <figure>
-<img src="../../images/timers%20-%20heartbeat.png" alt /><figcaption>Yes, this is still the same image as before.</figcaption>
+<img src="../../images/timers%20-%20heartbeat.png" alt="Yes, this is still the same image as before." />
+<figcaption aria-hidden="true">Yes, this is still the same image as before.</figcaption>
 </figure>
 <p>Uh. Well, it’s midnight, I should sleep.</p>
 <h2 id="finding-the-mistake">Finding the mistake</h2>
@@ -191,13 +201,15 @@
 <p>Address <code>0x80000f8</code> has the right value for <code>GPIOA</code>. <code>0xcc</code> is <code>1100 1100</code>, which sets very high speed on pins 1 and 3. <code>0x3010</code> is <code>0011 0000 0001 0000</code>, written to <code>GPIOx_AFLR</code>, sets pin 3 to AF03, and pin 1 to AF01. And finally, <code>0x88</code> is <code>1000 1000</code>, written to <code>GPIOx_MODER</code>. This assumes the modes for pins 1 and 3 are in their reset state, and sets them to AF mode.</p>
 <p>With APB1’s clock now divided by four, I’m ready to run this sucker.</p>
 <figure>
-<img src="../../images/timers%20-%20paired.png" alt /><figcaption>If this were a gif sort of blog, there’d be a celebratory dance of some kind right here.</figcaption>
+<img src="../../images/timers%20-%20paired.png" alt="If this were a gif sort of blog, there’d be a celebratory dance of some kind right here." />
+<figcaption aria-hidden="true">If this were a gif sort of blog, there’d be a celebratory dance of some kind right here.</figcaption>
 </figure>
 <p>I configured both timers with prescale 7, counter 6. With APB2’s timers running twice as fast as APB1’s, I now expect to see TIM9 spitting out a 381KHz signal, and TIM2 spitting out a 190KHz signal.</p>
 <h2 id="the-rest-of-the-owl">The rest of the owl</h2>
 <p>With the most risky part out of the way, it’s time to fire up the whole configuration scheme and get the part running at 84MHz. I’ve set APB2’s divider back down to two, which means both TIM2 and TIM9 will be running at 84MHz. The settings I have for prescaler and counter should produce a 2MHz signal (84/6/7 = 2).</p>
 <figure>
-<img src="../../images/timers%20-%202mhz.png" alt /><figcaption>Sort of anticlimatic, when everything works as predicted.</figcaption>
+<img src="../../images/timers%20-%202mhz.png" alt="Sort of anticlimatic, when everything works as predicted." />
+<figcaption aria-hidden="true">Sort of anticlimatic, when everything works as predicted.</figcaption>
 </figure>
 <p>Now I need to refer back to my notes so I can start reacting to signals. The pins I’ve defined are:</p>
 <table>
@@ -254,32 +266,34 @@
 <p><em>Note: the mistake I made in the previous post to somehow forget that the address bus is 16-bits continues here. I won’t fix it, I’ll live with it and move on to using real memory.</em></p>
 <p>The code to watch for a memory request and react to it is straightforward. I read from the GPIOB input data register and check to see if MREQ and RD (bits 13 and 15) are set. If not, I loop and read again.</p>
 <p>If so, then I set PA9 using the bit set/reset register for GPIOA, then I wait for either MREQ or RD to clear. I then reset PA9, and loop back to wait for MREQ and RD again.</p>
-<div class="sourceCode" id="cb7"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb7-1"><a href="#cb7-1"></a><span class="fu">loop:</span>   // wait for MREQ and RD to be set</span>
-<span id="cb7-2"><a href="#cb7-2"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_IDR]</span>
-<span id="cb7-3"><a href="#cb7-3"></a>        ands            <span class="at">r1</span>, <span class="at">r0</span>, <span class="bn">0</span>b1010000000000000</span>
-<span id="cb7-4"><a href="#cb7-4"></a>        <span class="kw">beq</span>             loop</span>
-<span id="cb7-5"><a href="#cb7-5"></a></span>
-<span id="cb7-6"><a href="#cb7-6"></a>        // set PA9 to indicate memory read is active</span>
-<span id="cb7-7"><a href="#cb7-7"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, =<span class="bn">1</span> &lt;&lt; <span class="bn">9</span></span>
-<span id="cb7-8"><a href="#cb7-8"></a>        <span class="kw">str</span>             <span class="at">r0</span>, [<span class="at">r5</span>, GPIOx_BSRR]</span>
-<span id="cb7-9"><a href="#cb7-9"></a></span>
-<span id="cb7-10"><a href="#cb7-10"></a><span class="fu">reading:</span>// wait for MREQ and RD to go inactive</span>
-<span id="cb7-11"><a href="#cb7-11"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_IDR]</span>
-<span id="cb7-12"><a href="#cb7-12"></a>        ands            <span class="at">r1</span>, <span class="at">r0</span>, <span class="bn">0</span>b1010000000000000</span>
-<span id="cb7-13"><a href="#cb7-13"></a>        <span class="kw">bne</span>             reading</span>
-<span id="cb7-14"><a href="#cb7-14"></a></span>
-<span id="cb7-15"><a href="#cb7-15"></a>        // reset PA9</span>
-<span id="cb7-16"><a href="#cb7-16"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, =<span class="bn">1</span> &lt;&lt; <span class="bn">25</span></span>
-<span id="cb7-17"><a href="#cb7-17"></a>        <span class="kw">str</span>             <span class="at">r0</span>, [<span class="at">r5</span>, GPIOx_BSRR]</span>
-<span id="cb7-18"><a href="#cb7-18"></a></span>
-<span id="cb7-19"><a href="#cb7-19"></a>        b               loop</span></code></pre></div>
+<div class="sourceCode" id="cb7"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">loop:</span>   // wait for MREQ and RD to be set</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_IDR]</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        ands            <span class="at">r1</span>, <span class="at">r0</span>, <span class="bn">0</span>b1010000000000000</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">beq</span>             loop</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        // set PA9 to indicate memory read is active</span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, =<span class="bn">1</span> &lt;&lt; <span class="bn">9</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">str</span>             <span class="at">r0</span>, [<span class="at">r5</span>, GPIOx_BSRR]</span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a><span class="fu">reading:</span>// wait for MREQ and RD to go inactive</span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, [<span class="at">r6</span>, GPIOx_IDR]</span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        ands            <span class="at">r1</span>, <span class="at">r0</span>, <span class="bn">0</span>b1010000000000000</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">bne</span>             reading</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        // reset PA9</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="kw">ldr</span>             <span class="at">r0</span>, =<span class="bn">1</span> &lt;&lt; <span class="bn">25</span></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">str</span>             <span class="at">r0</span>, [<span class="at">r5</span>, GPIOx_BSRR]</span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        b               loop</span></code></pre></div>
 <p>There’s a logic error in here I introduced in the 11th hour, so it works <em>almost</em> as expected. The logic analyser’s capture shows the STM32 dropping PA9 low when MREQ and RD are low, and PA9 staying high during a DRAM refresh cycle when only MREQ goes low. Of course, I wrote it thinking I was asserting PA9 high when MREQ/RD were active, but I forgot to take into account that these two lines are active low. Despite this, the timing here shows the STM32F4 will comfortably respond to a read request in time, and have no trouble turning output off when it should relinquish the bus.</p>
 <figure>
-<img src="../../images/timers%20-%20reacting.png" alt /><figcaption>The slowest reaction I could find in here was 166.667ns.</figcaption>
+<img src="../../images/timers%20-%20reacting.png" alt="The slowest reaction I could find in here was 166.667ns." />
+<figcaption aria-hidden="true">The slowest reaction I could find in here was 166.667ns.</figcaption>
 </figure>
 <p>A few other things have gone a little bit wrong, of course. I was having trouble getting the STM32 to boot up correctly: it would only work immediately after being flashed on. Turns out I forgot to uncomment the Flash wait state register write, which as promised crashes the μC. I have to plug in the STM32’s USB cable before the logic analyser: I suspect a ground loop is at fault. And my ghetto breadboard header for the 50-pin IDC socket is really not a good piece of engineering, so A1 isn’t wired up right. This final point means I’ve got to bust out a soldering iron before I can make the STM32 act as RAM and ROM.</p>
 <figure>
-<img src="../../images/timers%20-%20test%20rig.jpg" alt /><figcaption>There’s a cheeky 74HC245N photobombing my rig.</figcaption>
+<img src="../../images/timers%20-%20test%20rig.jpg" alt="There’s a cheeky 74HC245N photobombing my rig." />
+<figcaption aria-hidden="true">There’s a cheeky 74HC245N photobombing my rig.</figcaption>
 </figure>
 <p>I also don’t really like my chances of fitting enough wires on this breadboard to wire up the data lines via a ’245. Another round of fiddly soldering of 40 or so wires, here I come.</p>
 <p>This experiment has been a great success. I’ve programmed my STM32F4 from the ground up, detected the Z180’s memory requests, and confirmed that an 84MHz μC is easily fast enough to be RAM and ROM for a 1MHz processor. Nice.</p>
@@ -352,4 +366,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

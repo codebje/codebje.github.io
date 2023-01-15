@@ -7,11 +7,15 @@
     <title>λbje - Hakyll, Clay, and Docker</title>
     <link rel="stylesheet" type="text/css" href="../css/main.css">
     <link rel="stylesheet" type="text/css" href="../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -50,16 +54,33 @@
   
 
 
-  <p>I wrote some words recently on monads in C. These are not particularly clever words, and implementing monads in C isn’t a particularly clever idea, but they’re my words, and it’s my idea, and I don’t wish it to vanish into the aether.</p>
-<p>I considered, and rejected, using some service like medium.com. I don’t quite know why, maybe it wasn’t interesting enough as an approach. I tried, briefly, using Github Pages, then Jekyll stand-alone, but was dissatisfied with the Ruby underpinnings of Jekyll. Then, like a ray of sunshine on a cloudy day …</p>
+  <p>I wrote some words recently on monads in C. These are not particularly
+clever words, and implementing monads in C isn’t a particularly clever
+idea, but they’re my words, and it’s my idea, and I don’t wish it to
+vanish into the aether.</p>
+<p>I considered, and rejected, using some service like medium.com. I don’t
+quite know why, maybe it wasn’t interesting enough as an approach. I
+tried, briefly, using Github Pages, then Jekyll stand-alone, but was
+dissatisfied with the Ruby underpinnings of Jekyll. Then, like a ray
+of sunshine on a cloudy day …</p>
 <h2 id="hakyll">Hakyll</h2>
-<p>… Hakyll appeared. Haskell-based static site generation. It’s like Jekyll, but without the irritating idiom of doing everything implicitly. And with support for literate haskell as a document input type, which I am sure may come in handy.</p>
+<p>… Hakyll appeared. Haskell-based static site generation. It’s like
+Jekyll, but without the irritating idiom of doing everything implicitly.
+And with support for literate haskell as a document input type, which I am
+sure may come in handy.</p>
 <p>Perhaps more later on the specifics.</p>
 <h2 id="clay">Clay</h2>
-<p>Applying some style (I use the word only in its CSS technical sense) to the site took me to Clay. CSS authoring with strict typing, and a chance to experience a bit more of Haskell-backed EDSLs, their uses, and their drawbacks.</p>
-<p>See the <a href="../lib/Blog/Css.html">syntax highlighting</a> library file, also a literate Haskell document rendered using Hakyll as a page, for how this looks.</p>
+<p>Applying some style (I use the word only in its CSS technical sense) to the
+site took me to Clay. CSS authoring with strict typing, and a chance to
+experience a bit more of Haskell-backed EDSLs, their uses, and their
+drawbacks.</p>
+<p>See the <a href="../lib/Blog/Css.html">syntax highlighting</a> library file, also a literate Haskell document
+rendered using Hakyll as a page, for how this looks.</p>
 <h2 id="docker">Docker</h2>
-<p>And of course, putting all this into Docker, continuing my recent decision to keep my hosting box more or less just a base OS install, obviating the need for OS-level backups. Any old base image will do, as long as it runs dockerd.</p>
+<p>And of course, putting all this into Docker, continuing my recent decision
+to keep my hosting box more or less just a base OS install, obviating the
+need for OS-level backups. Any old base image will do, as long as it runs
+dockerd.</p>
 </article>
 
 
@@ -95,4 +116,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

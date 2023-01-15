@@ -7,12 +7,16 @@
     <title>λbje - The TRS-20 - system bus</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
     <link rel="stylesheet" type="text/css" href="../../css/trs80font.css">
+    
+    
     
   </head>
   <body>
@@ -59,12 +63,14 @@
 <p>Flimsy justification out of the way, let’s talk system bus design.</p>
 <p>My experience with assembling PCs has exposed me to a common design pattern - a motherboard into which expansion cards are slotted. A variation on this pattern is used by the <a href="https://rc2014.co.uk/">RC2014</a> system, by the Veronica, and by the <a href="http://linc.no/products/z50bus/">Z50</a>, amongst others. Rather than a motherboard carrying the CPU and core system components, though, these systems all have an uncomplicated parallel bus backplane board, and the CPU plugs in just like all the peripheral cards. This is a sensible choice, as the bus can be kept stable even if the CPU board iterates - or even changes processor entirely.</p>
 <figure>
-<img src="../../images/rc2014.jpg" alt /><figcaption>The <a href="https://rc2014.co.uk/">RC2014</a> design looks neat and works well.</figcaption>
+<img src="../../images/rc2014.jpg" alt="The RC2014 design looks neat and works well." />
+<figcaption aria-hidden="true">The <a href="https://rc2014.co.uk/">RC2014</a> design looks neat and works well.</figcaption>
 </figure>
 <p>The RC2014, the Z50, and the Veronica are all motherboard designs with daughterboards rising vertically. They vary in the connector technology and pin count, but not widely. None of them are very well suited to my constraints on board size and my use of a Z180. 40-pin headers are slightly over 100mm long, exceeding my board budget. Trimming them takes an already heavily constrained signal set (down from 65 exposed on the Z180) and worsens the situation. ISA edge connectors are more suitable and remain a viable option, though 62 contacts means I’d need to skip three CPU signals and have no spare capacity for any other signals.</p>
 <p>The winning choice, in the end, comes from a 30 year old standard for embedded systems. <a href="https://pc104.org/">PC/104</a> is a vertical stack of small boards, using board to board connectors to run a bus, and standoffs to provide stability. Each board should be 90.17x95.89mm in size, with a 13mm allowance for I/O connectors at some edges, allowing me to use most of my board budget.</p>
 <figure>
-<img src="../../images/pc104-stack.jpg" alt /><figcaption>A little stack of boards makes for an even better homebrew computer.</figcaption>
+<img src="../../images/pc104-stack.jpg" alt="A little stack of boards makes for an even better homebrew computer." />
+<figcaption aria-hidden="true">A little stack of boards makes for an even better homebrew computer.</figcaption>
 </figure>
 <p>The original PC/104 bus was an ISA 8-bit (PC/XT) bus, with a 32x2 2.54mm pitch header for the board to board connections. This was subsequently updated to add a 20x2 header for a 16-bit ISA (PC/AT) bus. The original ISA bus uses edge connectors, not pin headers. The use of headers reduces the size of the bus connector down to fit on the PC/104 footprint. Subsequent revisions add a 4x30 header to carry a PCI bus, remove the ISA bus, add a PCI Express bus, and finally remove the PCI bus. These various kinds of bus connector are visible in the image above, but I’ll be sticking to the 16-bit ISA connectors - these are the headers included in my first round of parts.</p>
 <p>It remains to be see whether I’ll actually use the ISA bus signals as they’re meant to be used. There isn’t exactly a real <a href="https://en.wikipedia.org/wiki/Industry_Standard_Architecture">ISA bus</a> specification, but the book “ISA and EISA: Theory and Operation” is about as close as it gets. There’s a few parts of correct ISA operation that might cause problems for my project. The ISA bus should be clocked at either 8MHz or 8.33MHz, though it’s reasonable to share the CPU clock. The clock isn’t particularly critical though, since the bus is asynchronous, with expected response times for each signal edge. There’s enough in common with the Z80’s system bus that a bridge should be practical to build, but it may have implications for whether I can get zero wait-state memory on the bus. To be determined…</p>
@@ -139,4 +145,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

@@ -460,17 +460,14 @@ footer
 
 .sourceCode pre
 {
-  font-family    : "Source Code Pro", monospace;
-  margin         : 0 0 15px 0;
-  padding        : 5px 10px 5px 10px;
-  vertical-align : baseline;
-  border         : solid 1px #dddddd;
-  background     : #eeeeee;
+  font-family : "SauceCodePro Nerd Font Mono", monospace;
+  border      : solid 1px #dddddd;
+  background  : #eeeeee;
 }
 
 .sourceCode code
 {
-  font-family : "Source Code Pro", monospace;
+  font-family : "SauceCodePro Nerd Font Mono", monospace;
 }
 
 td.lineNumbers
@@ -487,76 +484,16 @@ td.sourceCode
   padding-left : 5px;
 }
 
-
-.sourceCode span.kw
+code.sourceCode > span
 {
-  color       : #000000;
-  font-weight : bold;
+  width : 100%;
 }
 
-.sourceCode span.dt
+code.sourceCode .opcodes
 {
-  color       : #445588;
-  font-weight : bold;
-}
-
-.sourceCode span.dv
-{
-  color : #009999;
-}
-
-.sourceCode span.bn
-{
-  color : #009999;
-}
-
-.sourceCode span.fl
-{
-  color : #009999;
-}
-
-.sourceCode span.ch
-{
-  color : #d01040;
-}
-
-.sourceCode span.st
-{
-  color : #d01040;
-}
-
-.sourceCode span.co
-{
-  color      : #999988;
-  font-style : italic;
-}
-
-.sourceCode span.ot
-{
-  color : #555555;
-}
-
-.sourceCode span.at
-{
-  color       : #ff0000;
-  font-weight : bold;
-}
-
-.sourceCode span.fu
-{
-  color       : #990000;
-  font-weight : bold;
-}
-
-.sourceCode span.re
-{
-  color : #000000;
-}
-
-.sourceCode span.er
-{
-  color       : #ff0000;
-  font-weight : bold;
+  float       : right;
+  opacity     : 0.69999;
+  user-select : none;
 }
 
 

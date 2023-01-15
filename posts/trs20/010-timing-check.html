@@ -7,11 +7,15 @@
     <title>λbje - The TRS-20 - Timing check</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -61,7 +65,8 @@
 <p>When you pop out of the CPU and look at its immediate peripherals, the clock signal comes along for the ride. External components must march to the same drum as the processor, consuming data it outputs before the processor has moved on to the next task, and providing data as input before the processor acts on it.</p>
 <p>This manifests in data sheets and other documentation as <em>timing diagrams</em>. These diagrams have time as the horizontal axis, and signal levels as the vertical axis, with multiple signals on the same diagram to show how the signals must synchronise with each other. If there’s a clock synchronising the signals, it’ll usually be the first signal in the diagram. Since the diagram’s purpose is to show relative timing constraints, the time axis isn’t accurate - if two signals change at the same point horizontally, they’re only specified to change at the same time if the diagram indicates a zero time delay between them.</p>
 <figure>
-<img src="../../images/timing-diagram-example.svg" alt /><figcaption>Three signals (one a bus), and two indicated timing data.</figcaption>
+<img src="../../images/timing-diagram-example.svg" alt="Three signals (one a bus), and two indicated timing data." />
+<figcaption aria-hidden="true">Three signals (one a bus), and two indicated timing data.</figcaption>
 </figure>
 <p>A timing diagram’s value is in explaining how one signal’s change in state is related to another signal. In the above diagram, a table would give an upper or lower bound for the intervals marked <code>1</code> and <code>2</code>. An upper bound for interval <code>1</code> would specify the maximum time that the address lines will settle after the rising edge of T1. A lower bound for interval <code>2</code> would specify the minimum time that the address lines will be settled before /MREQ falls.</p>
 <h2 id="processor-timing-details-for-the-z180">Processor timing details for the Z180</h2>
@@ -70,7 +75,8 @@
 <p>Others of these timing values tell me useful information for my component selection, when read in conjunction with a timing diagram. How fast does my SRAM have to be if I want to access it with no wait states? Well - in an opcode fetch cycle, the address pins will stabilise no more than t<sub>AD</sub> (30ns) after the first rising edge of the first clock cycle of the opcode fetch machine cycle, and no less than t<sub>AS</sub> (5ns) before /MREQ or /IORQ falls. In turn, /MREQ promises it will fall no later than t<sub>MED1</sub> (25ns) after the falling edge of that first clock cycle. Similarly, t<sub>RDD1</sub> (25ns) promises that /RD will fall at most that long after the falling edge as well. There’s nothing tying /RD and /MREQ together though, so there’s no commitment made as to which will fall first, or how much time will elapse between the two falling.</p>
 <p>It’s all a bit complicated. Perhaps a diagram would help…</p>
 <figure>
-<img src="../../images/z180-timing-main.png" alt /><figcaption>z8018x User Manual (UM005004-0918), p.197, Figure 81.</figcaption>
+<img src="../../images/z180-timing-main.png" alt="z8018x User Manual (UM005004-0918), p.197, Figure 81." />
+<figcaption aria-hidden="true">z8018x User Manual (UM005004-0918), p.197, Figure 81.</figcaption>
 </figure>
 <p>There’s a lot going on in this one diagram, but I can use it to produce the information I really need - if I have 12ns SRAM, how fast does my glue logic have to be before I need a wait state? And for my Flash ROM and any on-board I/O devices, similar questions play out.</p>
 <h2 id="working-out-maximum-delays">Working out maximum delays</h2>
@@ -173,20 +179,23 @@
 </tbody>
 </table>
 <figure>
-<img src="../../images/z180-timing-memory.svg" alt /><figcaption>Memory access timing diagram, opcode fetch and write cycles.</figcaption>
+<img src="../../images/z180-timing-memory.svg" alt="Memory access timing diagram, opcode fetch and write cycles." />
+<figcaption aria-hidden="true">Memory access timing diagram, opcode fetch and write cycles.</figcaption>
 </figure>
 <p>The only timing not specified in the table above is 1 (t<sub>CYC</sub>, the clock cycle time). I will use an 18.432MHz MEMS oscillator, the DSC1001DE5. This part is accurate to 10ppm, which means t<sub>CYC</sub> will fall between 54.253ns and 54.254ns, which I will call 54ns. It outputs 0.9xV<sub>DD</sub>, or 2.97V, with a rise and fall time no longer than 2ns. The duty cycle could be anywhere between 45% and 55%, or 24.3ns to 29.7ns.</p>
 <p>A regular memory read cycle shortes the data window by only requiring that data has been set up t<sub>DRS</sub> before the falling edge of T3, rather than the rising edge. I/O read cycles are the same as regular memory read cycles, except that /IORQ replaces /MREQ and there is always at least one wait state. In Z80-compatible mode though, /IORQ and /RD fall after the rising edge of T2, so that’s a little trap to be wary of.</p>
 <p>To read a byte from a typical memory chip, one will decode the address lines plus /MREQ to activate the chip enable input of the memory, then activate either output enable or write enable depending on whether /RD or /WR is active. /MREQ activates 5ns after the address lines have settled, or 25ns after T1 falls. T1 could fall as late as 29.7ns after T1 rises, so /MREQ will not become active until 54.7ns have elapsed. /RD will become active at the same time. This is 1.7ns after T2 has begun, leaving 53.3ns until T3 begins, and 43.3ns until the data must be available.</p>
 <figure>
-<img src="../../images/z180-memory-read-timing.svg" alt /><figcaption>Laid out as a timeline, it’s starting to make sense.</figcaption>
+<img src="../../images/z180-memory-read-timing.svg" alt="Laid out as a timeline, it’s starting to make sense." />
+<figcaption aria-hidden="true">Laid out as a timeline, it’s starting to make sense.</figcaption>
 </figure>
 <p>This 43.3ns is eaten up by address decoding to drive the SRAM’s /CE input, by any logic required to translate the CPU’s /RD and /WR outputs into the SRAM’s /OE and /WE inputs, by any buffering or logic level conversions required, and of course by the SRAM’s own timing constraints. Fortunately, these are easier to understand - in a nutshell, data will be ready at most 10ns after /CE is active and 6ns after /OE is active. The data outputs will be Hi-Z again 5ns after /OE goes high. These figures are specific to the SRAM chip I’m using: check your datasheet.</p>
 <p>There’s also parasitics that add delay to the signal. On my sized board, this will be well below 3.3ns - the <a href="https://blog.zuken.com/how-to-calculate-trace-length-from-time-delay-value-for-high-speed-signals/">speed of signals</a> on stripline traces is close to 150mm/ns, so it’ll take less than one nanosecond for a signal to traverse my 10cm^2 board corner to corner. This leaves me a tidy 40ns to work with.</p>
 <p>For SRAM, this is an enormous surplus of time, with a whopping 30ns available for logic. For Flash ROM, it’s not so much time. My chosen ROM is the SST39SF020A, a 2Mbit 55ns IC. 55ns is, of course, greater than 40ns. But all is not lost, because as with the SRAM the 55ns applies from the time /CE is active. Data will be available 35ns after /OE is active, so if I can decode the address lines and toggle /CE early enough I will have 5ns to activate /OE on the ROM and still have data available inside the zero wait state window. Data must be ready at t+98ns and the address lines are settled at t+30ns, leaving 10ns for address decoding and 3ns for parasitics.</p>
 <p>The Z180 has a 16-bit I/O space so A16-A19 should all be low for any I/O request. Address decoding on ADDR alone can be fairly sure that if the ROM bits are set (A18, A19) that it’s really going to be a ROM request. In a similar vein, if A18 is set and A19 is clear it’s going to be an off-board memory request, and a wait state could be immediately generated, but I’m quite comfortable requiring software to manage this via the CPU’s wait state generator if off-board memory is needed.</p>
 <figure>
-<img src="../../images/z180-memory-write-timing.svg" alt /><figcaption>My eyes are starting to glaze.</figcaption>
+<img src="../../images/z180-memory-write-timing.svg" alt="My eyes are starting to glaze." />
+<figcaption aria-hidden="true">My eyes are starting to glaze.</figcaption>
 </figure>
 <p>When writing, the SRAM IC has from the fall of /WR to the fall of T3 to store data. /WR should fall no later than t+79ns, and T3 should fall no earlier than t+131.4ns. /WR will rise up to 25ns later. Timing constraint 26 (t<sub>WRP</sub>, write pulse width) guarantees that /WR will be low for at least 80ns. You could almost write the byte down on paper with that much time.</p>
 <h2 id="wait-state-generation">Wait state generation</h2>
@@ -291,4 +300,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

@@ -8,8 +8,339 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2020-11-21T00:00:00Z</updated>
+    <updated>2023-01-15T00:00:00Z</updated>
     <entry>
+    <title>AOC 2022 - Z80</title>
+    <link href="https://bje.id.au/blog/posts/2023-01-15-aoc-z80-day01.html" />
+    <id>https://bje.id.au/blog/posts/2023-01-15-aoc-z80-day01.html</id>
+    <published>2023-01-15T00:00:00Z</published>
+    <updated>2023-01-15T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>This post is the first in a series of articles implementing solutions for the 2022 Advent of Code in Z80 assembly. The series aims to show some examples of programming in Z80 assembly and help newcomers to assembly language begin to think about programs from the assembly perspective, and will focus less on finding clever AoC solutions and more on producing understandable assembly code.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY01</span></code></pre></div>
+<!--more-->
+<p>This post is a “literate assembly” document. The code fragments on the page are assembled and executed in your browser. To the right of each statement you can see the bytes that the statement assembled into.</p>
+<p>The first puzzle in the AoC 2022 series provides you with a nested list of numbers and requires you to sum the nested lists and find the maximum. In a high level language this might look something like <code class="sourceCode haskell"><span class="fu">maximum</span> (<span class="fu">map</span> <span class="fu">sum</span> input)</code>, which the compiler will helpfully translate into reasonably efficient code.</p>
+<p>What I would like to do is iterate over the input summing numbers as I encounter them and keeping track of the current maximum sum at the end of each nested list. In principle this is not complicated, as even an ancient processor like the Z80 can add and compare. In practice there’s a small complication: the problem’s number space is greater than what a 16-bit number can store.</p>
+<p>A processor like the Z80 adds up much the same way I learned to in my early schooling years: add up the 1s column, noting any carry, add up the 10s column including the carry from the 1s column, and so on until I’d added up all my columns. The Z80 does the same thing bit by bit: the least significant bit of both inputs is summed and the carry is pushed along to the next bit, and so on. The Z80 has a <a href="http://www.righto.com/2013/09/the-z-80-has-4-bit-alu-heres-how-it.html">4-bit ALU</a> and does half an addition in one cycle then the other half in the next. For a 16-bit add the Z80 does the low byte then the high byte.</p>
+<p>The carry result is exposed to applications through the carry flag: if the most significant bits of the addends plus the carry from the previous bit results in another carry, the carry flag is set. To make chaining additions easier there are also <code class="sourceCode z80"><span class="bu">ADC</span></code> (add-with-carry) instructions that use the value in the carry flag as the carry-in for the least significant bit addition. Adding two 32-bit numbers is more or less as simple as adding two 16-bit numbers, then adding two more 16-bit numbers with carry.</p>
+<p>Another wrinkle will emerge about now, however - the Z80 doesn’t have a large number of registers. The other addend for <code class="sourceCode z80"><span class="bu">ADC</span> <span class="at">HL</span>, …</code> must be one of <code class="sourceCode z80"><span class="at">BC</span></code>, <code class="sourceCode z80"><span class="at">DE</span></code>, <code class="sourceCode z80"><span class="at">HL</span></code>, or <code class="sourceCode z80"><span class="at">SP</span></code>. There’s no point adding <code class="sourceCode z80"><span class="at">HL</span></code> to itself, and the stack pointer (<code class="sourceCode z80"><span class="at">SP</span></code>) is needed to hold the current stack value, which only leaves 48 bits of register for 64 bits of value. There are also the <code class="sourceCode z80"><span class="at">IX</span></code> and <code class="sourceCode z80"><span class="at">IY</span></code> index registers that can stand in for <code class="sourceCode z80"><span class="at">HL</span></code> for many, but not all, operations. Importantly they can be used for <code class="sourceCode z80"><span class="bu">ADD</span></code> but not for <code class="sourceCode z80"><span class="bu">ADC</span></code>.</p>
+<p>I will choose to store the addends for a 32-bit addition in <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> and <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code>, so a <code>SUM32</code> function would look like this - more comment than code.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    HL:IY   the 32-bit accumulator</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">;       DE:BC   the 32-bit addend</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  HL:IY   HL:IY + DE:BC</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       S       set if the result is negative</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">;       Z       set if the top 16 bits are zero</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">;       H       set if carry from bit 27</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">;       P/V     set if signed overflow</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">;       N       reset</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">;       C       set if carry from bit 31</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="fu">SUM32:</span>  <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p>Some of the flags are a bit nonsensical. The half-carry bit is the result of the penultimate 4-bit ALU operation, so for an 8-bit addition it’s the carry out of bit 3. For a 16-bit operation it’s the carry out of bit 3 in the top 8 bits, or the carry out of bit 11. The zero flag will be set by the <code class="sourceCode z80"><span class="bu">adc</span></code> discarding any information from the <code class="sourceCode z80"><span class="bu">add</span></code>. The other flags will all make sense, however, as they’re based only on the most significant bits.</p>
+<p>With a 32-bit addition in hand I’ll also want a comparison of unsigned 32-bit numbers. This will happen using subtraction, because comparison on the Z80 is a subtraction that discards the result and there’s no 16-bit comparison instruction. The routine compares the high words first, only comparing the low words if the high words are equal.</p>
+<p>There is no <code class="sourceCode z80"><span class="bu">SUB</span></code> instruction for 16-bit registers. There is, however, <code class="sourceCode z80"><span class="bu">SBC</span></code> for the <code class="sourceCode z80"><span class="at">HL</span></code> register, which is “subtract with carry”. On the Z80, as with many other processors, this is implemented as “subtract with borrow” - the carry flag becomes a borrow flag. <code class="sourceCode z80"><span class="bu">SBC</span> <span class="at">HL</span>, <span class="at">DE</span></code> is computed as <span class="math inline">\(HL - DE - C\)</span>. Before using this instruction the carry flag must be put into a known state. This can be done using the <code class="sourceCode z80"><span class="bu">SCF</span></code> instruction to set the carry flag, but there is no dedicated instruction to clear the carry flag. Fortunately, <code class="sourceCode z80"><span class="bu">OR</span> <span class="at">A</span>, <span class="at">A</span></code> will clear the carry flag in the same number of cycles as <code class="sourceCode z80"><span class="bu">SCF</span></code> sets it, and with a similar set of side effects on flags.</p>
+<p>After the subtraction the carry flag will be set if there was a borrow required for the final bit of the operation. This happens only when the minuend is less than the subtrahend. The carry flag distinguishes between <code>a &lt; b</code> when set and <code>a &gt;= b</code> when reset. The zero flag is set only if the two operands are equal.</p>
+<p>The 32-bit comparison works by comparing the high words and checking the zero flag. If it’s not set then the carry flag will already show which is greater, and the routine is done. If the zero flag is set then the carry flag must be clear, another subtraction is done, and the flags from that indicate the overall comparison result.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    HL:IY   the 32-bit minuend</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">;       DE:BC   the 32-bit subtrahend</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  Z       set if minuend == subtrahend</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       C       set if minuend &lt; subtrahend</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">CMP32:</span>  <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>, <span class="at">a</span>    <span class="co">; reset carry</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, CMP32DONE</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">iy</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="fu">CMP32DONE:</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p>With 32-bit addition and comparison ready to go the main challenge left to solve is processing the input. For simplicity’s sake the input will be pre-processed to be 32-bit words with zeros separating the sub-lists:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">INPUT:</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">1000</span>, <span class="bn">0</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">2000</span>, <span class="bn">0</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">3000</span>, <span class="bn">0</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">4000</span>, <span class="bn">0</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">5000</span>, <span class="bn">0</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">6000</span>, <span class="bn">0</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">7000</span>, <span class="bn">0</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">8000</span>, <span class="bn">0</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">9000</span>, <span class="bn">0</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">10000</span>, <span class="bn">0</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span></code></pre></div>
+<p>My solution algorithm is going to look like this:</p>
+<ol type="1">
+<li>Initialise the maximum to zero</li>
+<li>While there are lists of numbers left:
+<ol type="a">
+<li>Initialise the sum to zero</li>
+<li>Add each number in the list to the sum</li>
+<li>If the sum is greater than the maximum save it as the new maximum</li>
+</ol></li>
+<li>Print out the result</li>
+</ol>
+<p>Translating this to Z80 assembly means figuring out what variables I need and where I’ll store them. I’ll use four bytes of memory to hold the maximum, because I will only need that once per outer loop. I’ll keep the current sum in <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> where it’s ready to use in my addition and comparison subroutines. <code class="sourceCode z80"><span class="at">BC</span></code> and <code class="sourceCode z80"><span class="at">DE</span></code> will be used for addends and subtrahends as needed, and that leaves <code class="sourceCode z80"><span class="at">A</span></code> for general purpose arithmetic and <code class="sourceCode z80"><span class="at">IX</span></code> to point to my input.</p>
+<p>I will want to load <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>)</code> multiple times, so I’ll pop that in its own routine. It’s important to remember that the Z80 is little endian: when loading or storing a multi-byte value the least significant byte is at the first address. The <code class="sourceCode z80"><span class="kw">DEFW</span> <span class="bn">10000</span>, <span class="bn">0</span></code> above assembles to the hex bytes <code class="sourceCode z80"><span class="bn">$10</span> <span class="bn">$27</span> <span class="bn">$00</span> <span class="bn">$00</span></code>, or <code class="sourceCode z80"><span class="bn">16</span>, <span class="bn">39</span>, <span class="bn">0</span>, <span class="bn">0</span></code> in decimal. <span class="math inline">\(39\times256 = 9984 + 16 = 10000\)</span>. This means I want to load <code class="sourceCode z80"><span class="at">C</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>+<span class="bn">0</span>)</code> up to <code class="sourceCode z80"><span class="at">D</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>+<span class="bn">3</span>)</code>. Every time I load the value I also need to test whether it’s zero, so I’ll set the zero flag appropriately as I load.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    IX      address of next input to read</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT   DE:BC   32-bit value loaded from (IX)</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       IX      incremented past read input</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       A       clobbered</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">;       Z       set if the loaded value was zero</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">READ:</span>   <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, (<span class="at">ix</span>+<span class="bn">2</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, (<span class="at">ix</span>+<span class="bn">3</span>)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span></code></pre></div>
+<p>Testing whether <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> is zero is nice and easy: load one of the 8-bit registers into <code class="sourceCode z80"><span class="at">A</span></code> then <code class="sourceCode z80"><span class="bu">OR</span></code> each of the others in. Only if all of them are zero will <code class="sourceCode z80"><span class="at">A</span></code> be zero afterwards, with the zero flag conveniently holding that information.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="at">b</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>, <span class="at">c</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>, <span class="at">d</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>, <span class="at">e</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p>It’s time to set up the main program and initialise the input and maximum variables, as well as of course setting a valid stack pointer value so I can call subroutines.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">MAX:</span>    <span class="kw">DEFW</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">DAY01:</span>  <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, INPUT</span></code></pre></div>
+<p>For my outer loop I will clear <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> to zero then load <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>)</code>. The outer loop is done if that load sets the zero flag.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">OUTER:</span>  <span class="bu">ld</span>      <span class="at">hl</span>, <span class="bn">0</span>   <span class="co">; init sum</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">iy</span>, <span class="bn">0</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    READ</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE</span></code></pre></div>
+<p>I’m ready to enter the inner loop now, where I’ll add <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> to the current sum in <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code>, load the next input number, and test whether that’s zero: if it is, I repeat the inner loop.</p>
+<p>Because <code class="sourceCode z80">SUM32</code> is so trivial I’m not even going to call it - I will inline the two instructions right here.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">INNER:</span>  <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    READ</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, INNER</span></code></pre></div>
+<p>Having completed a sum I need to compare it to the maximum and update as needed. I can <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> directly from fixed memory, being careful with byte order, then use my <code class="sourceCode z80">CMP32</code> routine.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (MAX)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (MAX+<span class="bn">2</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    CMP32</span></code></pre></div>
+<p>The carry flag is set if <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> is greater than <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> -if so I can head straight back into the outer loop.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, OUTER</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (MAX), <span class="at">iy</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (MAX+<span class="bn">2</span>), <span class="at">hl</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      OUTER</span></code></pre></div>
+<p>There’s nothing left to do now but print out the maximum, using the as-yet undescribed <code class="sourceCode z80">PRINT32</code> routine, then <code class="sourceCode z80"><span class="bu">HALT</span></code>.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">ld</span>      <span class="at">iy</span>, (MAX)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (MAX+<span class="bn">2</span>)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRINT32</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">&#39;\n&#39;</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span></code></pre></div>
+<p>Printing a decimal number is a bit tricky on the Z80. The range of an unsigned 32-bit number is 0 to 4,294,967,295, so one common approach is to subtract 1,000,000,000 from the number to print until borrow is set and print that as the billions digit, then subtract 100,000,000 until borrow is set, and so on down to subtracting 1. A nice little extra feature is to also keep track of whether there’s been a non-zero digit yet and skip the print until either the first non-zero digit or the last digit.</p>
+<p>For the in-browser emulator, writing a value to I/O port 1 will print it to a console HTML element.</p>
+<p>I am also out of registers to store the flag indicating whether I’ve seen a non-zero digit or not. This is a good time to introduce a stack frame. When the Z80 CPU sees a <code class="sourceCode z80"><span class="bu">CALL</span></code> instruction it stores <code class="sourceCode z80">PC</code> onto the stack and jumps to the target address. When the subroutine is done, it executes a <code class="sourceCode z80"><span class="bu">RET</span></code> and the <code class="sourceCode z80">PC</code> is popped off the stack. Around that return address useful things can be stored. Before the <code class="sourceCode z80"><span class="bu">CALL</span></code> a bit of code might <code class="sourceCode z80"><span class="bu">PUSH</span></code> arguments that don’t fit into registers, and after the call the subroutine may need to allocate a bit of space on the stack for local variables. The structure of data around the return address is called a stack frame.</p>
+<div style="margin: 0 auto; text-align: center;">
+<svg width="256" height="256">
+<rect x="3" y="3" width="220" height="250" style="stroke: #333; stroke-width: 2; fill: none;"/>
+<text x="113" y="15.5" text-anchor="middle" dominant-baseline="central" style="stroke: #bbb">… used stack …</text>
+<line x1="4" y1="28" x2="222" y2="28" style="stroke: #bbb; stroke-width: 1"/>
+<text x="113" y="40.5" text-anchor="middle" dominant-baseline="central">Parameter 3</text>
+<line x1="4" y1="53" x2="222" y2="53" style="stroke: #bbb; stroke-width: 1"/>
+<text x="113" y="65.5" text-anchor="middle" dominant-baseline="central">Parameter 2</text>
+<line x1="4" y1="78" x2="222" y2="78" style="stroke: #bbb; stroke-width: 1"/>
+<text x="113" y="90.5" text-anchor="middle" dominant-baseline="central">Parameter 1</text>
+<line x1="4" y1="103" x2="222" y2="103" style="stroke: #bbb; stroke-width: 1"/>
+<text x="113" y="115.5" text-anchor="middle" dominant-baseline="central" font-weight="bold">Return address</text>
+<line x1="4" y1="128" x2="222" y2="128" style="stroke: #bbb; stroke-width: 1"/>
+<text x="113" y="140.5" text-anchor="middle" dominant-baseline="central">Saved IX</text>
+<text x="230" y="140.5" dominant-baseline="central">IX</text>
+<line x1="4" y1="153" x2="222" y2="153" style="stroke: #bbb; stroke-width: 1"/>
+<text x="113" y="165.5" text-anchor="middle" dominant-baseline="central">Local var 1</text>
+<line x1="4" y1="178" x2="222" y2="178" style="stroke: #bbb; stroke-width: 1"/>
+<text x="113" y="190.5" text-anchor="middle" dominant-baseline="central">Local var 2</text>
+<line x1="4" y1="203" x2="222" y2="203" style="stroke: #bbb; stroke-width: 1"/>
+<text x="113" y="215.5" text-anchor="middle" dominant-baseline="central">Local var 3</text>
+<text x="230" y="215.5" dominant-baseline="central">SP</text>
+<line x1="4" y1="228" x2="222" y2="228" style="stroke: #bbb; stroke-width: 1"/>
+<text x="113" y="240.5" text-anchor="middle" dominant-baseline="central" style="stroke: #bbb">… free stack …</text>
+</svg>
+</div>
+<p>To set up a stack frame the first thing that happens on entry to a subroutine is to save <code class="sourceCode z80"><span class="at">IX</span></code> and then set it to <code class="sourceCode z80"><span class="at">SP</span></code>. There is no instruction to do this directly so <code class="sourceCode z80"><span class="at">IX</span></code> is set to zero then <code class="sourceCode z80"><span class="at">SP</span></code> is added to it. After that space for local variables is reserved by subtracting the required amount from <code class="sourceCode z80"><span class="at">SP</span></code>. Once again there is no handy instruction to add or subtract values to <code class="sourceCode z80"><span class="at">SP</span></code>. Open option is to load the fixed offset into <code class="sourceCode z80"><span class="at">HL</span></code>, add <code class="sourceCode z80"><span class="at">SP</span></code> to it, and transfer the result back to <code class="sourceCode z80"><span class="at">SP</span></code> - but this clobbers <code class="sourceCode z80"><span class="at">HL</span></code>. Another option is to push a register, which decrements <code class="sourceCode z80"><span class="at">SP</span></code> twice but this does unnecessary memory writes. It’s also possible to just <code class="sourceCode z80"><span class="bu">DEC</span> <span class="at">SP</span></code> repeatedly but this is 6 cycles per decrement and doesn’t scale well to multiple local variables.</p>
+<p>CPU support is essential to working with stack frames effectively. The Z80 has indexed addressing with the <code class="sourceCode z80"><span class="at">IX</span></code> and <code class="sourceCode z80"><span class="at">IY</span></code> registers, allowing a local variable to be accessed as, eg, <code class="sourceCode z80"><span class="bu">LD</span> <span class="at">A</span>, (<span class="at">IX</span>-<span class="bn">1</span>)</code>, but it doesn’t have good support for setting up or tearing down a stack frame. The 8086 allowed directly moving the stack pointer to the base pointer register, as well as adding constant values to the stack pointer. The 80186 added <code>ENTER</code> and <code>LEAVE</code> instructions that do all the work for you - however, <code>ENTER</code> wound up overspecified and difficult to implement in processors, and as a result neither instruction is typically used by compilers. On the other end of the scale the 6502 lacks the required indexed addressing mode, and usually a different solution will be required.</p>
+<p>For <code class="sourceCode z80">PRINT32</code> only a single byte of storage is needed, so <code class="sourceCode z80"><span class="bu">DEC</span> <span class="at">SP</span></code> will work nicely.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    HL:IY   A 32-bit number to print</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT   A       clobbered</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="fu">PRINT32:</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">ix</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, <span class="bn">0</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">ix</span>, <span class="at">sp</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">dec</span>     <span class="at">sp</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">iy</span></span></code></pre></div>
+<p>The flag for whether a non-zero character has been printed will be stored at <code class="sourceCode z80">(<span class="at">IX</span>-<span class="bn">1</span>)</code>. I will use ‘0’ as the flag indicating that only zeros have been seen so far so I can do an easy comparison between the digit to print and the flag: if they’re equal, don’t print. Any non-digit value will serve to indicate printing should happen.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">ix</span>-<span class="bn">1</span>), <span class="st">&#39;0&#39;</span></span></code></pre></div>
+<p>For each of the 10 digit locations <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> will be loaded with the constant to subtract and a subroutine will be called. For the last digit location the non-zero character flag will be forced true, so at least one digit is printed each time.</p>
+<p>One more limitation of the Z80 instruction set now rears its head: there is an <code class="sourceCode z80"><span class="bu">ADD</span> <span class="at">IY</span>, <span class="at">DE</span></code> instruction but no corresponding subtraction. Fortunately subtracing a number is the same as adding its negation and inverting the carry flag’s meaning, so instead of loading positive constants for subtraction I will load negative constants for addition.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span>_<span class="bn">000</span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10</span>_<span class="bn">000</span></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span></span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10</span></span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ensure last digit always prints</span></span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">ix</span>-<span class="bn">1</span>), <span class="bn">1</span></span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span></span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span></code></pre></div>
+<p>To clean up the stack frame <code class="sourceCode z80"><span class="at">SP</span></code> must be restored to where it was after saving <code class="sourceCode z80"><span class="at">IX</span></code>. The Z80 does have an instruction to set <code class="sourceCode z80"><span class="at">SP</span></code> to the value of <code class="sourceCode z80"><span class="at">IX</span></code>, so this part is easy. It would also be possible here to simply increment <code class="sourceCode z80"><span class="at">SP</span></code> to balance the decrement done on entry.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">iy</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="at">ix</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">ix</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p><code class="sourceCode z80">DIGIT</code> will add <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> to <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> until carry is reset, incrementing <code class="sourceCode z80"><span class="at">A</span></code> each time.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DIGIT:</span>  <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">&#39;0&#39;</span> - <span class="bn">1</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DLOOP:</span>  <span class="bu">inc</span>     <span class="at">a</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, DLOOP</span></code></pre></div>
+<p>Once the carry flag is reset <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> needs to be subtracted from <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code>, which will be a bit of a shuffle through the stack due to the limited instructions for subtraction.</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">iy</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">bc</span> <span class="co">; &quot;iy&quot;-bc</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">iy</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span> <span class="co">; hl-de</span></span></code></pre></div>
+<p>And last of all, print <code class="sourceCode z80"><span class="at">A</span></code> if it or the non-zero flag are non-zero.</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      (<span class="at">ix</span>-<span class="bn">1</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, NOPRINT</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">ix</span>-<span class="bn">1</span>), <span class="bn">1</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="fu">NOPRINT:</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p>Let’s fire it up and see what it does.</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jp</span>      DAY01</span></code></pre></div>
+<p>That looks great. I will ask you to take my word for it that it also succeeds with my puzzle input.</p>
+<h2 id="star-2">Star 2</h2>
+<p>The second star for the day simply expands the problem to tracking the top three values rather than the top one. This is easily accomplished by storing the top three sorted: when a new value comes in, compare to the lowest top three. If it’s greater then discard the 3rd place value and store the new one. Then, see if you need to swap 3rd place and 2nd place. If so, also then check if you need to swap 1st and 2nd place.</p>
+<p>The main loop is practically unchanged.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">TOP3:</span>   <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="fu">STAR2:</span>  <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, INPUT</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="fu">OUTER2:</span> <span class="bu">ld</span>      <span class="at">hl</span>, <span class="bn">0</span>   <span class="co">; init sum</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">iy</span>, <span class="bn">0</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    READ</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE2</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="fu">INNER2:</span> <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    READ</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, INNER2</span></code></pre></div>
+<p>Here I now do a set of comparisons instead of just one.</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>        <span class="co">; check if the new sum is in the top 3</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (TOP3)</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (TOP3+<span class="bn">2</span>)</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    CMP32</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, OUTER2</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3), <span class="at">iy</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">2</span>), <span class="at">hl</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">; need to swap 3rd and 2nd?</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (TOP3+<span class="bn">4</span>)</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (TOP3+<span class="bn">6</span>)</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    CMP32</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, OUTER2</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3), <span class="at">bc</span></span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">2</span>), <span class="at">de</span></span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">4</span>), <span class="at">iy</span></span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">6</span>), <span class="at">hl</span></span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">; need to swap 2nd and 1st?</span></span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (TOP3+<span class="bn">8</span>)</span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (TOP3+<span class="bn">10</span>)</span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    CMP32</span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, OUTER2</span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">4</span>), <span class="at">bc</span></span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">6</span>), <span class="at">de</span></span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">8</span>), <span class="at">iy</span></span>
+<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">10</span>), <span class="at">hl</span></span>
+<span id="cb22-28"><a href="#cb22-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-29"><a href="#cb22-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      OUTER2</span></code></pre></div>
+<p>When done there’s also the job of summing the top 3 to take care of.</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE2:</span>  <span class="bu">ld</span>      <span class="at">iy</span>, (TOP3)</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (TOP3+<span class="bn">2</span>)</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (TOP3+<span class="bn">4</span>)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (TOP3+<span class="bn">6</span>)</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (TOP3+<span class="bn">8</span>)</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (TOP3+<span class="bn">10</span>)</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRINT32</span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">&#39;\n&#39;</span></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span></code></pre></div>
+<p>And let’s run this one.</p>
+<div class="sourceCode" id="cb24"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jp</span>      STAR2</span></code></pre></div>
+<p>There is the expected value, all done and dusted.</p>]]></summary>
+</entry>
+<entry>
     <title>Programming the TRS-20's FPGA</title>
     <link href="https://bje.id.au/blog/posts/trs20/018-fpga-programming.html" />
     <id>https://bje.id.au/blog/posts/trs20/018-fpga-programming.html</id>
@@ -31,14 +362,16 @@
 <li><p>Synthesise the design using <code>yosys</code></p>
 <p>This step takes in one or more Verilog source files and translates it into the building blocks of an FPGA - LUTs, DFFs, I/O ports, and other special cells. The banner image for this post is a little bit of a graph representation of the synthesised design. Here’s an entire component from the design.</p>
 <figure>
-<img src="/images/edgedetect.png" alt="" /><figcaption>A rising edge detector compares the past state of the signal to its current state</figcaption>
+<img src="/images/edgedetect.png" alt="A rising edge detector compares the past state of the signal to its current state" />
+<figcaption aria-hidden="true">A rising edge detector compares the past state of the signal to its current state</figcaption>
 </figure>
-<p>The synchronous statement <code class="sourceCode verilog"><span class="kw">always</span> @(<span class="kw">posedge</span> clk) past &lt;= in;</code> establishes that each rising edge of the clock signal will load the input into the <code>past</code> register, while the continuous statement <code class="sourceCode verilog"><span class="kw">assign</span> rise = in &amp; !past;</code> passes the input and the past state through a combinatorial logic circuit. The end result is that at the rising edge of the clock signal <code>rise</code> will be high only when the <code>in</code> signal was low on the last clock edge but is high on the current edge.</p>
+<p>The synchronous statement <code class="sourceCode verilog"><span class="kw">always</span> <span class="op">@(</span><span class="kw">posedge</span> clk<span class="op">)</span> past <span class="op">&lt;=</span> in<span class="op">;</span></code> establishes that each rising edge of the clock signal will load the input into the <code>past</code> register, while the continuous statement <code class="sourceCode verilog"><span class="kw">assign</span> rise <span class="op">=</span> in <span class="op">&amp;</span> <span class="op">!</span>past<span class="op">;</span></code> passes the input and the past state through a combinatorial logic circuit. The end result is that at the rising edge of the clock signal <code>rise</code> will be high only when the <code>in</code> signal was low on the last clock edge but is high on the current edge.</p>
 <p>The full image for my relatively tiny design is almost unreadably complex. I could see how it may be occasionally useful to trace a particular path with an aim of simplifying the logic involved, but I have not yet done this.</p></li>
 <li><p>Place the cells and route connections with <code>nextpnr</code></p>
 <p>The synthesised design output by <code>yosys</code> contains all the cells used by the design and the map of how they must be connected. The next stage in getting the design onto silicon is to determine where each cell of the design will lie on the chip and how the routing between them will be arranged. The cells on an FPGA cannot be connected entirely arbitrarily, so the choices of where to place cells and how to connect them become non-trivial. Finding an optimal placement is NP-complete: <code>nextpnr</code> uses simulated annealing to find an approximately optimal solution.</p>
 <figure>
-<img src="/images/trs20/fpga-layout-miso.png" alt="" /><figcaption>The lower half of an iCE40 with my design placed and routed.</figcaption>
+<img src="/images/trs20/fpga-layout-miso.png" alt="The lower half of an iCE40 with my design placed and routed." />
+<figcaption aria-hidden="true">The lower half of an iCE40 with my design placed and routed.</figcaption>
 </figure>
 <p>The image here shows part of the design after packing, placing, and routing has been done. It’s produced by an <a href="https://knielsen.github.io/ice40_viewer/ice40_viewer.html">ICE40 floorplan/layout viewer</a>. The path highlighted in red is the <code>SPI_SDI$SB_IO_IN</code> net - it connects the SPI_SDI I/O buffer in the bottom right to the logic that latches values on the appropriate SPI clock edge.</p></li>
 <li><p>Pack the chip configuration data into a bitstream</p>
@@ -53,7 +386,8 @@
 <p>This not only helped me catch a bunch of errors, it also helped me quickly validate changes as I went.</p>
 <p>It also supports writing out a waveform file that can be viewed with a VCD reader like <a href="http://gtkwave.sourceforge.net/">GTKWave</a>.</p>
 <figure>
-<img src="/images/trs20/gtkwave.png" alt="" /><figcaption>The SPI slave responds to a read request with 0xEF</figcaption>
+<img src="/images/trs20/gtkwave.png" alt="The SPI slave responds to a read request with 0xEF" />
+<figcaption aria-hidden="true">The SPI slave responds to a read request with 0xEF</figcaption>
 </figure>
 <p>Between the test harness and the waveform, I got my SPI code into what looked like good shape pretty quickly.</p>
 <h1 id="an-emulator-is-an-approximation">An emulator is an approximation</h1>
@@ -65,7 +399,7 @@
 <p>However, it also occurred to me that I was latching input when the output clock signal was low but about to go high. This “rising edge” was clear and sharp on the inside of the FPGA, but of course it takes time for that signal to reach the edge of the device and from there get out to the ROM. Likewise, the falling edge takes time to be seen. I switched over to latching the input on the same clock edge that I lower SCK and shift data - this takes into account the delays for signals to move into and out of the FPGA. I think this is how people with experience in this space do it… but I did it myself to learn stuff, like how to see the accumulated delays for paths through the FPGA.</p>
 <p>With the clock back up to 50MHz, I tried again… and to my giggly glee, it still worked.</p>
 <h1 id="faster-and-faster">Faster and faster</h1>
-<p>Moving to 100Mhz would be a little tricky: I could possibly just <code class="sourceCode verilog"><span class="kw">assign</span> SPI_SCK = CLK;</code> and basically wire the 100MHz clock directly to the master clock. When I look at how others are doing it, I see tricks like using <a href="https://zipcpu.com/blog/2018/08/16/spiflash.html">DDR cells</a> to toggle the SPI clock on rising and falling edges, with an enable signal to shut it off.</p>
+<p>Moving to 100Mhz would be a little tricky: I could possibly just <code class="sourceCode verilog"><span class="kw">assign</span> SPI_SCK <span class="op">=</span> CLK<span class="op">;</span></code> and basically wire the 100MHz clock directly to the master clock. When I look at how others are doing it, I see tricks like using <a href="https://zipcpu.com/blog/2018/08/16/spiflash.html">DDR cells</a> to toggle the SPI clock on rising and falling edges, with an enable signal to shut it off.</p>
 <p>It’s also not really necessary. I added wait state generation - you can see the <code>waitstate</code> signal in the waveform above. One thing to note about wait state generation on the TRS-20 is that it passes through a DFF IC, clocked by the rising edge of <code>PHI</code>. This IC has its own setup time that means the FPGA shouldn’t change <code>/WAIT</code> arbitrarily: it needs to change at least 3ns before <code>PHI</code> rises. I approach this with a rising edge detector on <code>PHI</code> - this is stabilised to CLK and could be up to 20ns behind the real rising edge, which is still ~30ns before the next one.</p>
 <p>However, for an I/O operation the CPU will sample <code>/WAIT</code> on the falling edge of the first wait state. The DFF in the way means I need to assert <code>/WAIT</code> before the rising edge of that wait state. Having enough time to guarantee detection of it is implausible with my current approach.</p>
 <p><code>/IORQ</code> and <code>/RD</code> will fall up to 25ns after the falling edge of T1. I’ll detect them up to 20ns after that - 45ns after the falling edge of T1. T2 will have risen by then, and could rise even before <code>/IORQ</code> and <code>/RD</code> have both fallen. To catch the read request I could insert an additional cycle on the <code>PHI</code> edge detect so that always comes after the read request control signals. But <code>/WR</code> falls up to 25ns after the rising edge of T2, and I won’t detect it until 45ns later. The rising edge of Tw shouldn’t come sooner than 54ns later. That’s only 6ns left to assert <code>/WAIT</code>, which is pushing up pretty hard against the FPGA’s output delays - and assumes any input delays don’t wind up adding one clock cycle to the stabilisers. Which they will.</p>
@@ -120,50 +454,50 @@
 <p>Using a combination of uploading bits of code to run and replacement editions of <code>recv_packet</code> to patch in place of the boot code version, I tracked down my <em>multiple</em> errors. I present them here in source file order, but this is not the order I discovered them.</p>
 <h1 id="timeouts-dont-stop-the-transfer">Timeouts don’t stop the transfer</h1>
 <p>Failing ten times should abort the transfer. But it doesn’t - the code just keeps on spitting out retry bytes. Eventually I tracked this down to the following few lines of code:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb1-1"><a href="#cb1-1"></a><span class="fu">retry:</span>		djnz	metadata</span>
-<span id="cb1-2"><a href="#cb1-2"></a></span>
-<span id="cb1-3"><a href="#cb1-3"></a><span class="fu">done:</span>		pop	<span class="at">hl</span></span>
-<span id="cb1-4"><a href="#cb1-4"></a>		pop	<span class="at">de</span></span>
-<span id="cb1-5"><a href="#cb1-5"></a>		ret</span></code></pre></div>
-<p>A successful run through the code jumps to <code>done</code> with the zero flag reset. An unsuccessful run jumps to <code>done</code> with the zero flag set. I thought that <code class="sourceCode z80asm">djnz</code> would set the zero flag - but instead it doesn’t affect flags at all. Whatever the zero flag was on entry to <code>retry</code> is what it will be after the <code class="sourceCode z80asm">djnz</code> has decremented <code class="sourceCode z80asm"><span class="at">b</span></code> to zero. Just adding <code class="sourceCode z80asm">xor <span class="at">a</span></code> will set the zero flag.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">retry:</span>		<span class="bu">djnz</span>	metadata</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">done:</span>		<span class="bu">pop</span>	<span class="at">hl</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>		<span class="bu">pop</span>	<span class="at">de</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ret</span></span></code></pre></div>
+<p>A successful run through the code jumps to <code>done</code> with the zero flag reset. An unsuccessful run jumps to <code>done</code> with the zero flag set. I thought that <code class="sourceCode z80"><span class="bu">djnz</span></code> would set the zero flag - but instead it doesn’t affect flags at all. Whatever the zero flag was on entry to <code>retry</code> is what it will be after the <code class="sourceCode z80"><span class="bu">djnz</span></code> has decremented <code class="sourceCode z80"><span class="at">b</span></code> to zero. Just adding <code class="sourceCode z80"><span class="bu">xor</span> <span class="at">a</span></code> will set the zero flag.</p>
 <h1 id="the-retry-byte-gets-corrupted">The retry byte gets corrupted</h1>
 <p>After attempting to send a valid (meta)data packet the retry byte becomes corrupted. After a failed packet transfer instead of getting a ‘C’ back I start getting NULs. I tracked this down to the code invoked after a data packet command is received.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb2-1"><a href="#cb2-1"></a><span class="fu">recv_body:</span>	ld	(cmd), <span class="at">a</span></span>
-<span id="cb2-2"><a href="#cb2-2"></a>		ld	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
-<span id="cb2-3"><a href="#cb2-3"></a>		call	recv_byte</span>
-<span id="cb2-4"><a href="#cb2-4"></a>		jr	z, retry</span>
-<span id="cb2-5"><a href="#cb2-5"></a>		ld	<span class="at">c</span>, <span class="at">a</span></span>
-<span id="cb2-6"><a href="#cb2-6"></a>		call	recv_byte</span>
-<span id="cb2-7"><a href="#cb2-7"></a>		jr	z, retry</span>
-<span id="cb2-8"><a href="#cb2-8"></a>		cpl</span>
-<span id="cb2-9"><a href="#cb2-9"></a>		cp	<span class="at">a</span>, <span class="at">c</span></span>
-<span id="cb2-10"><a href="#cb2-10"></a>		jr	nz, retry</span>
-<span id="cb2-11"><a href="#cb2-11"></a>		ld	(seq), <span class="at">a</span></span></code></pre></div>
-<p>The problem, of course, is that I assumed early on that <code class="sourceCode z80asm"><span class="at">c</span></code> would be preserved as my retry byte value, and subsequently also decided to use <code class="sourceCode z80asm"><span class="at">c</span></code> to store the sequence number to compare to its complement. Oops. I accepted that there’s not many registers on the Z180 and stored the retry byte in memory instead.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">recv_body:</span>	<span class="bu">ld</span>	(cmd), <span class="at">a</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv_byte</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv_byte</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cpl</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cp</span>	<span class="at">a</span>, <span class="at">c</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	nz, retry</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	(seq), <span class="at">a</span></span></code></pre></div>
+<p>The problem, of course, is that I assumed early on that <code class="sourceCode z80"><span class="at">c</span></code> would be preserved as my retry byte value, and subsequently also decided to use <code class="sourceCode z80"><span class="at">c</span></code> to store the sequence number to compare to its complement. Oops. I accepted that there’s not many registers on the Z180 and stored the retry byte in memory instead.</p>
 <h1 id="going-too-far-the-other-way">Going too far the other way</h1>
-<p>Now we come to the headline problem - the CRC validation is failing. The other problems would happen in emulation, if I’d exhaustively tested all possible code paths. My <code class="sourceCode z80asm">djnz</code> emulation didn’t set flags. Yes, that’s right, I wrote assembly code that assumed one thing about an instruction, and code to emulate that instruction assuming something else. People are fallible, tests never exhaustively test all possible code paths, and trusting to discipline to catch problems is naive.</p>
+<p>Now we come to the headline problem - the CRC validation is failing. The other problems would happen in emulation, if I’d exhaustively tested all possible code paths. My <code class="sourceCode z80"><span class="bu">djnz</span></code> emulation didn’t set flags. Yes, that’s right, I wrote assembly code that assumed one thing about an instruction, and code to emulate that instruction assuming something else. People are fallible, tests never exhaustively test all possible code paths, and trusting to discipline to catch problems is naive.</p>
 <p>But this problem was different: the bytes were being received correctly. I could send binary code and run it, which wouldn’t be possible if the transfer were corrupted. The CRC code works fine when testing. There’s only one answer left: the CRC code isn’t being called correctly.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb3-1"><a href="#cb3-1"></a>		push	<span class="at">hl</span></span>
-<span id="cb3-2"><a href="#cb3-2"></a>		push	<span class="at">bc</span></span>
-<span id="cb3-3"><a href="#cb3-3"></a></span>
-<span id="cb3-4"><a href="#cb3-4"></a>		ld	<span class="at">bc</span>, <span class="bn">130</span></span>
-<span id="cb3-5"><a href="#cb3-5"></a>		ld	<span class="at">a</span>, (cmd)</span>
-<span id="cb3-6"><a href="#cb3-6"></a>		cp	<span class="at">a</span>, YM_SOH</span>
-<span id="cb3-7"><a href="#cb3-7"></a>		jr	z, <span class="bn">$</span>+<span class="bn">5</span></span>
-<span id="cb3-8"><a href="#cb3-8"></a>		ld	<span class="at">bc</span>, <span class="bn">1026</span></span>
-<span id="cb3-9"><a href="#cb3-9"></a></span>
-<span id="cb3-10"><a href="#cb3-10"></a>		ld	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
-<span id="cb3-11"><a href="#cb3-11"></a>		call	recv_wait</span>
-<span id="cb3-12"><a href="#cb3-12"></a></span>
-<span id="cb3-13"><a href="#cb3-13"></a>		pop	<span class="at">bc</span></span>
-<span id="cb3-14"><a href="#cb3-14"></a>		pop	<span class="at">hl</span></span></code></pre></div>
-<p>This little bit of code is responsible for receiving either 130 or 1026 bytes, the payload and its CRC, depending on whether it’s a SOH or STX command. I carefully preserve <code class="sourceCode z80asm"><span class="at">bc</span></code> because <code class="sourceCode z80asm"><span class="at">b</span></code> contains my retry counter and <code class="sourceCode z80asm"><span class="at">c</span></code> contains (hah!) my retry byte. Then I set up <code class="sourceCode z80asm"><span class="at">bc</span></code> to hold the size of the payload and CRC, and receive the data.</p>
-<p>Then I restore <code class="sourceCode z80asm"><span class="at">bc</span></code>.</p>
-<p>At this point in receiving the metadata packet <code class="sourceCode z80asm"><span class="at">bc</span></code> contains <code class="sourceCode z80asm"><span class="bn">$0a00</span></code>. There are still ten retries allowed, and the retry byte has been replaced by NUL. The payload length I calculated is gone.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb4-1"><a href="#cb4-1"></a>		jr	z, retry</span>
-<span id="cb4-2"><a href="#cb4-2"></a>		call	ym_crc		<span class="co">; CRC should be zero</span></span></code></pre></div>
-<p>Then I call the CRC code. This expects the data to checksum in <code class="sourceCode z80asm"><span class="at">hl</span></code> (check: I preserved <code class="sourceCode z80asm"><span class="at">hl</span></code> for exactly this reason) and the length of the data in <code class="sourceCode z80asm"><span class="at">bc</span></code> … but that’s not the length of the received data any more. It’s much, much bigger than the received data.</p>
-<p>The Y-modem 16-bit CRC isn’t the world’s best choice of checksum. It’s definitely an improvement over X-modem’s naive 8-bit checksum but it’s a long way short of a reliable hash. In this case one simple flaw plays out: <code class="sourceCode c">crc16(<span class="dv">0</span>, <span class="dv">0</span>) == <span class="dv">0</span></code>.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>		<span class="bu">push</span>	<span class="at">hl</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">push</span>	<span class="at">bc</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">bc</span>, <span class="bn">130</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">a</span>, (cmd)</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cp</span>	<span class="at">a</span>, YM_SOH</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, <span class="bn">$</span>+<span class="bn">5</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">bc</span>, <span class="bn">1026</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv_wait</span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>		<span class="bu">pop</span>	<span class="at">bc</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>		<span class="bu">pop</span>	<span class="at">hl</span></span></code></pre></div>
+<p>This little bit of code is responsible for receiving either 130 or 1026 bytes, the payload and its CRC, depending on whether it’s a SOH or STX command. I carefully preserve <code class="sourceCode z80"><span class="at">bc</span></code> because <code class="sourceCode z80"><span class="at">b</span></code> contains my retry counter and <code class="sourceCode z80"><span class="at">c</span></code> contains (hah!) my retry byte. Then I set up <code class="sourceCode z80"><span class="at">bc</span></code> to hold the size of the payload and CRC, and receive the data.</p>
+<p>Then I restore <code class="sourceCode z80"><span class="at">bc</span></code>.</p>
+<p>At this point in receiving the metadata packet <code class="sourceCode z80"><span class="at">bc</span></code> contains <code class="sourceCode z80"><span class="bn">$0a00</span></code>. There are still ten retries allowed, and the retry byte has been replaced by NUL. The payload length I calculated is gone.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	ym_crc		<span class="co">; CRC should be zero</span></span></code></pre></div>
+<p>Then I call the CRC code. This expects the data to checksum in <code class="sourceCode z80"><span class="at">hl</span></code> (check: I preserved <code class="sourceCode z80"><span class="at">hl</span></code> for exactly this reason) and the length of the data in <code class="sourceCode z80"><span class="at">bc</span></code> … but that’s not the length of the received data any more. It’s much, much bigger than the received data.</p>
+<p>The Y-modem 16-bit CRC isn’t the world’s best choice of checksum. It’s definitely an improvement over X-modem’s naive 8-bit checksum but it’s a long way short of a reliable hash. In this case one simple flaw plays out: <code class="sourceCode c">crc16<span class="op">(</span><span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">)</span> <span class="op">==</span> <span class="dv">0</span></code>.</p>
 <p>My emulator’s SRAM is initialised to zero. Real SRAM is initialised to the background noise of the universe. On my emulator, I checksum 2560 bytes and come up with the same answer I would if I only checksummed the first 130 or 1026 bytes: zero. On the real board the CRC computes over 130 or 1026 bytes of data, getting zero - and then goes on to incorporate the noise.</p>
 <p>Well - SRAM’s initial state isn’t actually noise. It’s the consequence of unstable states in (more-or-less) flip-flops resolving one way or the other, which usually comes down to microscopic manufacturing differences. As a result, I always get the <em>same</em> wrong value, because my SRAM on power-on always got the <em>same</em> uninitialised junk in it.</p>
 <p>Nifty.</p>
@@ -205,10 +539,10 @@
 <pre><code>MiRw 0016D  ED (11101101)
 MiRw 0016E  39 (00111001)
 MiRw 0016F  38 (00111000)</code></pre>
-<p>… which is the CPU fetching and executing <code class="sourceCode z80asm">out0 (CBR), <span class="at">a</span></code>.</p>
+<p>… which is the CPU fetching and executing <code class="sourceCode z80"><span class="bu">out0</span> (CBR), <span class="at">a</span></code>.</p>
 <p>The debug tool showed that without a USB connection, the boot ROM pauses waiting for the transmit data register empty (TDRE) flag to be set for ASCI0. When that flag is set, the CPU writes ‘1’ - and the serial terminal receives it. This confirms my hunch that the USB IC is still resetting when the CPU starts writing to it. And confirms that the serial link works!</p>
 <p>I had mixed up my boot code somehow and tried to do the MMU work right in the middle of setting up the DMA registers. Once I fixed this, I could watch the DMA executing its copy loop, reading from ROM and writing to RAM byte by byte.</p>
-<p>I also discovered that the MMU base registers are added to the logical address: if Common Area 1 starts at <code class="sourceCode z80asm"><span class="bn">$F000</span></code> with a base register of <code class="sourceCode z80asm"><span class="bn">$80</span></code> the physical address is <code class="sourceCode z80asm"><span class="bn">$8F000</span></code>. This makes sense from an implementation perspective - it’s a single 8-bit adder involved - and was an easy fix to set CBAR to <code class="sourceCode z80asm"><span class="bn">$71</span></code> instead.</p>
+<p>I also discovered that the MMU base registers are added to the logical address: if Common Area 1 starts at <code class="sourceCode z80"><span class="bn">$F000</span></code> with a base register of <code class="sourceCode z80"><span class="bn">$80</span></code> the physical address is <code class="sourceCode z80"><span class="bn">$8F000</span></code>. This makes sense from an implementation perspective - it’s a single 8-bit adder involved - and was an easy fix to set CBAR to <code class="sourceCode z80"><span class="bn">$71</span></code> instead.</p>
 <p>The remaining consequences of my choice to use /M1 then became apparent. A memory access to ROM space would set A19 high, with /M1 also high, no problem so far. But the next machine cycle would lower /M1 at around the same time as A19, with enough overlap between them for my flip-flop to be reset. The safest action is to jump to ROM as soon as possible, without allowing any other access to ROM space to happen first.</p>
 <p>I re-ordered the boot code to set up the MMU first, jumped to ROM space, ran the DMA copy from there, then jumped back to, in theory, SRAM.</p>
 <p>A transmit test that modified code showed that yes, I had code running out of SRAM.</p>
@@ -230,16 +564,18 @@ MiRw 0016F  38 (00111000)</code></pre>
 <!--more-->
 <p>I put on the FT230X USB IC first, plus its supporting connector and passives. This is for two reasons: I can program the GPIOs on it to ensure the correct VBus sense function and LED output, and because this is the last checkpoint beore I solder on every other part. This worked out fine - the device enumerates correctly, programs fine, and the RX LED flickers in time to keystrokes via USB serial.</p>
 <figure>
-<img src="/images/trs20/enumerated.png" alt="" /><figcaption>My shell history is chockers full of <code>lsusb</code> commands now.</figcaption>
+<img src="/images/trs20/enumerated.png" alt="My shell history is chockers full of lsusb commands now." />
+<figcaption aria-hidden="true">My shell history is chockers full of <code>lsusb</code> commands now.</figcaption>
 </figure>
 <p>Soldering everything else took a few evenings. My process was to squeeze a blob of solder paste onto the DDPAK tab copper area on a board with a bad FPGA solder job, align the target IC with its pads, then use a toothpick to place a sparing amount of paste on the pins. The heat gun then melts the paste onto the pins, and any faults are touched up with the iron.</p>
 <figure>
-<img src="/images/trs20/memory-pins.jpg" alt="" /><figcaption>I really should get some kind of macro lens for this stuff.</figcaption>
+<img src="/images/trs20/memory-pins.jpg" alt="I really should get some kind of macro lens for this stuff." />
+<figcaption aria-hidden="true">I really should get some kind of macro lens for this stuff.</figcaption>
 </figure>
 <p>The best result was the SRAM. It’s possible there’s not quite enough solder on these pins, but I tested every one - I actually found two cold solder joints on the FPGA during this process - and I’m confident they’re all wetted properly.</p>
 <p>The worst result was the 18.432MHz oscillator. I underestimated the difficulty of this job, and wound up with far too much solder on it. Solder from the NC pad reached the ground-connected case, and removing it was difficult. I do not feel confident that this part is healthy now.</p>
 <h2 id="install-a-rom">Install a ROM</h2>
-<p>The trouble with having finished the soldering is that I don’t much want to blindly power up. The ROM should contain <code>FF</code> endlessly, which will result in the CPU executing <code class="sourceCode z80asm">RST <span class="bn">$38</span></code> forever, but it’d be nice to be able to verify in some way that everything’s working as it should. This takes me back to writing a ROM again, but this time for the CPU.</p>
+<p>The trouble with having finished the soldering is that I don’t much want to blindly power up. The ROM should contain <code>FF</code> endlessly, which will result in the CPU executing <code class="sourceCode z80"><span class="bu">RST</span> <span class="bn">$38</span></code> forever, but it’d be nice to be able to verify in some way that everything’s working as it should. This takes me back to writing a ROM again, but this time for the CPU.</p>
 <p>So I wrote a <a href="https://github.com/codebje/trs20-bootrom/blob/master/src/bootrom.asm">ROM image</a> that sets up ASCI0 to 38400 baud, 8n1, and starts transmitting single character “printf debugging” style progress markers. The only things I do first are to disable DRAM refresh, disable external interrupts, and set the clock rate to the full oscillator speed.</p>
 <p>After that, the boot ROM attempts to copy ROM into RAM, reset the ROM overlay D flip-flop, configure the MMU, set up a 100Hz timer, set up a stack, then run a very simple boot monitor that permits a binary to be uploaded using ymodem and executed.</p>
 <p>Because I really don’t want to yank the PLCC-32 ROM chip in and out frequently, I don’t want too many rounds of corrections. My <a href="https://github.com/codebje/vtrs20">emulator</a> is therefore developing more or less in lockstep with the needs of the boot ROM so that I at least have to implement the same bug twice in more or less the same way to miss it. This is a feat I have accomplished in the past, and it’s surprisingly easy to do.</p>
@@ -254,12 +590,14 @@ MiRw 0016F  38 (00111000)</code></pre>
 <p>I’ve never had much luck desoldering through-hole parts. Solder wick takes a <em>lot</em> of heat to work, and isn’t great even then. My solder sucker was bundled with a cheap soldering iron, and was broken on arrival. I never replaced it. So with a bit of concern that it’d go wrong, I put some heatproof tape on the CPU’s socket and got to work with the heat gun.</p>
 <p>To my surprise, I removed the oscillator quite easily. I figured I may as well also remove the FT230X - and this also went far better than I anticipated. Well enough, in fact, that I soldered the removed IC onto a TSSOP-16 breakout board. I replicated the CPU board’s USB circuitry fairly closely on a breadboard, then plugged it in.</p>
 <figure>
-<img src="/images/trs20/enumerated.png" alt="" /><figcaption>wat.</figcaption>
+<img src="/images/trs20/enumerated.png" alt="wat." />
+<figcaption aria-hidden="true">wat.</figcaption>
 </figure>
 <p>The chip is (I think) fine. I can dump its ROM, and I can make an LED flicker by sending to it using the virtual COM port driver.</p>
 <p>So I rechecked the CPU board. I checked all the connections into the CPU, which are the only parts I didn’t replicate on the breadboard. I checked all the passives, in case I had a dud resistor or capacitor. Everything looked fine - so, not having much to lose here, I desoldered the poor IC from the breakout board and resoldered it to the CPU board.</p>
 <figure>
-<img src="/images/trs20/whereswally.png" alt="" /><figcaption>I admit I felt a little glum.</figcaption>
+<img src="/images/trs20/whereswally.png" alt="I admit I felt a little glum." />
+<figcaption aria-hidden="true">I admit I felt a little glum.</figcaption>
 </figure>
 <p>Well, that’s it. I can’t communicate with the CPU, I can’t see if it’s working, I’ve no idea what I could possibly do. I am unwilling to risk the price of another board assembly when there’s no apparent reason for failure.</p>
 <p>I packed everything away, and nearly didn’t even write this post.</p>
@@ -267,12 +605,14 @@ MiRw 0016F  38 (00111000)</code></pre>
 <p>The only substantive difference between the breadboard setup and the CPU board setup is my admittedly less than perfect USB socket. So after <del>sulking</del>sleeping on it I tried measuring voltage levels on the breadboard vs. on the CPU board. I ran the USB socket without the main USB power applied to the board: this <em>in theory</em> is perfectly fine, as the FT230X tolerances are absolute, not expressed in terms of its supply voltage. But what I noticed was that VBUS was running at 2V, and D- at -0.5V, relative to ground supplied via the data USB. I checked an unconnected USB socket and got 5V and 0V respectively, with D+ at 3.3V. Hmm.</p>
 <p>I reconnected the supply power for the CPU board, and re-measured. Now I saw 5V, 3.3V, and 0V for VBus, D+, and D-, which seemed right. At a loss, I tried one last thing:</p>
 <figure>
-<img src="/images/trs20/enumerated.png" alt="" /><figcaption>Why do you taunt me so?</figcaption>
+<img src="/images/trs20/enumerated.png" alt="Why do you taunt me so?" />
+<figcaption aria-hidden="true">Why do you taunt me so?</figcaption>
 </figure>
 <p>It was enumerating again.</p>
 <p>This should feel like a victory, but in truth it does not. I don’t know why it didn’t work, I don’t know why it started working, I don’t know whether it will stop working again in the future. But I ordered a replacement oscillator, and may as well press on.</p>
 <figure>
-<img src="/images/trs20/assembled%20board.jpg" alt="" /><figcaption>The fully assembled board.</figcaption>
+<img src="/images/trs20/assembled%20board.jpg" alt="The fully assembled board." />
+<figcaption aria-hidden="true">The fully assembled board.</figcaption>
 </figure>]]></summary>
 </entry>
 <entry>
@@ -292,22 +632,22 @@ MiRw 0016F  38 (00111000)</code></pre>
 <p>The circuit on the protoshield is trivial - a pull-up for /CS and a socket for the ROM - and you can see my handiwork in the image at the top of the post.</p>
 <p>I won’t go into detail on the code work involved. I wrote a simple <a href="https://github.com/codebje/romble/blob/master/Src/flashrom.c">interface</a> for the Flash ROM, and implemented a <a href="https://github.com/codebje/romble/blob/master/Src/ymodem.c">YModem</a> receiver so I could upload over the ST-LINK’s USB serial port.</p>
 <p>I burned on a simple image that just sets one LED to be always off, and binds the other to the 100MHz oscillator’s input via a 26-bit counter. This is around a 1.5Hz blink - if it works.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode verilog"><code class="sourceCode verilog"><span id="cb1-1"><a href="#cb1-1"></a><span class="kw">module</span> poc(CLK1, LED1, LED2);</span>
-<span id="cb1-2"><a href="#cb1-2"></a></span>
-<span id="cb1-3"><a href="#cb1-3"></a>    <span class="dt">input</span> CLK1;</span>
-<span id="cb1-4"><a href="#cb1-4"></a>    <span class="dt">output</span>              LED1, LED2;</span>
-<span id="cb1-5"><a href="#cb1-5"></a></span>
-<span id="cb1-6"><a href="#cb1-6"></a>    <span class="kw">assign</span> LED1 = <span class="dv">0</span>;</span>
-<span id="cb1-7"><a href="#cb1-7"></a></span>
-<span id="cb1-8"><a href="#cb1-8"></a>    <span class="dt">reg</span> [<span class="dv">25</span>:<span class="dv">0</span>]          counter;</span>
-<span id="cb1-9"><a href="#cb1-9"></a>    <span class="dt">reg</span>                 toggle;</span>
-<span id="cb1-10"><a href="#cb1-10"></a></span>
-<span id="cb1-11"><a href="#cb1-11"></a>    <span class="kw">always</span> @(<span class="kw">posedge</span> CLK1)</span>
-<span id="cb1-12"><a href="#cb1-12"></a>        counter &lt;= counter + <span class="bn">1&#39;b1</span>;</span>
-<span id="cb1-13"><a href="#cb1-13"></a></span>
-<span id="cb1-14"><a href="#cb1-14"></a>    <span class="kw">assign</span> LED2 = counter[<span class="dv">25</span>];</span>
-<span id="cb1-15"><a href="#cb1-15"></a></span>
-<span id="cb1-16"><a href="#cb1-16"></a><span class="kw">endmodule</span></span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode verilog"><code class="sourceCode verilog"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">module</span> poc<span class="op">(</span>CLK1<span class="op">,</span> LED1<span class="op">,</span> LED2<span class="op">);</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">input</span> CLK1<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">output</span>              LED1<span class="op">,</span> LED2<span class="op">;</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">assign</span> LED1 <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">reg</span> <span class="op">[</span><span class="dv">25</span><span class="op">:</span><span class="dv">0</span><span class="op">]</span>          counter<span class="op">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">reg</span>                 toggle<span class="op">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">always</span> <span class="op">@(</span><span class="kw">posedge</span> CLK1<span class="op">)</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        counter <span class="op">&lt;=</span> counter <span class="op">+</span> <span class="bn">1&#39;b1</span><span class="op">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">assign</span> LED2 <span class="op">=</span> counter<span class="op">[</span><span class="dv">25</span><span class="op">];</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">endmodule</span></span></code></pre></div>
 <p>While I was at it, I figured I may as well make two images like this, one with <code>assign LED1 = 0;</code> and the other with <code>assign LED1 = 1;</code>. <a href="http://bygone.clairexen.net/icestorm/">Project IceStorm</a> supports multi-image bitstreams, so I can exercise my boot selector jumpers as well.</p>
 <p>After straightening the ROM’s pins back out (use a removal tool: flat tweezers are excellent, fingers are not) and plugging it into the main board, well:</p>
 <video controls="true" autoplay="true" loop="true" style="width: 100%">
@@ -317,7 +657,8 @@ MiRw 0016F  38 (00111000)</code></pre>
 <h1 id="the-parallel-rom">The parallel ROM</h1>
 <p>I thought about how I might want to do this. A neat job would be female headers on a board for the Nucleo to plug into, programming the ROM IC in a PLCC socket beside it. I could add a DIP8 socket and have a programmer for both ROMs in short order. But this is a lot of jumper wires to mess about with, and frankly I’m not really keen on it. So - pretty much every jumper lead I have is now in Frankenprogrammer.</p>
 <figure>
-<img src="/images/trs20/plcc-programmer.jpg" alt="" /><figcaption>So much better than a TL866II, right?</figcaption>
+<img src="/images/trs20/plcc-programmer.jpg" alt="So much better than a TL866II, right?" />
+<figcaption aria-hidden="true">So much better than a TL866II, right?</figcaption>
 </figure>
 <p>I hope to minimise my programming cycles - I need to work out how I can verify the whole CPU board is good, then work on producing enough of a ROM that I can boot up to something that’ll program other parts of the ROM over USB. PLCC sockets are only good for a few tens of insertions, so I want to be bootstrapped on-board ASAP.</p>
 <p>Next up: completing the CPU board assembly.</p>]]></summary>
@@ -333,7 +674,8 @@ MiRw 0016F  38 (00111000)</code></pre>
 <h2 id="soldering-round-one">Soldering, round one</h2>
 <p>I’ve attempted the iCE40 IC first, as the most likely to fail. And indeed, it hasn’t gone at all well. There were terrible solder bridges on two sides, and while I’ve eventually figured out the technique for dealing with these I’ve applied substantial heat to get there. The board looks in good nick, perhaps due to the two large inner copper planes wicking heat away, but there’s a persistent short from 3.3V to GND that, obviously, is a deal-breaker. I’ve tested the other four boards and they’re all short-free so it’s very likely this is a soldering issue. I found and removed another short on two address lines, and think everything else is clear (no test points - a board design issue), but I don’t even know which of the supply/ground pin pairs has the short. I fear it may have somehow happened beneath the IC where I can’t see it, or with excess heat down a ground via delaminating the board enough for solder to worm its way to a connection with the power layer. It may just be solder sitting sneakily behind some pins, but there’s only two supply pins that are adjacent and I’ve inspected the everloving out of them both.</p>
 <figure>
-<img src="/images/trs20/dodgy-solder.png" alt="" /><figcaption>That big one on the left I’ve nicknamed ‘The Bridge of Sighs’.</figcaption>
+<img src="/images/trs20/dodgy-solder.png" alt="That big one on the left I’ve nicknamed ‘The Bridge of Sighs’." />
+<figcaption aria-hidden="true">That big one on the left I’ve nicknamed ‘The Bridge of Sighs’.</figcaption>
 </figure>
 <p>I’ve ordered three more FPGAs, and I’ll try again, armed perhaps with a greater fear of excessive solder paste, a new multimeter that doesn’t have one lead replaced by an alligator clip holding a screw, and my improved techniques for fixing small bridges. They won’t arrive until the end of the week, so I’ve put board assembly aside for now.</p>
 <h2 id="programming-roms">Programming ROMs</h2>
@@ -345,7 +687,8 @@ MiRw 0016F  38 (00111000)</code></pre>
 <p>I tried a third FPGA on a fresh board. I have one spare FPGA and two spare boards. This time, I carefully lined up the IC then used a toothpick to put as little solder paste on as I could, then cracked in with the heat gun. There were a few bridges left, but this time I was able to get in and clean them up without using crazy heating cycles. I’ve checked all 100 pins to confirm they’re connected to what they should be, and not to what they shouldn’t be, and it’s all looking good.</p>
 <p>So I got stuck into getting a few more components on the board. I have <em>absolutely no idea</em> if my 100MHz oscillator is on right. It’s a tiny QFN - the only no-lead part on the board - and I can see that at least two pads are soldered, the others <em>probably</em> are, and maybe it doesn’t have bridges, or heat damage from the hot air gun. I can’t really test it, and I didn’t have any particular use for it.</p>
 <figure>
-<img src="/images/trs20/power-components.png" alt="" /><figcaption>100 0.5mm pitch pins soldered neatly - and a handful of capacitors on crazy angles.</figcaption>
+<img src="/images/trs20/power-components.png" alt="100 0.5mm pitch pins soldered neatly - and a handful of capacitors on crazy angles." />
+<figcaption aria-hidden="true">100 0.5mm pitch pins soldered neatly - and a handful of capacitors on crazy angles.</figcaption>
 </figure>
 <p>The 1.2V regulator is a DDPAK, an absolutely enormous beast of a part. It features a large tab for heat transfer, and again I can’t see underneath it to know if solder paste melted or not. The DDPAK is designed to dissipate heat, so it fights every step of the way when soldering. Even the three pins wick heat magically away into the large copper pours and are difficult to solder. It’s on - but the tab might not be soldered down as well as it should be.</p>
 <p>I am filled with regrets about choosing to use 0603 bypass capacitors, they’re fiddly. I’ve put on a half dozen or so, plus a few larger capacitors around the power management. My goal is to get enough soldered on to verify the power circuitry, and then to verify the FPGA is on safely, so I’ve done the DDPAK, the eFuse, and capacitors. I’ve yet to do the resistors, diode, and the R-78 3.3V regulator, more caps, and perhaps the MIC803.</p>
@@ -357,7 +700,8 @@ MiRw 0016F  38 (00111000)</code></pre>
 <h2 id="powering-up-round-one">Powering up, round one</h2>
 <p>I pushed the USB cable into the socket, fearing the worst, hoping for the best. Today, I got the best: the power LED lit up. The board has juice! This LED is wired straight to the USB power supply, so it tells me that I don’t have a critical short somewhere, and that I do have a successfully soldered USB port, resistor, and correctly oriented LED. That’s quite a moment, but not the end of the story, not just yet.</p>
 <figure>
-<img src="/images/trs20/power-on.jpg" alt="" /><figcaption>Just an LED - and an important milestone.</figcaption>
+<img src="/images/trs20/power-on.jpg" alt="Just an LED - and an important milestone." />
+<figcaption aria-hidden="true">Just an LED - and an important milestone.</figcaption>
 </figure>
 <p>I have two regulators and a voltage divider network in my power circuitry. The RECOM should be converting the 5V supply from USB via the eFuse into 3.3V, while the DDPAK linear regulator supplies 1.2V from the same source. I gave them both a probe with the multimeter, and to my delight, both are showing the expected levels. The voltage divider for the MIC2774 reset controller is also performing properly, delivering 315mV to the 300mV comparator input. Nothing is unduly warm, so I feel confident in declaring my power circuitry design and assembly a success.</p>
 <p>I have no idea just yet whether the FPGA, ROM, and 100MHz oscillator are in a good place. Tomorrow’s soldering task will be to add the remaining LEDs (including the two USR LEDs wired to the FPGA), the MIC803 supervisor, and the pull-up for the ROM’s Slave Select that I missed - U20 and R13 in the above image. After that I’ll choose between testing the FPGA out before committing RAM, ROM, and CPU, or pressing on with the actual computer part of this circuit.</p>
@@ -489,15 +833,16 @@ MiRw 0016F  38 (00111000)</code></pre>
 <li>Lots of 10kΩ resistors, 0603</li>
 </ul>
 <figure>
-<img src="/images/trs20/power%20supply.svg" alt="" /><figcaption>A higher part count than I would have liked in the end, but still relatively simple.</figcaption>
+<img src="/images/trs20/power%20supply.svg" alt="A higher part count than I would have liked in the end, but still relatively simple." />
+<figcaption aria-hidden="true">A higher part count than I would have liked in the end, but still relatively simple.</figcaption>
 </figure>
 <h2 id="memory">RAM and ROM</h2>
 <p>The <a href="010-timing-check.html">last post</a> went into detail on the specific timings required for zero wait state memory access. In particular, zero wait state ROM requires clever tricks with enabling the IC before I am even sure that a memory request is coming. In the end I’ve chosen not to be too clever, and instead require at least one wait state for memory accesses when the ROM (or off-board memory-mapped I/O) is in use.</p>
 <h3 id="utilising-the-z180-mmu">Utilising the Z180 MMU</h3>
 <p>One of the selling points for the Z180 is the onboard peripherals, pegged as space and cost savers. The peripheral of the most interest to me right now is the memory management unit. This maps the 20-bit physical address space of the Z180 to a 16-bit logical space, neatly sidestepping a number of problems I’d otherwise face.</p>
-<p>The Z180’s MMU divides logical memory into three regions. At the bottom and top of memory are what the processor designers call the Common Areas, and between them is the Bank Area. Common Area 0 at logical address <code class="sourceCode z80asm"><span class="bn">$0000</span></code> is always mapped to physical address <code class="sourceCode z80asm"><span class="bn">$00000</span></code>, and at boot is 64K in size. The Bank Area starts at the end of Common Area 0, and Common Area 1 starts at the end of the Bank Area. All addresses are aligned to 4K, such that logical addresses are 4-bits long and physical addresses are 8-bits long.</p>
+<p>The Z180’s MMU divides logical memory into three regions. At the bottom and top of memory are what the processor designers call the Common Areas, and between them is the Bank Area. Common Area 0 at logical address <code class="sourceCode z80"><span class="bn">$0000</span></code> is always mapped to physical address <code class="sourceCode z80"><span class="bn">$00000</span></code>, and at boot is 64K in size. The Bank Area starts at the end of Common Area 0, and Common Area 1 starts at the end of the Bank Area. All addresses are aligned to 4K, such that logical addresses are 4-bits long and physical addresses are 8-bits long.</p>
 <p><img src="/images/z180-mmu.svg" /></p>
-<p>At reset, the Z180 will set the program counter to <code class="sourceCode z80asm"><span class="bn">$0000</span></code> and will fetch an opcode from phyiscal address <code class="sourceCode z80asm"><span class="bn">$00000</span></code>. Putting the ROM at this physical address makes booting simple, but after boot it makes Common Area 0 less valuable, as it must always be the boot ROM. CP/M in particular expects useful memory at least as low as <code class="sourceCode z80asm"><span class="bn">$0200</span></code>.</p>
+<p>At reset, the Z180 will set the program counter to <code class="sourceCode z80"><span class="bn">$0000</span></code> and will fetch an opcode from phyiscal address <code class="sourceCode z80"><span class="bn">$00000</span></code>. Putting the ROM at this physical address makes booting simple, but after boot it makes Common Area 0 less valuable, as it must always be the boot ROM. CP/M in particular expects useful memory at least as low as <code class="sourceCode z80"><span class="bn">$0200</span></code>.</p>
 <p>More annoying is that dividing a 1Mb physical memory space into one 512Kb and two 256Kb regions is really easy with an <a href="http://www.ti.com/lit/gpn/sn74lvc1g29">SN74LVC1G29</a> - but its truth table only aligns with selecting SRAM when A<sub>19</sub> is low, and using A<sub>18</sub> to choose between the off-board bus or the ROM when A<sub>19</sub> is high. With a 5.1ns propagation delay this IC is plenty fast enough for the job.</p>
 <table>
 <caption>How RAM, ROM, and the BUS relate to the CPU’s signals</caption>
@@ -534,10 +879,10 @@ MiRw 0016F  38 (00111000)</code></pre>
 </tr>
 </tbody>
 </table>
-<p>But for this to work, I need to have SRAM at phyiscal address <code class="sourceCode z80asm"><span class="bn">$00000</span></code>. Except right at boot.</p>
+<p>But for this to work, I need to have SRAM at phyiscal address <code class="sourceCode z80"><span class="bn">$00000</span></code>. Except right at boot.</p>
 <h3 id="booting-from-rom">Booting from ROM</h3>
-<p>The /RESET signal on the CPU will be pulled low by the MIC2774 voltage supervisor for 140ms or so after power is first applied or the reset button is mashed. When this signal goes high the processor will enter its reset cycle and very shortly thereafter it will start the first opcode read cycle for address <code class="sourceCode z80asm"><span class="bn">$00000</span></code>.</p>
-<p>To instead read that first opcode from ROM at <code class="sourceCode z80asm"><span class="bn">$80000</span></code> I need A<sub>19</sub> to be high after reset. I can OR together the output of a D flip-flip and A<sub>19</sub>, and latch the flip-flop high on the rising edge of /RESET. I also need to clear the flip-flop during the boot sequence. Feeding the inverted A<sub>19</sub> line into the /CLR line of the flip-flop will clear it when A<sub>19</sub> rises, which I can arrange to happen by programming the MMU and jumping.</p>
+<p>The /RESET signal on the CPU will be pulled low by the MIC2774 voltage supervisor for 140ms or so after power is first applied or the reset button is mashed. When this signal goes high the processor will enter its reset cycle and very shortly thereafter it will start the first opcode read cycle for address <code class="sourceCode z80"><span class="bn">$00000</span></code>.</p>
+<p>To instead read that first opcode from ROM at <code class="sourceCode z80"><span class="bn">$80000</span></code> I need A<sub>19</sub> to be high after reset. I can OR together the output of a D flip-flip and A<sub>19</sub>, and latch the flip-flop high on the rising edge of /RESET. I also need to clear the flip-flop during the boot sequence. Feeding the inverted A<sub>19</sub> line into the /CLR line of the flip-flop will clear it when A<sub>19</sub> rises, which I can arrange to happen by programming the MMU and jumping.</p>
 <object class="paper" data="/images/shadow-rom.svg" type="image/svg+xml">
 </object>
 <p>In this circuit, U4 is an SN74LVC1G29 2-of-3 decoder. Its A1 input selects its Y0 output when A1 is low. When A1 is high, it selects either Y1 or Y2 depending on whether A0 is low or high, respectively. Feeding into U4 is A<sub>19a</sub>, which is the output of U3, an OR gate. The idea is that a high BOOTUP signal means A<sub>19a</sub> is set no matter what the real A<sub>19</sub> does, and BOOTUP is active at boot.</p>
@@ -547,11 +892,11 @@ MiRw 0016F  38 (00111000)</code></pre>
 <p>Alternatively, I can combine the signal from A<sub>19</sub> with the signal from /M1. /M1 is held high during reset, and will only go low for a small number of CPU modes, only one of which will occur during boot-up: fetching opcodes. Instead of using an inverter at U2 I can use another IC that will output low iff /M1 is low and A<sub>19</sub> is high. The logic function is a two-input OR (or NAND) gate with one inverted input, <code>/M1 | ~A19</code>. The SN74LVC1G57 and ’97 both support this configuration in a SOT-23-6 package.</p>
 <p>I will also swap out the 1G74 for a 1G175 which has no /Q and no /PRE, also in a SOT23-6 package. Dropping the unnecessary pins saves some board space.</p>
 <h3 id="programming-the-rom">Programming the ROM</h3>
-<p>Until reaching this section, the /WE input of my ROM was hard-wired to Vcc, and I planned to laboriously remove the thing from its socket, put it in a programming socket, burn a new image on, and move it back. Well, no more! I sat down and had a proper read of the datasheet, and I’ve convinced myself that programming it via the CPU is no harder than ensuring I have a wait state or two configured and just writing bytes to the right memory addresses. To write one byte, you need to write <code class="sourceCode z80asm"><span class="bn">$AA</span></code> to <code class="sourceCode z80asm"><span class="bn">$5555</span></code>, then <code class="sourceCode z80asm"><span class="bn">$55</span></code> to <code class="sourceCode z80asm"><span class="bn">$2AAA</span></code>, then <code class="sourceCode z80asm"><span class="bn">$A0</span></code> to <code class="sourceCode z80asm"><span class="bn">$5555</span></code>, and finally, write the byte to program to the address it should be at. Of course, this is Flash memory so you can only write zeros, and must also first erase a sector or the whole chip to one, but this too is accomplished with a sequence of bytes written to magic addresses.</p>
+<p>Until reaching this section, the /WE input of my ROM was hard-wired to Vcc, and I planned to laboriously remove the thing from its socket, put it in a programming socket, burn a new image on, and move it back. Well, no more! I sat down and had a proper read of the datasheet, and I’ve convinced myself that programming it via the CPU is no harder than ensuring I have a wait state or two configured and just writing bytes to the right memory addresses. To write one byte, you need to write <code class="sourceCode z80"><span class="bn">$AA</span></code> to <code class="sourceCode z80"><span class="bn">$5555</span></code>, then <code class="sourceCode z80"><span class="bn">$55</span></code> to <code class="sourceCode z80"><span class="bn">$2AAA</span></code>, then <code class="sourceCode z80"><span class="bn">$A0</span></code> to <code class="sourceCode z80"><span class="bn">$5555</span></code>, and finally, write the byte to program to the address it should be at. Of course, this is Flash memory so you can only write zeros, and must also first erase a sector or the whole chip to one, but this too is accomplished with a sequence of bytes written to magic addresses.</p>
 <p>I’ve wired /WE up to the memory write logic, and /WE will now go active when /MREQ and /WR go active. /CE will go active when A<sub>19</sub> (modified by the flip-flop) and /MREQ are active but A<sub>18</sub> is not. If I got it wrong, I only have one trace to cut to disable Flash writes altogether.</p>
 <p>Other than needing a series of bytes written on the bus to write one byte to the Flash memory, there’s also of course a much larger time required to write that final byte. This time begins after /WE goes inactive, so the usual CPU write cycle will latch the byte in for writing. Completion of the write can be detected by simple timing, or by reading a byte and examining bit 7, which will be the complement of the true data until the write is finished, or bit 6, which will toggle high and low on successive reads until the write is finished.</p>
 <h2 id="pic">Interrupt controller</h2>
-<p>There are four interrupt lines on the Z180. The /NMI always restarts the processor at <code class="sourceCode z80asm"><span class="bn">$0066</span></code>. /INT0 has three modes of operation. Mode 0 fetches a single byte instruction from the bus. Mode 1 restarts at fixed address <code class="sourceCode z80asm"><span class="bn">$0033</span></code>. Mode 2 fetches an index into an interrupt vector from the bus, and is the mode I expect to use. /INT1 and /INT2 construct an address similarly to /INT0 Mode 2, but the index is retrieved from a register instead of the data bus. Internal interrupts operate in the same way as /INT1 and /INT2, and all such interrupts have a fixed 5-bit code specific to that interrupt source.</p>
+<p>There are four interrupt lines on the Z180. The /NMI always restarts the processor at <code class="sourceCode z80"><span class="bn">$0066</span></code>. /INT0 has three modes of operation. Mode 0 fetches a single byte instruction from the bus. Mode 1 restarts at fixed address <code class="sourceCode z80"><span class="bn">$0033</span></code>. Mode 2 fetches an index into an interrupt vector from the bus, and is the mode I expect to use. /INT1 and /INT2 construct an address similarly to /INT0 Mode 2, but the index is retrieved from a register instead of the data bus. Internal interrupts operate in the same way as /INT1 and /INT2, and all such interrupts have a fixed 5-bit code specific to that interrupt source.</p>
 <p>It’s common for Z80 machines to daisy-chain peripherals that raise interrupts. Each peripheral in the chain has an Interrupt Enable Input (IEI) pin. If this pin is asserted low, the peripheral must not signal an interrupt to the CPU. The highest priority peripheral has this pin tied to Vcc. Each peripheral also has an Interrupt Enable Output (IEO) pin that will be connected to the IEI of the next lowest priority peripheral. When the peripheral wishes to raise an interrupt it will assert IEO. If its IEI is not asserted, it will also assert the OR-wired /INT0 line. This will interrupt the processor, which will begin an interrupt acknowledge cycle. Only a peripheral with IEI unasserted will respond by writing its interrupt vector to the bus, then deasserting /INT. It will not deassert IEO until it sees the processor fetch a RETI instruction from the bus while the peripheral’s IEI line is deasserted.</p>
 <p>A higher priority peripheral can interrupt another peripheral’s interrupt service routine. A lower priority peripheral must wait until all higher priority interrupts have been serviced before raising its own. And each peripheral must watch the bus for opcode fetch cycles, to detect RETI.</p>
 <p>The scheme is quite neat, allowing a priority interrupt scheme without a dedicated controller. However, it’s not at all suited to a PC/104-style stack of boards, where every pin passes directly through each layer to the next. It’s not possible to have a daisy chained signal with stacked headers.</p>
@@ -560,7 +905,8 @@ MiRw 0016F  38 (00111000)</code></pre>
 <p>The 8259A interface watches for rising edges or high signal levels on its interrupt lines, but I would prefer to configure the inputs in the FPGA as hi-Z unless explicitly configured as enabled rather than adding pull-downs or jumpers.</p>
 <p>The FPGA itself requires an SPI slave device to feed it configuration data. I’ve chosen a DIP-8 package ROM in a socket so I can remove and reprogram it reasonably easily. The IC is a Winbond 32Mbit ROM, which has room for around 129 bitstream images for an iCE40HX1K device at 32,303 bytes per bitstream. The iCE40 has the option of selecting one of four image locations on boot based on the state of two pins at reset, or under software control using two internal signals. This allows me to store a bitstream in a different region of the Flash memory and load that image into the FPGA to test it before committing it to be the main boot-up bitstream. Adding a few jumpers to control the cold boot pins lets me have an emergency recovery bitstream I never touch.</p>
 <figure>
-<img src="/images/trs20/pcb_fpga.png" alt="" /><figcaption>The PCB’s layout is dominated by capacitors that are large enough for me to solder.</figcaption>
+<img src="/images/trs20/pcb_fpga.png" alt="The PCB’s layout is dominated by capacitors that are large enough for me to solder." />
+<figcaption aria-hidden="true">The PCB’s layout is dominated by capacitors that are large enough for me to solder.</figcaption>
 </figure>
 <p>The FPGA is a 0.5mm pitch VQFP-100 IC. This might be the most difficult part to solder on this board. I have done a practice solder of a TQFP-100, which sadly had several bridged pins. I corrected those bridges after buying the flux I should have used in the first place, but I’ve no idea if I cooked the IC with my hamfisted soldering and repair attempts. I’m a little nervous about this. Also in this section of the board is the only no-lead package I’ve used. X1 is a 100MHz MEMS oscillator that has no specific reason to exist, other than someday maybe I’d like a 100MHz clock input on the FPGA. Because it doesn’t need to be there, mucking X1 up won’t be such a big deal.</p>
 <p>The FPGA is connected to all address and data lines, after buffering. It receives the CPU control signals: /MREQ, /IORQ, /RD, /WR, and /M1. It is the only part of the system wired up to the DMA control signals and the bus master control signals, and controls the three maskable external interrupt lines. It’s also wired to USART1’s RX and TX pins, and since taking the above image I also wired up CTS1. Again, I have no specific plans here, but it costs nothing except the time to try for a neat trace to leave the option of using USART1 with the FPGA open.</p>
@@ -591,7 +937,7 @@ MiRw 0016F  38 (00111000)</code></pre>
 <li>I wired D+ to USBDM and D- to USBDP on the FT230X. You can see the mistake in the schematic above. I think it’s because they just lined up neatly that way. I needed to rotate the FT230X on the board to resolve it.</li>
 <li>My 74LVC2G32 gates had the wrong pin assignments in the schematic. Rather than use the two-unit IC schematic supplied with KiCad I drew up my own one-unit schematic, and got it wrong. There’s three on the board, but they just needed re-routing.</li>
 <li>My MCP1824S linear regulator was wired directly to the USB power, not to the eFuse output. On top of that, I’m not really happy with a 300mA limit for the FPGA’s core. I have no idea how much power it will actually draw, I can’t find that information, but other board designs I’ve looked at give it more juice. So - it’s now an MCP1826S rated for 1A, in a 3DDPAK footprint that can dissipate twice as much heat. If I can solder it down. DDPAKs are huge, so I had to move a few things around to fit it in. And I threw in that diode. I should be able to feed up to 700mA to the FPGA without any stress on the parts now.</li>
-<li>A big one. I force A<sub>19</sub> high at boot to select ROM - but A<sub>18</sub> will be low, which would have selected unassigned bus memory addresses. I correctly identified the ROM would be at <code class="sourceCode z80asm"><span class="bn">$80000</span></code>, and clearly got that right in the circuit that forces A<sub>19</sub> high, but got it wrong in my logic table and wiring.</li>
+<li>A big one. I force A<sub>19</sub> high at boot to select ROM - but A<sub>18</sub> will be low, which would have selected unassigned bus memory addresses. I correctly identified the ROM would be at <code class="sourceCode z80"><span class="bn">$80000</span></code>, and clearly got that right in the circuit that forces A<sub>19</sub> high, but got it wrong in my logic table and wiring.</li>
 <li>Another big one, courtesy BFLmouse from the 8 Bit World Discourse server: U16 is a ’245 buffer for the data bus, with DIRection controlled by /WR. If the CPU releases the bus via /BUSREQ, then this buffer must stay off the data bus. It needs the inverse of /BUSACK wired into /OE to disable the outputs. This could also be applied to the /OE pins of the address ’245s, but their DIR pin is wired to /BUSACK already - when /BUSACK is low, the Z180’s address lines are high-Z, and those ’245s will replicate whatever’s on the address bus outside to be ignored by the CPU on the inside.</li>
 <li>KiCad’s SOT-23 footprints are smaller than the parts I’ve checked expect. I’ve switched to the hand soldering footprints in most cases, which gives me more room to get in with an iron and ensures I have enough overhang to successfully solder these parts down even if I’m not perfectly lined up. The same appears to be true of the diode footprints.</li>
 <li>The lack of connection of the <code>CDONE</code> signal bothered me enough that I did the work to add an LED in. This meant moving a few components around to make room for an extra LED in the status LED section of the board. It also meant figuring out why the iCEstick appears to have an LED wired up to a 4.7kΩ resistor from 3.3V - at 1.8V<sub>F</sub> that’s only 0.32mA of forward current, though it’s also only 0.7mA of current into the <code>CDONE</code> pin when it’s being pulled low. I think the board must be using very low current LEDs, so I added a few of those to my BOM and I’ll drive them with 2.2kΩ resistors.</li>
@@ -651,7 +997,8 @@ MiRw 0016F  38 (00111000)</code></pre>
 <p>When you pop out of the CPU and look at its immediate peripherals, the clock signal comes along for the ride. External components must march to the same drum as the processor, consuming data it outputs before the processor has moved on to the next task, and providing data as input before the processor acts on it.</p>
 <p>This manifests in data sheets and other documentation as <em>timing diagrams</em>. These diagrams have time as the horizontal axis, and signal levels as the vertical axis, with multiple signals on the same diagram to show how the signals must synchronise with each other. If there’s a clock synchronising the signals, it’ll usually be the first signal in the diagram. Since the diagram’s purpose is to show relative timing constraints, the time axis isn’t accurate - if two signals change at the same point horizontally, they’re only specified to change at the same time if the diagram indicates a zero time delay between them.</p>
 <figure>
-<img src="/images/timing-diagram-example.svg" alt="" /><figcaption>Three signals (one a bus), and two indicated timing data.</figcaption>
+<img src="/images/timing-diagram-example.svg" alt="Three signals (one a bus), and two indicated timing data." />
+<figcaption aria-hidden="true">Three signals (one a bus), and two indicated timing data.</figcaption>
 </figure>
 <p>A timing diagram’s value is in explaining how one signal’s change in state is related to another signal. In the above diagram, a table would give an upper or lower bound for the intervals marked <code>1</code> and <code>2</code>. An upper bound for interval <code>1</code> would specify the maximum time that the address lines will settle after the rising edge of T1. A lower bound for interval <code>2</code> would specify the minimum time that the address lines will be settled before /MREQ falls.</p>
 <h2 id="processor-timing-details-for-the-z180">Processor timing details for the Z180</h2>
@@ -660,7 +1007,8 @@ MiRw 0016F  38 (00111000)</code></pre>
 <p>Others of these timing values tell me useful information for my component selection, when read in conjunction with a timing diagram. How fast does my SRAM have to be if I want to access it with no wait states? Well - in an opcode fetch cycle, the address pins will stabilise no more than t<sub>AD</sub> (30ns) after the first rising edge of the first clock cycle of the opcode fetch machine cycle, and no less than t<sub>AS</sub> (5ns) before /MREQ or /IORQ falls. In turn, /MREQ promises it will fall no later than t<sub>MED1</sub> (25ns) after the falling edge of that first clock cycle. Similarly, t<sub>RDD1</sub> (25ns) promises that /RD will fall at most that long after the falling edge as well. There’s nothing tying /RD and /MREQ together though, so there’s no commitment made as to which will fall first, or how much time will elapse between the two falling.</p>
 <p>It’s all a bit complicated. Perhaps a diagram would help…</p>
 <figure>
-<img src="/images/z180-timing-main.png" alt="" /><figcaption>z8018x User Manual (UM005004-0918), p.197, Figure 81.</figcaption>
+<img src="/images/z180-timing-main.png" alt="z8018x User Manual (UM005004-0918), p.197, Figure 81." />
+<figcaption aria-hidden="true">z8018x User Manual (UM005004-0918), p.197, Figure 81.</figcaption>
 </figure>
 <p>There’s a lot going on in this one diagram, but I can use it to produce the information I really need - if I have 12ns SRAM, how fast does my glue logic have to be before I need a wait state? And for my Flash ROM and any on-board I/O devices, similar questions play out.</p>
 <h2 id="working-out-maximum-delays">Working out maximum delays</h2>
@@ -763,20 +1111,23 @@ MiRw 0016F  38 (00111000)</code></pre>
 </tbody>
 </table>
 <figure>
-<img src="/images/z180-timing-memory.svg" alt="" /><figcaption>Memory access timing diagram, opcode fetch and write cycles.</figcaption>
+<img src="/images/z180-timing-memory.svg" alt="Memory access timing diagram, opcode fetch and write cycles." />
+<figcaption aria-hidden="true">Memory access timing diagram, opcode fetch and write cycles.</figcaption>
 </figure>
 <p>The only timing not specified in the table above is 1 (t<sub>CYC</sub>, the clock cycle time). I will use an 18.432MHz MEMS oscillator, the DSC1001DE5. This part is accurate to 10ppm, which means t<sub>CYC</sub> will fall between 54.253ns and 54.254ns, which I will call 54ns. It outputs 0.9xV<sub>DD</sub>, or 2.97V, with a rise and fall time no longer than 2ns. The duty cycle could be anywhere between 45% and 55%, or 24.3ns to 29.7ns.</p>
 <p>A regular memory read cycle shortes the data window by only requiring that data has been set up t<sub>DRS</sub> before the falling edge of T3, rather than the rising edge. I/O read cycles are the same as regular memory read cycles, except that /IORQ replaces /MREQ and there is always at least one wait state. In Z80-compatible mode though, /IORQ and /RD fall after the rising edge of T2, so that’s a little trap to be wary of.</p>
 <p>To read a byte from a typical memory chip, one will decode the address lines plus /MREQ to activate the chip enable input of the memory, then activate either output enable or write enable depending on whether /RD or /WR is active. /MREQ activates 5ns after the address lines have settled, or 25ns after T1 falls. T1 could fall as late as 29.7ns after T1 rises, so /MREQ will not become active until 54.7ns have elapsed. /RD will become active at the same time. This is 1.7ns after T2 has begun, leaving 53.3ns until T3 begins, and 43.3ns until the data must be available.</p>
 <figure>
-<img src="/images/z180-memory-read-timing.svg" alt="" /><figcaption>Laid out as a timeline, it’s starting to make sense.</figcaption>
+<img src="/images/z180-memory-read-timing.svg" alt="Laid out as a timeline, it’s starting to make sense." />
+<figcaption aria-hidden="true">Laid out as a timeline, it’s starting to make sense.</figcaption>
 </figure>
 <p>This 43.3ns is eaten up by address decoding to drive the SRAM’s /CE input, by any logic required to translate the CPU’s /RD and /WR outputs into the SRAM’s /OE and /WE inputs, by any buffering or logic level conversions required, and of course by the SRAM’s own timing constraints. Fortunately, these are easier to understand - in a nutshell, data will be ready at most 10ns after /CE is active and 6ns after /OE is active. The data outputs will be Hi-Z again 5ns after /OE goes high. These figures are specific to the SRAM chip I’m using: check your datasheet.</p>
 <p>There’s also parasitics that add delay to the signal. On my sized board, this will be well below 3.3ns - the <a href="https://blog.zuken.com/how-to-calculate-trace-length-from-time-delay-value-for-high-speed-signals/">speed of signals</a> on stripline traces is close to 150mm/ns, so it’ll take less than one nanosecond for a signal to traverse my 10cm^2 board corner to corner. This leaves me a tidy 40ns to work with.</p>
 <p>For SRAM, this is an enormous surplus of time, with a whopping 30ns available for logic. For Flash ROM, it’s not so much time. My chosen ROM is the SST39SF020A, a 2Mbit 55ns IC. 55ns is, of course, greater than 40ns. But all is not lost, because as with the SRAM the 55ns applies from the time /CE is active. Data will be available 35ns after /OE is active, so if I can decode the address lines and toggle /CE early enough I will have 5ns to activate /OE on the ROM and still have data available inside the zero wait state window. Data must be ready at t+98ns and the address lines are settled at t+30ns, leaving 10ns for address decoding and 3ns for parasitics.</p>
 <p>The Z180 has a 16-bit I/O space so A16-A19 should all be low for any I/O request. Address decoding on ADDR alone can be fairly sure that if the ROM bits are set (A18, A19) that it’s really going to be a ROM request. In a similar vein, if A18 is set and A19 is clear it’s going to be an off-board memory request, and a wait state could be immediately generated, but I’m quite comfortable requiring software to manage this via the CPU’s wait state generator if off-board memory is needed.</p>
 <figure>
-<img src="/images/z180-memory-write-timing.svg" alt="" /><figcaption>My eyes are starting to glaze.</figcaption>
+<img src="/images/z180-memory-write-timing.svg" alt="My eyes are starting to glaze." />
+<figcaption aria-hidden="true">My eyes are starting to glaze.</figcaption>
 </figure>
 <p>When writing, the SRAM IC has from the fall of /WR to the fall of T3 to store data. /WR should fall no later than t+79ns, and T3 should fall no earlier than t+131.4ns. /WR will rise up to 25ns later. Timing constraint 26 (t<sub>WRP</sub>, write pulse width) guarantees that /WR will be low for at least 80ns. You could almost write the byte down on paper with that much time.</p>
 <h2 id="wait-state-generation">Wait state generation</h2>
@@ -843,127 +1194,6 @@ MiRw 0016F  38 (00111000)</code></pre>
 <td>INT0 read</td>
 <td style="text-align: left;">/M1 and /IORQ fall to data available</td>
 <td style="text-align: left;">40ns</td>
-</tr>
-</tbody>
-</table>]]></summary>
-</entry>
-<entry>
-    <title>The TRS-20 - boot up</title>
-    <link href="https://bje.id.au/blog/posts/trs20/009-boot-it.html" />
-    <id>https://bje.id.au/blog/posts/trs20/009-boot-it.html</id>
-    <published>2020-02-19T00:00:00Z</published>
-    <updated>2020-02-19T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>My 128 bytes each of ROM and RAM are working: the Z180 is executing my code.</p>
-<!--more-->
-<p>With my test rig re-wired using 22AWG wire (from a kit, I don’t have a nice stock of the stuff to trim to length myself yet) and looking neat, despite still only having eight address lines, I fired the thing up. Not pictured is a small extension that ties RESET high with a 10k resistor and adds a tactile switch to pull it low, as the Z180 doesn’t really behave properly without being reset.</p>
-<p>The <a href="https://github.com/codebje/trs20-debug/blob/fe11a903a1df9553ae3c87e779e340607668d3f4/trs20.asm">code</a> that should be executed disables DRAM refresh, so my logic analyser images don’t have so much noise in them. After that, it just loops forever not doing anything.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb1-1"><a href="#cb1-1"></a><span class="fu">reset:</span>	<span class="dt">.org</span>	<span class="bn">$0000</span></span>
-<span id="cb1-2"><a href="#cb1-2"></a>	ld	<span class="at">a</span>, <span class="bn">0</span></span>
-<span id="cb1-3"><a href="#cb1-3"></a>	out0	(RCR), <span class="at">a</span>	<span class="co">; disable the DRAM refresh</span></span>
-<span id="cb1-4"><a href="#cb1-4"></a>	jp	_start</span>
-<span id="cb1-5"><a href="#cb1-5"></a></span>
-<span id="cb1-6"><a href="#cb1-6"></a><span class="co">; … other RST vectors omitted …</span></span>
-<span id="cb1-7"><a href="#cb1-7"></a></span>
-<span id="cb1-8"><a href="#cb1-8"></a><span class="fu">_start:</span></span>
-<span id="cb1-9"><a href="#cb1-9"></a>	nop</span>
-<span id="cb1-10"><a href="#cb1-10"></a>	jp	_start</span></code></pre></div>
-<p>After a reset, the data lines look like this. I’ve added handy little labels for the signals.</p>
-<figure>
-<img src="/images/boot-from-rom.png" alt="" /><figcaption>On reflection, it probably would have been easier to read as D7:0.</figcaption>
-</figure>
-<p>Decoding and cross-referencing these binary values with the listing file for the ROM image shows it executing exactly what it should, and it’s apparent that immediately after the <code class="sourceCode z80asm">out0</code> the DRAM refresh ceases, and the CPU repeatedly requests the <code class="sourceCode z80asm">nop</code> and <code class="sourceCode z80asm">jp</code> instructions</p>
-<table>
-<thead>
-<tr class="header">
-<th>bits</th>
-<th>hex</th>
-<th>assembly</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td><code>00111110</code></td>
-<td><code>3E</code></td>
-<td><code class="sourceCode z80asm">ld <span class="at">a</span>, <span class="bn">0</span></code></td>
-</tr>
-<tr class="even">
-<td><code>00000000</code></td>
-<td><code>00</code></td>
-<td></td>
-</tr>
-<tr class="odd">
-<td><code>11101101</code></td>
-<td><code>ED</code></td>
-<td><code class="sourceCode z80asm">out0 (RCR), <span class="at">a</span></code></td>
-</tr>
-<tr class="even">
-<td><code>00111001</code></td>
-<td><code>39</code></td>
-<td></td>
-</tr>
-<tr class="odd">
-<td><code>00110110</code></td>
-<td><code>36</code></td>
-<td></td>
-</tr>
-<tr class="even">
-<td><code>11000011</code></td>
-<td><code>C3</code></td>
-<td><code class="sourceCode z80asm">jp <span class="bn">$0038</span></code></td>
-</tr>
-<tr class="odd">
-<td><code>00111000</code></td>
-<td><code>38</code></td>
-<td></td>
-</tr>
-<tr class="even">
-<td><code>00000000</code></td>
-<td><code>00</code></td>
-<td></td>
-</tr>
-<tr class="odd">
-<td><code>00000000</code></td>
-<td><code>00</code></td>
-<td><code class="sourceCode z80asm">nop</code></td>
-</tr>
-</tbody>
-</table>
-<p>I don’t think I’ve convinced friends or family that this is, in fact, quite an exciting milestone. Nevertheless, it is: I have written code that runs on my CPU. The rest of the computer is just details…</p>
-<p>The STM32’s usefulness for this stage of the project is, I think, now at an end. It may return as a USB keyboard controller down the line, but this project is ready for PCB design.</p>
-<p>Meanwhile, the PC104 headers I ordered arrived, after 84 days. My guess is they fell behind something in Customs and were only recently found. They were very well packed, and are undamaged, so I contacted the seller and placed another order that the seller didn’t ship. Since my refund didn’t include the tax I paid, and my new order did, I’ve now paid twice the tax on the headers, taking their total cost up to $12.70 for five 40-pin headers and two 64-pin headers. My stand-offs also arrived, so there’s now nothing in transit.</p>
-<p>I also ordered and received an Altera MAX II CPLD minimal development board, for $11.56. This board saves me a lot of fiddly soldering making my own on perfboard, and will let me trial the use of a relatively cheap CPLD IC for address decoding or video output. I booted up Intel’s Quartus II to a sufficient level to verify the board works - to cut a long story short on it, it’s just a lot easier on a Mac to run Quartus in a desktop Linux VM than it is to try to make it work in Docker.</p>
-<p>I’m going to mark the Debug section of the project as complete. It’s possible I’ll need further debugging aids later in the project, but each quarter I’ll want to review my targets and check they still make sense given what I’ve learned so far.</p>
-<table style="width:86%;">
-<caption>Project status update</caption>
-<colgroup>
-<col style="width: 21%" />
-<col style="width: 8%" />
-<col style="width: 10%" />
-<col style="width: 13%" />
-<col style="width: 10%" />
-<col style="width: 11%" />
-<col style="width: 11%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: center;">Budget</th>
-<th style="text-align: center;">CPU</th>
-<th style="text-align: center;">Power</th>
-<th style="text-align: center;">Keyboard</th>
-<th style="text-align: center;">Video</th>
-<th style="text-align: center;">Memory</th>
-<th style="text-align: center;">Debug</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: center;">$233.61 of $400</td>
-<td style="text-align: center;">██──</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">done</td>
 </tr>
 </tbody>
 </table>]]></summary>

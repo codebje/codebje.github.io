@@ -7,11 +7,15 @@
     <title>λbje - The TRS-20 - apply power here</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -58,30 +62,36 @@
 <!--more-->
 <h2 id="data-address-and-more">Data, address, and more</h2>
 <figure>
-<img src="../../images/z80-basic-wiring.jpg" alt /><figcaption>Marge! We need more red, blue, yellow, white, red, and black hookup wire!</figcaption>
+<img src="../../images/z80-basic-wiring.jpg" alt="Marge! We need more red, blue, yellow, white, red, and black hookup wire!" />
+<figcaption aria-hidden="true">Marge! We need more red, blue, yellow, white, red, and black hookup wire!</figcaption>
 </figure>
 <p>The first pass at it all involved 8 white wires for data, 16 yellow wires for address, some black and red for power lines, and not quite enough blue left for all the signals. There’s a capacitor that snuck its way on the board, since it’ll be noisy enough as it is. The soldering went as well as one might expect, you can see a few wires where the insulation has melted apart, a few suspiciously large blobs of solder, but everything’s clean and bridge-free.</p>
 <p>The set of signals I chose to hook up with the blue I had are the CPU’s inputs: the four interrupts, reset, wait, and bus request. Wiring these seven signals high, and the eight data signals low, will put the CPU into a NOP loop through the low 8 bits of address space.</p>
 <figure>
-<img src="../../images/z80-low-address-probe.png" alt /><figcaption>A0 to A4 showing doubling of frequency at each bit. Just ignore the noise…</figcaption>
+<img src="../../images/z80-low-address-probe.png" alt="A0 to A4 showing doubling of frequency at each bit. Just ignore the noise…" />
+<figcaption aria-hidden="true">A0 to A4 showing doubling of frequency at each bit. Just ignore the noise…</figcaption>
 </figure>
 <p>Using my ghetto fixed logic probe, the main thing I see is a smattering of chaos. The CPU has not been told otherwise, and so it is refreshing DRAM it doesn’t have. Each DRAM refresh sets some address lines and leaves others floating. The result on the probe is that I can find spans in which the low order address lines show a satisfying binary counting pattern, but the high order lines barely show structure at all.</p>
 <figure>
-<img src="../../images/z80-basic-board.jpg" alt /><figcaption>Eight address lines into the probe, seven signal lines tied high, eight data lines tied low.</figcaption>
+<img src="../../images/z80-basic-board.jpg" alt="Eight address lines into the probe, seven signal lines tied high, eight data lines tied low." />
+<figcaption aria-hidden="true">Eight address lines into the probe, seven signal lines tied high, eight data lines tied low.</figcaption>
 </figure>
 <h2 id="wiring-up-the-rest">Wiring up the rest</h2>
 <p>That’s okay. It’s time to wire up the remaining signals anyway. A quick trip to the local Jaycar (shout out to the Jaycar Aspley folks who’re super helpful every time I come in!) and I’m $9 down, but two packs of jumper wire up, and I can finish off the soldering. Except for the USART stuff to the 10-pin header, which I’ll leave for when I need it.</p>
 <p>This time around, I’ll want to see what’s going on with the CPU status pins. I know that it should only be doing opcode fetches and refreshes, which means M1, MREQ, and RD are the only interesting signals. Connecting four pins of the probe to A0 through A3, and the other four pins to M1, MREQ, RD, and PHI lets me take a peek at what’s going on.</p>
 <figure>
-<img src="../../images/z80-rfsh-probe.png" alt /><figcaption>Ah logic probe, well worth what I paid for you. I think I forgot to include you in my costings, though…</figcaption>
+<img src="../../images/z80-rfsh-probe.png" alt="Ah logic probe, well worth what I paid for you. I think I forgot to include you in my costings, though…" />
+<figcaption aria-hidden="true">Ah logic probe, well worth what I paid for you. I think I forgot to include you in my costings, though…</figcaption>
 </figure>
 <p>This image shows <em>exactly</em> what I expect. When M1 and RD are high but MREQ is low, the CPU is in a refresh cycle. The address lines will make some sort of sense, but not the sense I’m looking for. When M1. RD, and MREQ are all low, the CPU is fetching an opcode. The address lines are behaving as they should at these times.</p>
 <figure>
-<img src="../../images/z180%20timing%20diagram.png" alt /><figcaption>This timing diagram is from PS014005-0817, the Z80180 MPU product specification document, page 31.</figcaption>
+<img src="../../images/z180%20timing%20diagram.png" alt="This timing diagram is from PS014005-0817, the Z80180 MPU product specification document, page 31." />
+<figcaption aria-hidden="true">This timing diagram is from PS014005-0817, the Z80180 MPU product specification document, page 31.</figcaption>
 </figure>
 <p>The synchronisation of signals matches the data sheet. Very shortly after Ф rises for T1, M1 falls. So shortly, in fact, my cheap logic probe records them as happening simultaneously, which means they are less than 41.7ns apart. At 10MHz, the data sheet promises these two events happen no slower than 60ns apart, and that looks to hold true at 1MHz as well. T1’s falling edge MREQ and RD both falling, no more than 50ns after. These three events coincide at a finer resolution than my probe. With T3’s rise, M1 rises. With T3’s fall, MREQ and RD rise.</p>
 <figure>
-<img src="../../images/z180%20one%20cycle.png" alt /><figcaption>Zoomed in on one opcode fetch machine cycle.</figcaption>
+<img src="../../images/z180%20one%20cycle.png" alt="Zoomed in on one opcode fetch machine cycle." />
+<figcaption aria-hidden="true">Zoomed in on one opcode fetch machine cycle.</figcaption>
 </figure>
 <p>Since the CPU is only executing NOP instructions, all registers are at their RESET defaults. This includes the DMA/WAIT Control (DCNTL) register, which sets bits MWI0 and MWI1 at RESET, inserting three wait states to memory access cycles. The Refresh Control (RCR) register is also in its RESET state, which enables DRAM refresh, inserts one wait state in the refresh cycle to take it to three clocks, and requires one refresh cycle every 10 clock cycles. In practice, this means that there’s a memory refresh cycle between almost every opcode fetch cycle - every 7th fetch cycle skips a refresh cycle. In the image above, you can see a refresh cycle beginning. M1 and RD are high, MREQ is low.</p>
 <p>The Z8018x Family MPU User Manual (UM005004-0918) has a table on page 287 that indicates a memory refresh cycle has M1, IORQ, RD, WR, HALT, and BUSACK high, and has MREQ and RFSH low. No other operating modes have MREQ active without either RD or WR active, that is <span class="math inline">\(\overline{RFSH} = \overline{MREQ} \land \lnot(\overline{RD} \lor \overline{WR})\)</span>. I don’t need to expose the RFSH line to know when a refresh cycle is active, and my boot ROM will disable memory refresh very early on in any case, so there’s no need to expose this signal.</p>
@@ -223,4 +233,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

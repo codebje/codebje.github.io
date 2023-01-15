@@ -7,11 +7,15 @@
     <title>λbje - The TRS-20 - Finishing assembly</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -59,16 +63,18 @@
 <!--more-->
 <p>I put on the FT230X USB IC first, plus its supporting connector and passives. This is for two reasons: I can program the GPIOs on it to ensure the correct VBus sense function and LED output, and because this is the last checkpoint beore I solder on every other part. This worked out fine - the device enumerates correctly, programs fine, and the RX LED flickers in time to keystrokes via USB serial.</p>
 <figure>
-<img src="../../images/trs20/enumerated.png" alt /><figcaption>My shell history is chockers full of <code>lsusb</code> commands now.</figcaption>
+<img src="../../images/trs20/enumerated.png" alt="My shell history is chockers full of lsusb commands now." />
+<figcaption aria-hidden="true">My shell history is chockers full of <code>lsusb</code> commands now.</figcaption>
 </figure>
 <p>Soldering everything else took a few evenings. My process was to squeeze a blob of solder paste onto the DDPAK tab copper area on a board with a bad FPGA solder job, align the target IC with its pads, then use a toothpick to place a sparing amount of paste on the pins. The heat gun then melts the paste onto the pins, and any faults are touched up with the iron.</p>
 <figure>
-<img src="../../images/trs20/memory-pins.jpg" alt /><figcaption>I really should get some kind of macro lens for this stuff.</figcaption>
+<img src="../../images/trs20/memory-pins.jpg" alt="I really should get some kind of macro lens for this stuff." />
+<figcaption aria-hidden="true">I really should get some kind of macro lens for this stuff.</figcaption>
 </figure>
 <p>The best result was the SRAM. It’s possible there’s not quite enough solder on these pins, but I tested every one - I actually found two cold solder joints on the FPGA during this process - and I’m confident they’re all wetted properly.</p>
 <p>The worst result was the 18.432MHz oscillator. I underestimated the difficulty of this job, and wound up with far too much solder on it. Solder from the NC pad reached the ground-connected case, and removing it was difficult. I do not feel confident that this part is healthy now.</p>
 <h2 id="install-a-rom">Install a ROM</h2>
-<p>The trouble with having finished the soldering is that I don’t much want to blindly power up. The ROM should contain <code>FF</code> endlessly, which will result in the CPU executing <code class="sourceCode z80asm">RST <span class="bn">$38</span></code> forever, but it’d be nice to be able to verify in some way that everything’s working as it should. This takes me back to writing a ROM again, but this time for the CPU.</p>
+<p>The trouble with having finished the soldering is that I don’t much want to blindly power up. The ROM should contain <code>FF</code> endlessly, which will result in the CPU executing <code class="sourceCode z80"><span class="bu">RST</span> <span class="bn">$38</span></code> forever, but it’d be nice to be able to verify in some way that everything’s working as it should. This takes me back to writing a ROM again, but this time for the CPU.</p>
 <p>So I wrote a <a href="https://github.com/codebje/trs20-bootrom/blob/master/src/bootrom.asm">ROM image</a> that sets up ASCI0 to 38400 baud, 8n1, and starts transmitting single character “printf debugging” style progress markers. The only things I do first are to disable DRAM refresh, disable external interrupts, and set the clock rate to the full oscillator speed.</p>
 <p>After that, the boot ROM attempts to copy ROM into RAM, reset the ROM overlay D flip-flop, configure the MMU, set up a 100Hz timer, set up a stack, then run a very simple boot monitor that permits a binary to be uploaded using ymodem and executed.</p>
 <p>Because I really don’t want to yank the PLCC-32 ROM chip in and out frequently, I don’t want too many rounds of corrections. My <a href="https://github.com/codebje/vtrs20">emulator</a> is therefore developing more or less in lockstep with the needs of the boot ROM so that I at least have to implement the same bug twice in more or less the same way to miss it. This is a feat I have accomplished in the past, and it’s surprisingly easy to do.</p>
@@ -83,12 +89,14 @@
 <p>I’ve never had much luck desoldering through-hole parts. Solder wick takes a <em>lot</em> of heat to work, and isn’t great even then. My solder sucker was bundled with a cheap soldering iron, and was broken on arrival. I never replaced it. So with a bit of concern that it’d go wrong, I put some heatproof tape on the CPU’s socket and got to work with the heat gun.</p>
 <p>To my surprise, I removed the oscillator quite easily. I figured I may as well also remove the FT230X - and this also went far better than I anticipated. Well enough, in fact, that I soldered the removed IC onto a TSSOP-16 breakout board. I replicated the CPU board’s USB circuitry fairly closely on a breadboard, then plugged it in.</p>
 <figure>
-<img src="../../images/trs20/enumerated.png" alt /><figcaption>wat.</figcaption>
+<img src="../../images/trs20/enumerated.png" alt="wat." />
+<figcaption aria-hidden="true">wat.</figcaption>
 </figure>
 <p>The chip is (I think) fine. I can dump its ROM, and I can make an LED flicker by sending to it using the virtual COM port driver.</p>
 <p>So I rechecked the CPU board. I checked all the connections into the CPU, which are the only parts I didn’t replicate on the breadboard. I checked all the passives, in case I had a dud resistor or capacitor. Everything looked fine - so, not having much to lose here, I desoldered the poor IC from the breakout board and resoldered it to the CPU board.</p>
 <figure>
-<img src="../../images/trs20/whereswally.png" alt /><figcaption>I admit I felt a little glum.</figcaption>
+<img src="../../images/trs20/whereswally.png" alt="I admit I felt a little glum." />
+<figcaption aria-hidden="true">I admit I felt a little glum.</figcaption>
 </figure>
 <p>Well, that’s it. I can’t communicate with the CPU, I can’t see if it’s working, I’ve no idea what I could possibly do. I am unwilling to risk the price of another board assembly when there’s no apparent reason for failure.</p>
 <p>I packed everything away, and nearly didn’t even write this post.</p>
@@ -96,12 +104,14 @@
 <p>The only substantive difference between the breadboard setup and the CPU board setup is my admittedly less than perfect USB socket. So after <del>sulking</del>sleeping on it I tried measuring voltage levels on the breadboard vs. on the CPU board. I ran the USB socket without the main USB power applied to the board: this <em>in theory</em> is perfectly fine, as the FT230X tolerances are absolute, not expressed in terms of its supply voltage. But what I noticed was that VBUS was running at 2V, and D- at -0.5V, relative to ground supplied via the data USB. I checked an unconnected USB socket and got 5V and 0V respectively, with D+ at 3.3V. Hmm.</p>
 <p>I reconnected the supply power for the CPU board, and re-measured. Now I saw 5V, 3.3V, and 0V for VBus, D+, and D-, which seemed right. At a loss, I tried one last thing:</p>
 <figure>
-<img src="../../images/trs20/enumerated.png" alt /><figcaption>Why do you taunt me so?</figcaption>
+<img src="../../images/trs20/enumerated.png" alt="Why do you taunt me so?" />
+<figcaption aria-hidden="true">Why do you taunt me so?</figcaption>
 </figure>
 <p>It was enumerating again.</p>
 <p>This should feel like a victory, but in truth it does not. I don’t know why it didn’t work, I don’t know why it started working, I don’t know whether it will stop working again in the future. But I ordered a replacement oscillator, and may as well press on.</p>
 <figure>
-<img src="../../images/trs20/assembled%20board.jpg" alt /><figcaption>The fully assembled board.</figcaption>
+<img src="../../images/trs20/assembled%20board.jpg" alt="The fully assembled board." />
+<figcaption aria-hidden="true">The fully assembled board.</figcaption>
 </figure>
 </article>
 
@@ -138,4 +148,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

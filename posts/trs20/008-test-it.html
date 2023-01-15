@@ -7,11 +7,15 @@
     <title>λbje - Testing STM32 code</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -61,42 +65,42 @@
 <p>Tests are defined as a DSL that specifies the input and output register states, and selects a symbol to call.</p>
 <p>The GitHub workflow for this project builds a binary, automatically tags a new release if the version number in <code>Cargo.toml</code> has changed, and publishes the binary to the release.</p>
 <p>I can now take this local function for breaking my 8 bits of address space out of port B and into an address in either RAM or ROM:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb1-1"><a href="#cb1-1"></a>        .type           memaddr, %function</span>
-<span id="cb1-2"><a href="#cb1-2"></a><span class="fu">memaddr:</span></span>
-<span id="cb1-3"><a href="#cb1-3"></a>        // the memory address is in PB0:<span class="bn">1</span>, <span class="bn">5</span>:<span class="bn">10</span></span>
-<span id="cb1-4"><a href="#cb1-4"></a>        movw            <span class="at">r2</span>, <span class="bn">0</span>b11111100</span>
-<span id="cb1-5"><a href="#cb1-5"></a></span>
-<span id="cb1-6"><a href="#cb1-6"></a>        // top <span class="bn">6</span> bits into <span class="at">r1</span></span>
-<span id="cb1-7"><a href="#cb1-7"></a>        and             <span class="at">r1</span>, <span class="at">r2</span>, <span class="at">r0</span>, lsr <span class="bn">3</span></span>
-<span id="cb1-8"><a href="#cb1-8"></a></span>
-<span id="cb1-9"><a href="#cb1-9"></a>        // assemble full address into <span class="at">r0</span></span>
-<span id="cb1-10"><a href="#cb1-10"></a>        and             <span class="at">r0</span>, <span class="at">r0</span>, <span class="bn">0</span>b11</span>
-<span id="cb1-11"><a href="#cb1-11"></a>        orr             <span class="at">r0</span>, <span class="at">r1</span>, <span class="at">r0</span></span>
-<span id="cb1-12"><a href="#cb1-12"></a></span>
-<span id="cb1-13"><a href="#cb1-13"></a>        // check if RAM or ROM</span>
-<span id="cb1-14"><a href="#cb1-14"></a>        movw            <span class="at">r1</span>, <span class="bn">1</span></span>
-<span id="cb1-15"><a href="#cb1-15"></a>        eors            <span class="at">r1</span>, <span class="at">r1</span>, <span class="at">r0</span>, lsr <span class="bn">7</span></span>
-<span id="cb1-16"><a href="#cb1-16"></a></span>
-<span id="cb1-17"><a href="#cb1-17"></a>        ite             eq</span>
-<span id="cb1-18"><a href="#cb1-18"></a>        ldreq           <span class="at">r2</span>, =RAM_BASE</span>
-<span id="cb1-19"><a href="#cb1-19"></a>        ldrne           <span class="at">r2</span>, =ROM_BASE</span>
-<span id="cb1-20"><a href="#cb1-20"></a></span>
-<span id="cb1-21"><a href="#cb1-21"></a>        <span class="kw">add</span>             <span class="at">r0</span>, <span class="at">r0</span>, <span class="at">r2</span></span>
-<span id="cb1-22"><a href="#cb1-22"></a></span>
-<span id="cb1-23"><a href="#cb1-23"></a>        <span class="kw">bx</span>              <span class="at">lr</span></span>
-<span id="cb1-24"><a href="#cb1-24"></a></span>
-<span id="cb1-25"><a href="#cb1-25"></a>        .size           memaddr, . - memaddr</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        .type           memaddr, %function</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">memaddr:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        // the memory address is in PB0:<span class="bn">1</span>, <span class="bn">5</span>:<span class="bn">10</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        movw            <span class="at">r2</span>, <span class="bn">0</span>b11111100</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        // top <span class="bn">6</span> bits into <span class="at">r1</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        and             <span class="at">r1</span>, <span class="at">r2</span>, <span class="at">r0</span>, lsr <span class="bn">3</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        // assemble full address into <span class="at">r0</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        and             <span class="at">r0</span>, <span class="at">r0</span>, <span class="bn">0</span>b11</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        orr             <span class="at">r0</span>, <span class="at">r1</span>, <span class="at">r0</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        // check if RAM or ROM</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        movw            <span class="at">r1</span>, <span class="bn">1</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        eors            <span class="at">r1</span>, <span class="at">r1</span>, <span class="at">r0</span>, lsr <span class="bn">7</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        ite             eq</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        ldreq           <span class="at">r2</span>, =RAM_BASE</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        ldrne           <span class="at">r2</span>, =ROM_BASE</span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="kw">add</span>             <span class="at">r0</span>, <span class="at">r0</span>, <span class="at">r2</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        <span class="kw">bx</span>              <span class="at">lr</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>        .size           memaddr, . - memaddr</span></code></pre></div>
 <p>… and confirm that my use of unfamiliar instructions like <a href="http://infocenter.arm.com/help/topic/com.arm.doc.kui0100a/armasm_cjabicci.htm">ite</a> work the way I expect with a test script:</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb2-1"><a href="#cb2-1"></a><span class="fu">test:</span> Memory Address decode</span>
-<span id="cb2-2"><a href="#cb2-2"></a></span>
-<span id="cb2-3"><a href="#cb2-3"></a><span class="fu">setup:</span></span>
-<span id="cb2-4"><a href="#cb2-4"></a>    <span class="at">r0</span> = <span class="bn">0</span>b10111011101</span>
-<span id="cb2-5"><a href="#cb2-5"></a></span>
-<span id="cb2-6"><a href="#cb2-6"></a><span class="fu">call:</span> memaddr</span>
-<span id="cb2-7"><a href="#cb2-7"></a></span>
-<span id="cb2-8"><a href="#cb2-8"></a><span class="fu">check:</span></span>
-<span id="cb2-9"><a href="#cb2-9"></a>    <span class="at">r0</span> = <span class="bn">0</span>x200000b9</span>
-<span id="cb2-10"><a href="#cb2-10"></a>    <span class="at">r1</span> = <span class="bn">0</span></span></code></pre></div>
+<div class="sourceCode" id="cb2"><pre class="sourceCode armasm"><code class="sourceCode armasm"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">test:</span> Memory Address decode</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">setup:</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">r0</span> = <span class="bn">0</span>b10111011101</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="fu">call:</span> memaddr</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="fu">check:</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">r0</span> = <span class="bn">0</span>x200000b9</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>    <span class="at">r1</span> = <span class="bn">0</span></span></code></pre></div>
 <p>It’s easy to also wrap a download of the released binary from GitHub into an action in the <a href="https://github.com/codebje/stm32-debug/">RAM/ROM project</a> and have automatic unit testing take place.</p>
 <p>Constantly practicing repeatable and automated processes for building, testing, and deploying makes it easier and more habitual to do for everything. I may have lost two or three days of STM32F4 assembly coding time in writing my test executor and its workflow actions, but I’ve gained a lot more confidence that the code will work as expected once it hits the μC, and I expect I’ll easily make back that time in fewer mistakes on device, where it’s harder to inspect.</p>
 </article>
@@ -134,4 +138,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

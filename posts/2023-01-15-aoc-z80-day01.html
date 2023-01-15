@@ -1,0 +1,421 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - AOC 2022 - Z80</title>
+    <link rel="stylesheet" type="text/css" href="../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../css/saucecodepro-nerd-font-mono.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
+    <script defer src="../js/Z80.js" type="text/javascript"></script><script defer src="../js/z80lit.js" type="text/javascript"></script>
+    
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../about.html">About</a>
+            <a class="page-link" href="../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../images/trs80.jpg">
+  
+  <h1 class="post-title">AOC 2022 - Z80</h1>
+  <p class="post-meta">January 15, 2023 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../images/banners/pcb-advent.png">
+
+  <div class="post-hero-note">The 12 components of Christmas? Original design. <a href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
+
+
+  <p>This post is the first in a series of articles implementing solutions for the 2022 Advent of Code in Z80 assembly. The series aims to show some examples of programming in Z80 assembly and help newcomers to assembly language begin to think about programs from the assembly perspective, and will focus less on finding clever AoC solutions and more on producing understandable assembly code.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY01</span></code></pre></div>
+<!--more-->
+<p>This post is a “literate assembly” document. The code fragments on the page are assembled and executed in your browser. To the right of each statement you can see the bytes that the statement assembled into.</p>
+<p>The first puzzle in the AoC 2022 series provides you with a nested list of numbers and requires you to sum the nested lists and find the maximum. In a high level language this might look something like <code class="sourceCode haskell"><span class="fu">maximum</span> (<span class="fu">map</span> <span class="fu">sum</span> input)</code>, which the compiler will helpfully translate into reasonably efficient code.</p>
+<p>What I would like to do is iterate over the input summing numbers as I encounter them and keeping track of the current maximum sum at the end of each nested list. In principle this is not complicated, as even an ancient processor like the Z80 can add and compare. In practice there’s a small complication: the problem’s number space is greater than what a 16-bit number can store.</p>
+<p>A processor like the Z80 adds up much the same way I learned to in my early schooling years: add up the 1s column, noting any carry, add up the 10s column including the carry from the 1s column, and so on until I’d added up all my columns. The Z80 does the same thing bit by bit: the least significant bit of both inputs is summed and the carry is pushed along to the next bit, and so on. The Z80 has a <a href="http://www.righto.com/2013/09/the-z-80-has-4-bit-alu-heres-how-it.html">4-bit ALU</a> and does half an addition in one cycle then the other half in the next. For a 16-bit add the Z80 does the low byte then the high byte.</p>
+<p>The carry result is exposed to applications through the carry flag: if the most significant bits of the addends plus the carry from the previous bit results in another carry, the carry flag is set. To make chaining additions easier there are also <code class="sourceCode z80"><span class="bu">ADC</span></code> (add-with-carry) instructions that use the value in the carry flag as the carry-in for the least significant bit addition. Adding two 32-bit numbers is more or less as simple as adding two 16-bit numbers, then adding two more 16-bit numbers with carry.</p>
+<p>Another wrinkle will emerge about now, however - the Z80 doesn’t have a large number of registers. The other addend for <code class="sourceCode z80"><span class="bu">ADC</span> <span class="at">HL</span>, …</code> must be one of <code class="sourceCode z80"><span class="at">BC</span></code>, <code class="sourceCode z80"><span class="at">DE</span></code>, <code class="sourceCode z80"><span class="at">HL</span></code>, or <code class="sourceCode z80"><span class="at">SP</span></code>. There’s no point adding <code class="sourceCode z80"><span class="at">HL</span></code> to itself, and the stack pointer (<code class="sourceCode z80"><span class="at">SP</span></code>) is needed to hold the current stack value, which only leaves 48 bits of register for 64 bits of value. There are also the <code class="sourceCode z80"><span class="at">IX</span></code> and <code class="sourceCode z80"><span class="at">IY</span></code> index registers that can stand in for <code class="sourceCode z80"><span class="at">HL</span></code> for many, but not all, operations. Importantly they can be used for <code class="sourceCode z80"><span class="bu">ADD</span></code> but not for <code class="sourceCode z80"><span class="bu">ADC</span></code>.</p>
+<p>I will choose to store the addends for a 32-bit addition in <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> and <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code>, so a <code>SUM32</code> function would look like this - more comment than code.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    HL:IY   the 32-bit accumulator</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">;       DE:BC   the 32-bit addend</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  HL:IY   HL:IY + DE:BC</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       S       set if the result is negative</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">;       Z       set if the top 16 bits are zero</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">;       H       set if carry from bit 27</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="co">;       P/V     set if signed overflow</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">;       N       reset</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">;       C       set if carry from bit 31</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="fu">SUM32:</span>  <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p>Some of the flags are a bit nonsensical. The half-carry bit is the result of the penultimate 4-bit ALU operation, so for an 8-bit addition it’s the carry out of bit 3. For a 16-bit operation it’s the carry out of bit 3 in the top 8 bits, or the carry out of bit 11. The zero flag will be set by the <code class="sourceCode z80"><span class="bu">adc</span></code> discarding any information from the <code class="sourceCode z80"><span class="bu">add</span></code>. The other flags will all make sense, however, as they’re based only on the most significant bits.</p>
+<p>With a 32-bit addition in hand I’ll also want a comparison of unsigned 32-bit numbers. This will happen using subtraction, because comparison on the Z80 is a subtraction that discards the result and there’s no 16-bit comparison instruction. The routine compares the high words first, only comparing the low words if the high words are equal.</p>
+<p>There is no <code class="sourceCode z80"><span class="bu">SUB</span></code> instruction for 16-bit registers. There is, however, <code class="sourceCode z80"><span class="bu">SBC</span></code> for the <code class="sourceCode z80"><span class="at">HL</span></code> register, which is “subtract with carry”. On the Z80, as with many other processors, this is implemented as “subtract with borrow” - the carry flag becomes a borrow flag. <code class="sourceCode z80"><span class="bu">SBC</span> <span class="at">HL</span>, <span class="at">DE</span></code> is computed as <span class="math inline">\(HL - DE - C\)</span>. Before using this instruction the carry flag must be put into a known state. This can be done using the <code class="sourceCode z80"><span class="bu">SCF</span></code> instruction to set the carry flag, but there is no dedicated instruction to clear the carry flag. Fortunately, <code class="sourceCode z80"><span class="bu">OR</span> <span class="at">A</span>, <span class="at">A</span></code> will clear the carry flag in the same number of cycles as <code class="sourceCode z80"><span class="bu">SCF</span></code> sets it, and with a similar set of side effects on flags.</p>
+<p>After the subtraction the carry flag will be set if there was a borrow required for the final bit of the operation. This happens only when the minuend is less than the subtrahend. The carry flag distinguishes between <code>a &lt; b</code> when set and <code>a &gt;= b</code> when reset. The zero flag is set only if the two operands are equal.</p>
+<p>The 32-bit comparison works by comparing the high words and checking the zero flag. If it’s not set then the carry flag will already show which is greater, and the routine is done. If the zero flag is set then the carry flag must be clear, another subtraction is done, and the flags from that indicate the overall comparison result.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    HL:IY   the 32-bit minuend</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">;       DE:BC   the 32-bit subtrahend</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  Z       set if minuend == subtrahend</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       C       set if minuend &lt; subtrahend</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">CMP32:</span>  <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>, <span class="at">a</span>    <span class="co">; reset carry</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, CMP32DONE</span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">iy</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="fu">CMP32DONE:</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p>With 32-bit addition and comparison ready to go the main challenge left to solve is processing the input. For simplicity’s sake the input will be pre-processed to be 32-bit words with zeros separating the sub-lists:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">INPUT:</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">1000</span>, <span class="bn">0</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">2000</span>, <span class="bn">0</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">3000</span>, <span class="bn">0</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">4000</span>, <span class="bn">0</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">5000</span>, <span class="bn">0</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">6000</span>, <span class="bn">0</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">7000</span>, <span class="bn">0</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">8000</span>, <span class="bn">0</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">9000</span>, <span class="bn">0</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">10000</span>, <span class="bn">0</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span></code></pre></div>
+<p>My solution algorithm is going to look like this:</p>
+<ol type="1">
+<li>Initialise the maximum to zero</li>
+<li>While there are lists of numbers left:
+<ol type="a">
+<li>Initialise the sum to zero</li>
+<li>Add each number in the list to the sum</li>
+<li>If the sum is greater than the maximum save it as the new maximum</li>
+</ol></li>
+<li>Print out the result</li>
+</ol>
+<p>Translating this to Z80 assembly means figuring out what variables I need and where I’ll store them. I’ll use four bytes of memory to hold the maximum, because I will only need that once per outer loop. I’ll keep the current sum in <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> where it’s ready to use in my addition and comparison subroutines. <code class="sourceCode z80"><span class="at">BC</span></code> and <code class="sourceCode z80"><span class="at">DE</span></code> will be used for addends and subtrahends as needed, and that leaves <code class="sourceCode z80"><span class="at">A</span></code> for general purpose arithmetic and <code class="sourceCode z80"><span class="at">IX</span></code> to point to my input.</p>
+<p>I will want to load <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>)</code> multiple times, so I’ll pop that in its own routine. It’s important to remember that the Z80 is little endian: when loading or storing a multi-byte value the least significant byte is at the first address. The <code class="sourceCode z80"><span class="kw">DEFW</span> <span class="bn">10000</span>, <span class="bn">0</span></code> above assembles to the hex bytes <code class="sourceCode z80"><span class="bn">$10</span> <span class="bn">$27</span> <span class="bn">$00</span> <span class="bn">$00</span></code>, or <code class="sourceCode z80"><span class="bn">16</span>, <span class="bn">39</span>, <span class="bn">0</span>, <span class="bn">0</span></code> in decimal. <span class="math inline">\(39\times256 = 9984 + 16 = 10000\)</span>. This means I want to load <code class="sourceCode z80"><span class="at">C</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>+<span class="bn">0</span>)</code> up to <code class="sourceCode z80"><span class="at">D</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>+<span class="bn">3</span>)</code>. Every time I load the value I also need to test whether it’s zero, so I’ll set the zero flag appropriately as I load.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    IX      address of next input to read</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT   DE:BC   32-bit value loaded from (IX)</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       IX      incremented past read input</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       A       clobbered</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">;       Z       set if the loaded value was zero</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">READ:</span>   <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, (<span class="at">ix</span>+<span class="bn">2</span>)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, (<span class="at">ix</span>+<span class="bn">3</span>)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span></code></pre></div>
+<p>Testing whether <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> is zero is nice and easy: load one of the 8-bit registers into <code class="sourceCode z80"><span class="at">A</span></code> then <code class="sourceCode z80"><span class="bu">OR</span></code> each of the others in. Only if all of them are zero will <code class="sourceCode z80"><span class="at">A</span></code> be zero afterwards, with the zero flag conveniently holding that information.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="at">b</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>, <span class="at">c</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>, <span class="at">d</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>, <span class="at">e</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p>It’s time to set up the main program and initialise the input and maximum variables, as well as of course setting a valid stack pointer value so I can call subroutines.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">MAX:</span>    <span class="kw">DEFW</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">DAY01:</span>  <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, INPUT</span></code></pre></div>
+<p>For my outer loop I will clear <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> to zero then load <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>)</code>. The outer loop is done if that load sets the zero flag.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">OUTER:</span>  <span class="bu">ld</span>      <span class="at">hl</span>, <span class="bn">0</span>   <span class="co">; init sum</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">iy</span>, <span class="bn">0</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    READ</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE</span></code></pre></div>
+<p>I’m ready to enter the inner loop now, where I’ll add <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> to the current sum in <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code>, load the next input number, and test whether that’s zero: if it is, I repeat the inner loop.</p>
+<p>Because <code class="sourceCode z80">SUM32</code> is so trivial I’m not even going to call it - I will inline the two instructions right here.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">INNER:</span>  <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    READ</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, INNER</span></code></pre></div>
+<p>Having completed a sum I need to compare it to the maximum and update as needed. I can <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> directly from fixed memory, being careful with byte order, then use my <code class="sourceCode z80">CMP32</code> routine.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (MAX)</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (MAX+<span class="bn">2</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    CMP32</span></code></pre></div>
+<p>The carry flag is set if <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> is greater than <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> -if so I can head straight back into the outer loop.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, OUTER</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (MAX), <span class="at">iy</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (MAX+<span class="bn">2</span>), <span class="at">hl</span></span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      OUTER</span></code></pre></div>
+<p>There’s nothing left to do now but print out the maximum, using the as-yet undescribed <code class="sourceCode z80">PRINT32</code> routine, then <code class="sourceCode z80"><span class="bu">HALT</span></code>.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">ld</span>      <span class="at">iy</span>, (MAX)</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (MAX+<span class="bn">2</span>)</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRINT32</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">'\n'</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span></code></pre></div>
+<p>Printing a decimal number is a bit tricky on the Z80. The range of an unsigned 32-bit number is 0 to 4,294,967,295, so one common approach is to subtract 1,000,000,000 from the number to print until borrow is set and print that as the billions digit, then subtract 100,000,000 until borrow is set, and so on down to subtracting 1. A nice little extra feature is to also keep track of whether there’s been a non-zero digit yet and skip the print until either the first non-zero digit or the last digit.</p>
+<p>For the in-browser emulator, writing a value to I/O port 1 will print it to a console HTML element.</p>
+<p>I am also out of registers to store the flag indicating whether I’ve seen a non-zero digit or not. This is a good time to introduce a stack frame. When the Z80 CPU sees a <code class="sourceCode z80"><span class="bu">CALL</span></code> instruction it stores <code class="sourceCode z80">PC</code> onto the stack and jumps to the target address. When the subroutine is done, it executes a <code class="sourceCode z80"><span class="bu">RET</span></code> and the <code class="sourceCode z80">PC</code> is popped off the stack. Around that return address useful things can be stored. Before the <code class="sourceCode z80"><span class="bu">CALL</span></code> a bit of code might <code class="sourceCode z80"><span class="bu">PUSH</span></code> arguments that don’t fit into registers, and after the call the subroutine may need to allocate a bit of space on the stack for local variables. The structure of data around the return address is called a stack frame.</p>
+<div style="margin: 0 auto; text-align: center;">
+<svg width="256" height="256">
+<rect x="3" y="3" width="220" height="250" style="stroke: #333; stroke-width: 2; fill: none;"></rect>
+<text x="113" y="15.5" text-anchor="middle" dominant-baseline="central" style="stroke: #bbb">… used stack …</text>
+<line x1="4" y1="28" x2="222" y2="28" style="stroke: #bbb; stroke-width: 1"></line>
+<text x="113" y="40.5" text-anchor="middle" dominant-baseline="central">Parameter 3</text>
+<line x1="4" y1="53" x2="222" y2="53" style="stroke: #bbb; stroke-width: 1"></line>
+<text x="113" y="65.5" text-anchor="middle" dominant-baseline="central">Parameter 2</text>
+<line x1="4" y1="78" x2="222" y2="78" style="stroke: #bbb; stroke-width: 1"></line>
+<text x="113" y="90.5" text-anchor="middle" dominant-baseline="central">Parameter 1</text>
+<line x1="4" y1="103" x2="222" y2="103" style="stroke: #bbb; stroke-width: 1"></line>
+<text x="113" y="115.5" text-anchor="middle" dominant-baseline="central" font-weight="bold">Return address</text>
+<line x1="4" y1="128" x2="222" y2="128" style="stroke: #bbb; stroke-width: 1"></line>
+<text x="113" y="140.5" text-anchor="middle" dominant-baseline="central">Saved IX</text>
+<text x="230" y="140.5" dominant-baseline="central">IX</text>
+<line x1="4" y1="153" x2="222" y2="153" style="stroke: #bbb; stroke-width: 1"></line>
+<text x="113" y="165.5" text-anchor="middle" dominant-baseline="central">Local var 1</text>
+<line x1="4" y1="178" x2="222" y2="178" style="stroke: #bbb; stroke-width: 1"></line>
+<text x="113" y="190.5" text-anchor="middle" dominant-baseline="central">Local var 2</text>
+<line x1="4" y1="203" x2="222" y2="203" style="stroke: #bbb; stroke-width: 1"></line>
+<text x="113" y="215.5" text-anchor="middle" dominant-baseline="central">Local var 3</text>
+<text x="230" y="215.5" dominant-baseline="central">SP</text>
+<line x1="4" y1="228" x2="222" y2="228" style="stroke: #bbb; stroke-width: 1"></line>
+<text x="113" y="240.5" text-anchor="middle" dominant-baseline="central" style="stroke: #bbb">… free stack …</text>
+</svg>
+</div>
+<p>To set up a stack frame the first thing that happens on entry to a subroutine is to save <code class="sourceCode z80"><span class="at">IX</span></code> and then set it to <code class="sourceCode z80"><span class="at">SP</span></code>. There is no instruction to do this directly so <code class="sourceCode z80"><span class="at">IX</span></code> is set to zero then <code class="sourceCode z80"><span class="at">SP</span></code> is added to it. After that space for local variables is reserved by subtracting the required amount from <code class="sourceCode z80"><span class="at">SP</span></code>. Once again there is no handy instruction to add or subtract values to <code class="sourceCode z80"><span class="at">SP</span></code>. Open option is to load the fixed offset into <code class="sourceCode z80"><span class="at">HL</span></code>, add <code class="sourceCode z80"><span class="at">SP</span></code> to it, and transfer the result back to <code class="sourceCode z80"><span class="at">SP</span></code> - but this clobbers <code class="sourceCode z80"><span class="at">HL</span></code>. Another option is to push a register, which decrements <code class="sourceCode z80"><span class="at">SP</span></code> twice but this does unnecessary memory writes. It’s also possible to just <code class="sourceCode z80"><span class="bu">DEC</span> <span class="at">SP</span></code> repeatedly but this is 6 cycles per decrement and doesn’t scale well to multiple local variables.</p>
+<p>CPU support is essential to working with stack frames effectively. The Z80 has indexed addressing with the <code class="sourceCode z80"><span class="at">IX</span></code> and <code class="sourceCode z80"><span class="at">IY</span></code> registers, allowing a local variable to be accessed as, eg, <code class="sourceCode z80"><span class="bu">LD</span> <span class="at">A</span>, (<span class="at">IX</span>-<span class="bn">1</span>)</code>, but it doesn’t have good support for setting up or tearing down a stack frame. The 8086 allowed directly moving the stack pointer to the base pointer register, as well as adding constant values to the stack pointer. The 80186 added <code>ENTER</code> and <code>LEAVE</code> instructions that do all the work for you - however, <code>ENTER</code> wound up overspecified and difficult to implement in processors, and as a result neither instruction is typically used by compilers. On the other end of the scale the 6502 lacks the required indexed addressing mode, and usually a different solution will be required.</p>
+<p>For <code class="sourceCode z80">PRINT32</code> only a single byte of storage is needed, so <code class="sourceCode z80"><span class="bu">DEC</span> <span class="at">SP</span></code> will work nicely.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    HL:IY   A 32-bit number to print</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT   A       clobbered</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="fu">PRINT32:</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">ix</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, <span class="bn">0</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">ix</span>, <span class="at">sp</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">dec</span>     <span class="at">sp</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">iy</span></span></code></pre></div>
+<p>The flag for whether a non-zero character has been printed will be stored at <code class="sourceCode z80">(<span class="at">IX</span>-<span class="bn">1</span>)</code>. I will use ‘0’ as the flag indicating that only zeros have been seen so far so I can do an easy comparison between the digit to print and the flag: if they’re equal, don’t print. Any non-digit value will serve to indicate printing should happen.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">ix</span>-<span class="bn">1</span>), <span class="st">'0'</span></span></code></pre></div>
+<p>For each of the 10 digit locations <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> will be loaded with the constant to subtract and a subroutine will be called. For the last digit location the non-zero character flag will be forced true, so at least one digit is printed each time.</p>
+<p>One more limitation of the Z80 instruction set now rears its head: there is an <code class="sourceCode z80"><span class="bu">ADD</span> <span class="at">IY</span>, <span class="at">DE</span></code> instruction but no corresponding subtraction. Fortunately subtracing a number is the same as adding its negation and inverting the carry flag’s meaning, so instead of loading positive constants for subtraction I will load negative constants for addition.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span>_<span class="bn">000</span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10</span>_<span class="bn">000</span></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span></span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10</span></span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ensure last digit always prints</span></span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">ix</span>-<span class="bn">1</span>), <span class="bn">1</span></span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span></span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span></code></pre></div>
+<p>To clean up the stack frame <code class="sourceCode z80"><span class="at">SP</span></code> must be restored to where it was after saving <code class="sourceCode z80"><span class="at">IX</span></code>. The Z80 does have an instruction to set <code class="sourceCode z80"><span class="at">SP</span></code> to the value of <code class="sourceCode z80"><span class="at">IX</span></code>, so this part is easy. It would also be possible here to simply increment <code class="sourceCode z80"><span class="at">SP</span></code> to balance the decrement done on entry.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">iy</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="at">ix</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">ix</span></span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p><code class="sourceCode z80">DIGIT</code> will add <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> to <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> until carry is reset, incrementing <code class="sourceCode z80"><span class="at">A</span></code> each time.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DIGIT:</span>  <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">'0'</span> - <span class="bn">1</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DLOOP:</span>  <span class="bu">inc</span>     <span class="at">a</span></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, DLOOP</span></code></pre></div>
+<p>Once the carry flag is reset <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> needs to be subtracted from <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code>, which will be a bit of a shuffle through the stack due to the limited instructions for subtraction.</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">iy</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">bc</span> <span class="co">; &quot;iy&quot;-bc</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">iy</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span> <span class="co">; hl-de</span></span></code></pre></div>
+<p>And last of all, print <code class="sourceCode z80"><span class="at">A</span></code> if it or the non-zero flag are non-zero.</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      (<span class="at">ix</span>-<span class="bn">1</span>)</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, NOPRINT</span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">ix</span>-<span class="bn">1</span>), <span class="bn">1</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="fu">NOPRINT:</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p>Let’s fire it up and see what it does.</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jp</span>      DAY01</span></code></pre></div>
+<p>That looks great. I will ask you to take my word for it that it also succeeds with my puzzle input.</p>
+<h2 id="star-2">Star 2</h2>
+<p>The second star for the day simply expands the problem to tracking the top three values rather than the top one. This is easily accomplished by storing the top three sorted: when a new value comes in, compare to the lowest top three. If it’s greater then discard the 3rd place value and store the new one. Then, see if you need to swap 3rd place and 2nd place. If so, also then check if you need to swap 1st and 2nd place.</p>
+<p>The main loop is practically unchanged.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">TOP3:</span>   <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defw</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a><span class="fu">STAR2:</span>  <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, INPUT</span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a><span class="fu">OUTER2:</span> <span class="bu">ld</span>      <span class="at">hl</span>, <span class="bn">0</span>   <span class="co">; init sum</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">iy</span>, <span class="bn">0</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    READ</span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE2</span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a><span class="fu">INNER2:</span> <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    READ</span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, INNER2</span></code></pre></div>
+<p>Here I now do a set of comparisons instead of just one.</p>
+<div class="sourceCode" id="cb22"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a>        <span class="co">; check if the new sum is in the top 3</span></span>
+<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (TOP3)</span>
+<span id="cb22-3"><a href="#cb22-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (TOP3+<span class="bn">2</span>)</span>
+<span id="cb22-4"><a href="#cb22-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    CMP32</span>
+<span id="cb22-5"><a href="#cb22-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, OUTER2</span>
+<span id="cb22-6"><a href="#cb22-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3), <span class="at">iy</span></span>
+<span id="cb22-7"><a href="#cb22-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">2</span>), <span class="at">hl</span></span>
+<span id="cb22-8"><a href="#cb22-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-9"><a href="#cb22-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">; need to swap 3rd and 2nd?</span></span>
+<span id="cb22-10"><a href="#cb22-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (TOP3+<span class="bn">4</span>)</span>
+<span id="cb22-11"><a href="#cb22-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (TOP3+<span class="bn">6</span>)</span>
+<span id="cb22-12"><a href="#cb22-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    CMP32</span>
+<span id="cb22-13"><a href="#cb22-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, OUTER2</span>
+<span id="cb22-14"><a href="#cb22-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3), <span class="at">bc</span></span>
+<span id="cb22-15"><a href="#cb22-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">2</span>), <span class="at">de</span></span>
+<span id="cb22-16"><a href="#cb22-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">4</span>), <span class="at">iy</span></span>
+<span id="cb22-17"><a href="#cb22-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">6</span>), <span class="at">hl</span></span>
+<span id="cb22-18"><a href="#cb22-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-19"><a href="#cb22-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">; need to swap 2nd and 1st?</span></span>
+<span id="cb22-20"><a href="#cb22-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (TOP3+<span class="bn">8</span>)</span>
+<span id="cb22-21"><a href="#cb22-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (TOP3+<span class="bn">10</span>)</span>
+<span id="cb22-22"><a href="#cb22-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    CMP32</span>
+<span id="cb22-23"><a href="#cb22-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, OUTER2</span>
+<span id="cb22-24"><a href="#cb22-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">4</span>), <span class="at">bc</span></span>
+<span id="cb22-25"><a href="#cb22-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">6</span>), <span class="at">de</span></span>
+<span id="cb22-26"><a href="#cb22-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">8</span>), <span class="at">iy</span></span>
+<span id="cb22-27"><a href="#cb22-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (TOP3+<span class="bn">10</span>), <span class="at">hl</span></span>
+<span id="cb22-28"><a href="#cb22-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb22-29"><a href="#cb22-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      OUTER2</span></code></pre></div>
+<p>When done there’s also the job of summing the top 3 to take care of.</p>
+<div class="sourceCode" id="cb23"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE2:</span>  <span class="bu">ld</span>      <span class="at">iy</span>, (TOP3)</span>
+<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (TOP3+<span class="bn">2</span>)</span>
+<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (TOP3+<span class="bn">4</span>)</span>
+<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (TOP3+<span class="bn">6</span>)</span>
+<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb23-8"><a href="#cb23-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, (TOP3+<span class="bn">8</span>)</span>
+<span id="cb23-9"><a href="#cb23-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (TOP3+<span class="bn">10</span>)</span>
+<span id="cb23-10"><a href="#cb23-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">iy</span>, <span class="at">bc</span></span>
+<span id="cb23-11"><a href="#cb23-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb23-12"><a href="#cb23-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRINT32</span>
+<span id="cb23-13"><a href="#cb23-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">'\n'</span></span>
+<span id="cb23-14"><a href="#cb23-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb23-15"><a href="#cb23-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span></code></pre></div>
+<p>And let’s run this one.</p>
+<div class="sourceCode" id="cb24"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jp</span>      STAR2</span></code></pre></div>
+<p>There is the expected value, all done and dusted.</p>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
+</html>

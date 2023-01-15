@@ -7,11 +7,15 @@
     <title>λbje - Programming the TRS-20's FPGA</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -70,14 +74,16 @@
 <li><p>Synthesise the design using <code>yosys</code></p>
 <p>This step takes in one or more Verilog source files and translates it into the building blocks of an FPGA - LUTs, DFFs, I/O ports, and other special cells. The banner image for this post is a little bit of a graph representation of the synthesised design. Here’s an entire component from the design.</p>
 <figure>
-<img src="../../images/edgedetect.png" alt /><figcaption>A rising edge detector compares the past state of the signal to its current state</figcaption>
+<img src="../../images/edgedetect.png" alt="A rising edge detector compares the past state of the signal to its current state" />
+<figcaption aria-hidden="true">A rising edge detector compares the past state of the signal to its current state</figcaption>
 </figure>
-<p>The synchronous statement <code class="sourceCode verilog"><span class="kw">always</span> @(<span class="kw">posedge</span> clk) past &lt;= in;</code> establishes that each rising edge of the clock signal will load the input into the <code>past</code> register, while the continuous statement <code class="sourceCode verilog"><span class="kw">assign</span> rise = in &amp; !past;</code> passes the input and the past state through a combinatorial logic circuit. The end result is that at the rising edge of the clock signal <code>rise</code> will be high only when the <code>in</code> signal was low on the last clock edge but is high on the current edge.</p>
+<p>The synchronous statement <code class="sourceCode verilog"><span class="kw">always</span> <span class="op">@(</span><span class="kw">posedge</span> clk<span class="op">)</span> past <span class="op">&lt;=</span> in<span class="op">;</span></code> establishes that each rising edge of the clock signal will load the input into the <code>past</code> register, while the continuous statement <code class="sourceCode verilog"><span class="kw">assign</span> rise <span class="op">=</span> in <span class="op">&amp;</span> <span class="op">!</span>past<span class="op">;</span></code> passes the input and the past state through a combinatorial logic circuit. The end result is that at the rising edge of the clock signal <code>rise</code> will be high only when the <code>in</code> signal was low on the last clock edge but is high on the current edge.</p>
 <p>The full image for my relatively tiny design is almost unreadably complex. I could see how it may be occasionally useful to trace a particular path with an aim of simplifying the logic involved, but I have not yet done this.</p></li>
 <li><p>Place the cells and route connections with <code>nextpnr</code></p>
 <p>The synthesised design output by <code>yosys</code> contains all the cells used by the design and the map of how they must be connected. The next stage in getting the design onto silicon is to determine where each cell of the design will lie on the chip and how the routing between them will be arranged. The cells on an FPGA cannot be connected entirely arbitrarily, so the choices of where to place cells and how to connect them become non-trivial. Finding an optimal placement is NP-complete: <code>nextpnr</code> uses simulated annealing to find an approximately optimal solution.</p>
 <figure>
-<img src="../../images/trs20/fpga-layout-miso.png" alt /><figcaption>The lower half of an iCE40 with my design placed and routed.</figcaption>
+<img src="../../images/trs20/fpga-layout-miso.png" alt="The lower half of an iCE40 with my design placed and routed." />
+<figcaption aria-hidden="true">The lower half of an iCE40 with my design placed and routed.</figcaption>
 </figure>
 <p>The image here shows part of the design after packing, placing, and routing has been done. It’s produced by an <a href="https://knielsen.github.io/ice40_viewer/ice40_viewer.html">ICE40 floorplan/layout viewer</a>. The path highlighted in red is the <code>SPI_SDI$SB_IO_IN</code> net - it connects the SPI_SDI I/O buffer in the bottom right to the logic that latches values on the appropriate SPI clock edge.</p></li>
 <li><p>Pack the chip configuration data into a bitstream</p>
@@ -92,7 +98,8 @@
 <p>This not only helped me catch a bunch of errors, it also helped me quickly validate changes as I went.</p>
 <p>It also supports writing out a waveform file that can be viewed with a VCD reader like <a href="http://gtkwave.sourceforge.net/">GTKWave</a>.</p>
 <figure>
-<img src="../../images/trs20/gtkwave.png" alt /><figcaption>The SPI slave responds to a read request with 0xEF</figcaption>
+<img src="../../images/trs20/gtkwave.png" alt="The SPI slave responds to a read request with 0xEF" />
+<figcaption aria-hidden="true">The SPI slave responds to a read request with 0xEF</figcaption>
 </figure>
 <p>Between the test harness and the waveform, I got my SPI code into what looked like good shape pretty quickly.</p>
 <h1 id="an-emulator-is-an-approximation">An emulator is an approximation</h1>
@@ -104,7 +111,7 @@
 <p>However, it also occurred to me that I was latching input when the output clock signal was low but about to go high. This “rising edge” was clear and sharp on the inside of the FPGA, but of course it takes time for that signal to reach the edge of the device and from there get out to the ROM. Likewise, the falling edge takes time to be seen. I switched over to latching the input on the same clock edge that I lower SCK and shift data - this takes into account the delays for signals to move into and out of the FPGA. I think this is how people with experience in this space do it… but I did it myself to learn stuff, like how to see the accumulated delays for paths through the FPGA.</p>
 <p>With the clock back up to 50MHz, I tried again… and to my giggly glee, it still worked.</p>
 <h1 id="faster-and-faster">Faster and faster</h1>
-<p>Moving to 100Mhz would be a little tricky: I could possibly just <code class="sourceCode verilog"><span class="kw">assign</span> SPI_SCK = CLK;</code> and basically wire the 100MHz clock directly to the master clock. When I look at how others are doing it, I see tricks like using <a href="https://zipcpu.com/blog/2018/08/16/spiflash.html">DDR cells</a> to toggle the SPI clock on rising and falling edges, with an enable signal to shut it off.</p>
+<p>Moving to 100Mhz would be a little tricky: I could possibly just <code class="sourceCode verilog"><span class="kw">assign</span> SPI_SCK <span class="op">=</span> CLK<span class="op">;</span></code> and basically wire the 100MHz clock directly to the master clock. When I look at how others are doing it, I see tricks like using <a href="https://zipcpu.com/blog/2018/08/16/spiflash.html">DDR cells</a> to toggle the SPI clock on rising and falling edges, with an enable signal to shut it off.</p>
 <p>It’s also not really necessary. I added wait state generation - you can see the <code>waitstate</code> signal in the waveform above. One thing to note about wait state generation on the TRS-20 is that it passes through a DFF IC, clocked by the rising edge of <code>PHI</code>. This IC has its own setup time that means the FPGA shouldn’t change <code>/WAIT</code> arbitrarily: it needs to change at least 3ns before <code>PHI</code> rises. I approach this with a rising edge detector on <code>PHI</code> - this is stabilised to CLK and could be up to 20ns behind the real rising edge, which is still ~30ns before the next one.</p>
 <p>However, for an I/O operation the CPU will sample <code>/WAIT</code> on the falling edge of the first wait state. The DFF in the way means I need to assert <code>/WAIT</code> before the rising edge of that wait state. Having enough time to guarantee detection of it is implausible with my current approach.</p>
 <p><code>/IORQ</code> and <code>/RD</code> will fall up to 25ns after the falling edge of T1. I’ll detect them up to 20ns after that - 45ns after the falling edge of T1. T2 will have risen by then, and could rise even before <code>/IORQ</code> and <code>/RD</code> have both fallen. To catch the read request I could insert an additional cycle on the <code>PHI</code> edge detect so that always comes after the read request control signals. But <code>/WR</code> falls up to 25ns after the rising edge of T2, and I won’t detect it until 45ns later. The rising edge of Tw shouldn’t come sooner than 54ns later. That’s only 6ns left to assert <code>/WAIT</code>, which is pushing up pretty hard against the FPGA’s output delays - and assumes any input delays don’t wind up adding one clock cycle to the stabilisers. Which they will.</p>
@@ -150,4 +157,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

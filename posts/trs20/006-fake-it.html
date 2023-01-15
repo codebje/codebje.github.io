@@ -7,6 +7,8 @@
     <title>λbje - The TRS-20 - fake it 'til you make it</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
@@ -14,6 +16,8 @@
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
     
     <script defer src="../../js/pullup.js" type="text/javascript"></script>
+    
+    
   </head>
   <body>
     <header class="site-header">
@@ -79,7 +83,8 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
 \end{aligned}\]</span></p>
 <p>60μA means the high output voltage will be somewhere between 2.4V and 3.8V. There’s no curve provided, alas, but having a lower current than 200μA means the high level will be over 2.4V, and the circuit should behave correctly.</p>
 <figure>
-<img src="../../images/black-pill-schematic.png" alt /><figcaption><a href="https://user-images.githubusercontent.com/26240765/60139875-2fb05880-97e2-11e9-9a82-5670e73c8bd1.png">This</a> might not be the same thing that I have, but it will be close to it.</figcaption>
+<img src="../../images/black-pill-schematic.png" alt="This might not be the same thing that I have, but it will be close to it." />
+<figcaption aria-hidden="true"><a href="https://user-images.githubusercontent.com/26240765/60139875-2fb05880-97e2-11e9-9a82-5670e73c8bd1.png">This</a> might not be the same thing that I have, but it will be close to it.</figcaption>
 </figure>
 <p>There’s also the matter of pin assignments. The black pill board has an STM32F401CCU6 processor on it, which is a 48-pin device. Ten pins are supply pins, two pins are boot/reset signals, and the remaining 36 pins are GPIO - or special purpose. PC14 and PC15 are attached to the external low-speed oscillator, as shown above. According to the full schematic, PC13 is wired to the board’s user LED. PA11 and PA12 are wired to the USB-C socket. PA4 (F_CS), PA5, PA6 (MISO), and PA7 (MOSI) are all wired up to U3, which by the schematic is a 32M SPI Flash chip - this Flash has not been installed on my board, so these pins are available for GPIO. PA13 and PA14 are wired to the serial debug header, and are SWDIO and SWCLK respectively. PB3, PB4, and PA15 are also JTAG pins, but there’s no JTAG header exposed, so I can configure these pins for GPIO. However, PB4 and PA15 are in pull-up state after reset, so care must be taken if they’re wired directly to the Z180.</p>
 <p>I2C3 uses PA8 and PB4. PB2 is tied to ground, as it also serves as BOOT1 and must be low when BOOT0 is high to select the bootloader. This leaves PB0:1 and PB5:10 free for the address bus, and PB12:15 for signals. Pulling in MREQ, IORQ, RD, and WR gives me 95% of what I’ll need - I can’t detect an interrupt acknowledge, differentiate opcode fetch from other memory reads, or see a bus request acknowledgement. PA0:7 are open to be the data bus, so long as I can switch them from output to input fast enough to avoid a bus collision with the Z180. I’m left with PA8:10 for any further signals required.</p>
@@ -98,7 +103,8 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
 <h2 id="clocking-in">Clocking in</h2>
 <p>The STM32F4 has a moderately complex clock tree, compared to the old 8 bit CPUs. There are two internal oscillators, at 32KHz and 16MHz. The low speed internal (LSI) oscillator feeds the RTC system and the internal watchdog, neither of which I will use for now. The high speed internal (HSI) oscillator feeds into the PLL source mux, along with the high speed external (HSE) oscillator. The PLL feeds the USB 48MHz clock, and all three of PLL, HSI, and HSE feed into the system clock mux. From here, the clock is prescaled, then drives the various peripheral buses and such.</p>
 <figure>
-<img src="../../images/stm32-cube-clocks.png" alt /><figcaption>Image from STM32CubeMX, which makes all of this easier to work out.</figcaption>
+<img src="../../images/stm32-cube-clocks.png" alt="Image from STM32CubeMX, which makes all of this easier to work out." />
+<figcaption aria-hidden="true">Image from STM32CubeMX, which makes all of this easier to work out.</figcaption>
 </figure>
 <p>Solving the clock tree puzzle means finding values for M, N, P, and Q in the PLL subsystem such that 84MHz can be fed into the system clock mux, and 48MHz can be fed into the USB clock. The high speed oscillator is divided by M, then multiplied by N. This value is divided by P to get the system clock, and by Q to get the USB clock. P is constrained to be 2, 4, 6, or 8, while Q is anything from 2 to 15.</p>
 <p><span class="math display">\[\begin{aligned}
@@ -200,4 +206,5 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

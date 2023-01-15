@@ -7,11 +7,15 @@
     <title>λbje - The TRS-20 - Will it work?</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -81,10 +85,10 @@
 <pre><code>MiRw 0016D  ED (11101101)
 MiRw 0016E  39 (00111001)
 MiRw 0016F  38 (00111000)</code></pre>
-<p>… which is the CPU fetching and executing <code class="sourceCode z80asm">out0 (CBR), <span class="at">a</span></code>.</p>
+<p>… which is the CPU fetching and executing <code class="sourceCode z80"><span class="bu">out0</span> (CBR), <span class="at">a</span></code>.</p>
 <p>The debug tool showed that without a USB connection, the boot ROM pauses waiting for the transmit data register empty (TDRE) flag to be set for ASCI0. When that flag is set, the CPU writes ‘1’ - and the serial terminal receives it. This confirms my hunch that the USB IC is still resetting when the CPU starts writing to it. And confirms that the serial link works!</p>
 <p>I had mixed up my boot code somehow and tried to do the MMU work right in the middle of setting up the DMA registers. Once I fixed this, I could watch the DMA executing its copy loop, reading from ROM and writing to RAM byte by byte.</p>
-<p>I also discovered that the MMU base registers are added to the logical address: if Common Area 1 starts at <code class="sourceCode z80asm"><span class="bn">$F000</span></code> with a base register of <code class="sourceCode z80asm"><span class="bn">$80</span></code> the physical address is <code class="sourceCode z80asm"><span class="bn">$8F000</span></code>. This makes sense from an implementation perspective - it’s a single 8-bit adder involved - and was an easy fix to set CBAR to <code class="sourceCode z80asm"><span class="bn">$71</span></code> instead.</p>
+<p>I also discovered that the MMU base registers are added to the logical address: if Common Area 1 starts at <code class="sourceCode z80"><span class="bn">$F000</span></code> with a base register of <code class="sourceCode z80"><span class="bn">$80</span></code> the physical address is <code class="sourceCode z80"><span class="bn">$8F000</span></code>. This makes sense from an implementation perspective - it’s a single 8-bit adder involved - and was an easy fix to set CBAR to <code class="sourceCode z80"><span class="bn">$71</span></code> instead.</p>
 <p>The remaining consequences of my choice to use /M1 then became apparent. A memory access to ROM space would set A19 high, with /M1 also high, no problem so far. But the next machine cycle would lower /M1 at around the same time as A19, with enough overlap between them for my flip-flop to be reset. The safest action is to jump to ROM as soon as possible, without allowing any other access to ROM space to happen first.</p>
 <p>I re-ordered the boot code to set up the MMU first, jumped to ROM space, ran the DMA copy from there, then jumped back to, in theory, SRAM.</p>
 <p>A transmit test that modified code showed that yes, I had code running out of SRAM.</p>
@@ -129,4 +133,5 @@ MiRw 0016F  38 (00111000)</code></pre>
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

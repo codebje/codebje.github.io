@@ -7,11 +7,15 @@
     <title>λbje - The TRS-20 - boot up</title>
     <link rel="stylesheet" type="text/css" href="../../css/main.css">
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
     
     
   </head>
@@ -58,21 +62,22 @@
 <!--more-->
 <p>With my test rig re-wired using 22AWG wire (from a kit, I don’t have a nice stock of the stuff to trim to length myself yet) and looking neat, despite still only having eight address lines, I fired the thing up. Not pictured is a small extension that ties RESET high with a 10k resistor and adds a tactile switch to pull it low, as the Z180 doesn’t really behave properly without being reset.</p>
 <p>The <a href="https://github.com/codebje/trs20-debug/blob/fe11a903a1df9553ae3c87e779e340607668d3f4/trs20.asm">code</a> that should be executed disables DRAM refresh, so my logic analyser images don’t have so much noise in them. After that, it just loops forever not doing anything.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode z80asm"><code class="sourceCode z80asm"><span id="cb1-1"><a href="#cb1-1"></a><span class="fu">reset:</span>	<span class="dt">.org</span>	<span class="bn">$0000</span></span>
-<span id="cb1-2"><a href="#cb1-2"></a>	ld	<span class="at">a</span>, <span class="bn">0</span></span>
-<span id="cb1-3"><a href="#cb1-3"></a>	out0	(RCR), <span class="at">a</span>	<span class="co">; disable the DRAM refresh</span></span>
-<span id="cb1-4"><a href="#cb1-4"></a>	jp	_start</span>
-<span id="cb1-5"><a href="#cb1-5"></a></span>
-<span id="cb1-6"><a href="#cb1-6"></a><span class="co">; … other RST vectors omitted …</span></span>
-<span id="cb1-7"><a href="#cb1-7"></a></span>
-<span id="cb1-8"><a href="#cb1-8"></a><span class="fu">_start:</span></span>
-<span id="cb1-9"><a href="#cb1-9"></a>	nop</span>
-<span id="cb1-10"><a href="#cb1-10"></a>	jp	_start</span></code></pre></div>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">reset:</span>	<span class="dt">.org</span>	<span class="bn">$0000</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>	<span class="bu">ld</span>	<span class="at">a</span>, <span class="bn">0</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>	<span class="bu">out0</span>	(RCR), <span class="at">a</span>	<span class="co">; disable the DRAM refresh</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>	<span class="bu">jp</span>	_start</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="co">; … other RST vectors omitted …</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="fu">_start:</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>	<span class="bu">nop</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>	<span class="bu">jp</span>	_start</span></code></pre></div>
 <p>After a reset, the data lines look like this. I’ve added handy little labels for the signals.</p>
 <figure>
-<img src="../../images/boot-from-rom.png" alt /><figcaption>On reflection, it probably would have been easier to read as D7:0.</figcaption>
+<img src="../../images/boot-from-rom.png" alt="On reflection, it probably would have been easier to read as D7:0." />
+<figcaption aria-hidden="true">On reflection, it probably would have been easier to read as D7:0.</figcaption>
 </figure>
-<p>Decoding and cross-referencing these binary values with the listing file for the ROM image shows it executing exactly what it should, and it’s apparent that immediately after the <code class="sourceCode z80asm">out0</code> the DRAM refresh ceases, and the CPU repeatedly requests the <code class="sourceCode z80asm">nop</code> and <code class="sourceCode z80asm">jp</code> instructions</p>
+<p>Decoding and cross-referencing these binary values with the listing file for the ROM image shows it executing exactly what it should, and it’s apparent that immediately after the <code class="sourceCode z80"><span class="bu">out0</span></code> the DRAM refresh ceases, and the CPU repeatedly requests the <code class="sourceCode z80"><span class="bu">nop</span></code> and <code class="sourceCode z80"><span class="bu">jp</span></code> instructions</p>
 <table>
 <thead>
 <tr class="header">
@@ -85,7 +90,7 @@
 <tr class="odd">
 <td><code>00111110</code></td>
 <td><code>3E</code></td>
-<td><code class="sourceCode z80asm">ld <span class="at">a</span>, <span class="bn">0</span></code></td>
+<td><code class="sourceCode z80"><span class="bu">ld</span> <span class="at">a</span>, <span class="bn">0</span></code></td>
 </tr>
 <tr class="even">
 <td><code>00000000</code></td>
@@ -95,7 +100,7 @@
 <tr class="odd">
 <td><code>11101101</code></td>
 <td><code>ED</code></td>
-<td><code class="sourceCode z80asm">out0 (RCR), <span class="at">a</span></code></td>
+<td><code class="sourceCode z80"><span class="bu">out0</span> (RCR), <span class="at">a</span></code></td>
 </tr>
 <tr class="even">
 <td><code>00111001</code></td>
@@ -110,7 +115,7 @@
 <tr class="even">
 <td><code>11000011</code></td>
 <td><code>C3</code></td>
-<td><code class="sourceCode z80asm">jp <span class="bn">$0038</span></code></td>
+<td><code class="sourceCode z80"><span class="bu">jp</span> <span class="bn">$0038</span></code></td>
 </tr>
 <tr class="odd">
 <td><code>00111000</code></td>
@@ -125,7 +130,7 @@
 <tr class="odd">
 <td><code>00000000</code></td>
 <td><code>00</code></td>
-<td><code class="sourceCode z80asm">nop</code></td>
+<td><code class="sourceCode z80"><span class="bu">nop</span></code></td>
 </tr>
 </tbody>
 </table>
@@ -203,4 +208,5 @@
     </script>
     <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
   </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>
