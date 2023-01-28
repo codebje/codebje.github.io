@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - Advent of Z80 - Day 2, 2022</title>
+    <link rel="stylesheet" type="text/css" href="../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../css/saucecodepro-nerd-font-mono.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
+    <script defer src="../js/Z80.js" type="text/javascript"></script>
+    <script type="module" src="../js/z80run.js" type="text/javascript"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../about.html">About</a>
+            <a class="page-link" href="../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../images/trs80.jpg">
+  
+  <h1 class="post-title">Advent of Z80 - Day 2, 2022</h1>
+  <p class="post-meta">January 29, 2023 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../images/banners/rock-paper-scissors.jpg">
+
+  <div class="post-hero-note">Image by <a href="https://www.flickr.com/photos/gozalewis/4565833940">timlewisnm</a>, cropped. <a href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
+
+
+  <p>It’s day two of the Advent of Z80. As with <a href="2023-01-15-aoc-z80-day01.html">day 1</a> the post will focus more on the Z80 assembly than on the puzzle, and is a “literate assembly” document that will execute in your browser.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY02</span></code></pre></div>
+<!--more-->
+<p>The second puzzle is based on the venerable rock, paper, scissors game. The puzzle input is a turn by turn list of the gameplay, with the opponent’s move given as one of A, B, or C and the player’s move given as X, Y, or Z. The required output is a score based on the player’s chosen move plus and whether the game was a win, draw, or loss.</p>
+<p>For every round I am told what move I will make and what move my opponent makes, and I simply need to translate that into two score values and add that in to a running tally. The first score value is 1, 2, or 3 for rock, paper, or scissors. The second score value will be a lookup into a 3x3 matrix based on the two moves. If I assign 0 to rock, 1 to paper, and 2 to scissors the first score is the move plus one and the second score is a lookup.</p>
+<p>When using the lookup table I’ll load the address of the table into <code class="sourceCode z80"><span class="at">HL</span></code> then add the player’s move three times and the opponent’s move once. The maximum total offset is 8, and I’d really like to be able to use 8-bit additions without worrying about carry into <code class="sourceCode z80"><span class="at">H</span></code>, so I will align the lookup table’s address in memory such that the address plus 8 never overflows.</p>
+<p>Most assemblers have a <code class="sourceCode z80"><span class="dt">.align</span></code> directive for this purpose. The directive inserts padding into the program until the address modulo the alignment equals zero. For this to prevent overflow when adding the alignment needs to be a power of two - the smallest alignment that will ensure safety is 16. Because I only have 9 bytes of data this means up to 7 bytes of padding will be added even if there’s no chance of overflow.</p>
+<p>Some assemblers - including the one used here - allow extra arguments to <code class="sourceCode z80"><span class="dt">.align</span></code> to specify what fill value will be inserted into the output for the padding, and to specify the maximum offset that will be allowed. I can specify that I want my table aligned to 256 bytes, but not to add any padding if the padding to add is greater than 9 bytes - in most cases this will simply leave the table where it is.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.align</span>  <span class="bn">256</span>, <span class="bn">0</span>, <span class="bn">9</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">WINLOSS:</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">; oppt: R, P, S</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">3</span>, <span class="bn">0</span>, <span class="bn">6</span> <span class="co">; me: R</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">6</span>, <span class="bn">3</span>, <span class="bn">0</span> <span class="co">; me: P</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">0</span>, <span class="bn">6</span>, <span class="bn">3</span> <span class="co">; me: S</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   B       opponent's move (0: Rock, 1: Paper, 2: Scissors)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">;       C       player's move (0: Rock, 1: Paper, 2: Scissors)</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  A       score</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="fu">@SCORE:</span> <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, WINLOSS &amp; <span class="bn">0ffh</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; my move * 1</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; my move * 2</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; my move * 3</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">b</span>    <span class="co">; + your move</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">l</span>, <span class="at">a</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">h</span>, WINLOSS &gt;&gt; <span class="bn">8</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="co">; score = my move (rock = 1, paper = 2, scissors = 3) ...</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="at">c</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">a</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        <span class="co">; plus win/loss score</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Now that I can score a round all I need to do is score all the rounds and sum the scores up.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">@DAY02:</span> <span class="bu">ld</span>      <span class="at">hl</span>, STRATEGY</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, <span class="bn">0</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ROUNDS:</span> <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>) <span class="co">; load opponent's move</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sub</span>     <span class="at">a</span>, <span class="st">'A'</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, DONE <span class="co">; finish when &lt; 'A'</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="at">a</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>) <span class="co">; load my move</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sub</span>     <span class="at">a</span>, <span class="st">'X'</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SCORE</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">e</span>    <span class="co">; add A into DE</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, <span class="at">a</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="bn">0</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">a</span>, <span class="at">d</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, <span class="at">a</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      ROUNDS</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">call</span>    PRINT16</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="fu">STRATEGY:</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">'A'</span>, <span class="st">'Y'</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">'B'</span>, <span class="st">'X'</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">'C'</span>, <span class="st">'Z'</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">0</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Day 1 required printing a 32-bit number. Day 2’s results fits into a 16-bit number on real input - and an 8-bit number for the sample input - which is simpler to print:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    DE      a 16-bit unsigned number to print</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT   A       clobbered</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="fu">@PRINT16:</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="st">'0'</span>  <span class="co">; the 'non-zero' flag</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="co">; force last digit to print</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="bn">1</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a><span class="fu">DIGIT:</span>  <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">'0'</span>-<span class="bn">1</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a><span class="fu">DLOOP:</span>  <span class="bu">inc</span>     <span class="at">a</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, DLOOP</span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="at">c</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, NOPRINT</span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="bn">1</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a><span class="fu">NOPRINT:</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Let’s fire it up and see what it does.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jp</span>      DAY02</span></code></pre></div>
+<p>Huzzah and hurrah, 15 is printed.</p>
+<h2 id="star-2">Star 2</h2>
+<p>For star 2, the meaning of the second column has changed: an ‘X’ means to lose, a ‘Y’ to draw, and a ‘Z’ to win. The score is still calculated the same way, so all I need is an extra step to convert the ‘X’, ‘Y’, and ‘Z’ into the appropriate move, then just repeat the first star’s computations.</p>
+<p>I can use the same table-based approach as for scoring to translate to a move: the move to be made depends on both the opponent’s move and the desired outcome. Once again ensuring the table is aligned will prevent overflow and allow 8-bit arithmetic to be used.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.align</span>  <span class="bn">256</span>, <span class="bn">0</span>, <span class="bn">9</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="fu">MOVES:</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">; oppt: R, P, S</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">2</span>, <span class="bn">0</span>, <span class="bn">1</span> <span class="co">; lose</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">0</span>, <span class="bn">1</span>, <span class="bn">2</span> <span class="co">; draw</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">1</span>, <span class="bn">2</span>, <span class="bn">0</span> <span class="co">; win</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   B       opponent's move (0: Rock, 1: Paper, 2: Scissors)</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">;       C       win/loss/draw goal (0: Loss, 1: Draw, 2: Win)</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  A       score</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="fu">@SCORE2:</span><span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, MOVES &amp; <span class="bn">0ffh</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; goal * 1</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; goal * 2</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; goal * 3</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">b</span>    <span class="co">; + opponent move</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">l</span>, <span class="at">a</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">h</span>, MOVES &gt;&gt; <span class="bn">8</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load the move to make</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">hl</span>)</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>        <span class="co">; score it</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SCORE</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>The remainder of the star 2 implementation is exactly the same as the star 1 implementation save for calling <code class="sourceCode z80">SCORE2</code> instead of <code class="sourceCode z80">SCORE1</code>.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">@STAR2:</span> <span class="bu">ld</span>      <span class="at">hl</span>, STRATEGY</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, <span class="bn">0</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ROUNDS:</span> <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>) <span class="co">; load opponent's move</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sub</span>     <span class="at">a</span>, <span class="st">'A'</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, DONE <span class="co">; finish when &lt; 'A'</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="at">a</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>) <span class="co">; load my move</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sub</span>     <span class="at">a</span>, <span class="st">'X'</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SCORE2</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">e</span>    <span class="co">; add A into DE</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, <span class="at">a</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="bn">0</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">a</span>, <span class="at">d</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, <span class="at">a</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      ROUNDS</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">call</span>    PRINT16</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a><span class="fu">STRATEGY:</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">'A'</span>, <span class="st">'Y'</span></span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">'B'</span>, <span class="st">'X'</span></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">'C'</span>, <span class="st">'Z'</span></span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">0</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>And executing this should print 12.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jp</span>      STAR2</span></code></pre></div>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+      ga('create', 'UA-68687928-1', 'auto');
+      ga('send', 'pageview');
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
+</html>

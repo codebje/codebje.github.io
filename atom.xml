@@ -8,8 +8,214 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2023-01-15T00:00:00Z</updated>
+    <updated>2023-01-29T00:00:00Z</updated>
     <entry>
+    <title>Advent of Z80 - Day 2, 2022</title>
+    <link href="https://bje.id.au/blog/posts/2023-01-29-aoc-z80-day02.html" />
+    <id>https://bje.id.au/blog/posts/2023-01-29-aoc-z80-day02.html</id>
+    <published>2023-01-29T00:00:00Z</published>
+    <updated>2023-01-29T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>It’s day two of the Advent of Z80. As with <a href="2023-01-15-aoc-z80-day01.html">day 1</a> the post will focus more on the Z80 assembly than on the puzzle, and is a “literate assembly” document that will execute in your browser.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY02</span></code></pre></div>
+<!--more-->
+<p>The second puzzle is based on the venerable rock, paper, scissors game. The puzzle input is a turn by turn list of the gameplay, with the opponent’s move given as one of A, B, or C and the player’s move given as X, Y, or Z. The required output is a score based on the player’s chosen move plus and whether the game was a win, draw, or loss.</p>
+<p>For every round I am told what move I will make and what move my opponent makes, and I simply need to translate that into two score values and add that in to a running tally. The first score value is 1, 2, or 3 for rock, paper, or scissors. The second score value will be a lookup into a 3x3 matrix based on the two moves. If I assign 0 to rock, 1 to paper, and 2 to scissors the first score is the move plus one and the second score is a lookup.</p>
+<p>When using the lookup table I’ll load the address of the table into <code class="sourceCode z80"><span class="at">HL</span></code> then add the player’s move three times and the opponent’s move once. The maximum total offset is 8, and I’d really like to be able to use 8-bit additions without worrying about carry into <code class="sourceCode z80"><span class="at">H</span></code>, so I will align the lookup table’s address in memory such that the address plus 8 never overflows.</p>
+<p>Most assemblers have a <code class="sourceCode z80"><span class="dt">.align</span></code> directive for this purpose. The directive inserts padding into the program until the address modulo the alignment equals zero. For this to prevent overflow when adding the alignment needs to be a power of two - the smallest alignment that will ensure safety is 16. Because I only have 9 bytes of data this means up to 7 bytes of padding will be added even if there’s no chance of overflow.</p>
+<p>Some assemblers - including the one used here - allow extra arguments to <code class="sourceCode z80"><span class="dt">.align</span></code> to specify what fill value will be inserted into the output for the padding, and to specify the maximum offset that will be allowed. I can specify that I want my table aligned to 256 bytes, but not to add any padding if the padding to add is greater than 9 bytes - in most cases this will simply leave the table where it is.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.align</span>  <span class="bn">256</span>, <span class="bn">0</span>, <span class="bn">9</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="fu">WINLOSS:</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">; oppt: R, P, S</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">3</span>, <span class="bn">0</span>, <span class="bn">6</span> <span class="co">; me: R</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">6</span>, <span class="bn">3</span>, <span class="bn">0</span> <span class="co">; me: P</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">0</span>, <span class="bn">6</span>, <span class="bn">3</span> <span class="co">; me: S</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   B       opponent&#39;s move (0: Rock, 1: Paper, 2: Scissors)</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">;       C       player&#39;s move (0: Rock, 1: Paper, 2: Scissors)</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  A       score</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="fu">@SCORE:</span> <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, WINLOSS &amp; <span class="bn">0ffh</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; my move * 1</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; my move * 2</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; my move * 3</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">b</span>    <span class="co">; + your move</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">l</span>, <span class="at">a</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">h</span>, WINLOSS &gt;&gt; <span class="bn">8</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="co">; score = my move (rock = 1, paper = 2, scissors = 3) ...</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="at">c</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">a</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        <span class="co">; plus win/loss score</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Now that I can score a round all I need to do is score all the rounds and sum the scores up.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">@DAY02:</span> <span class="bu">ld</span>      <span class="at">hl</span>, STRATEGY</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, <span class="bn">0</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ROUNDS:</span> <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>) <span class="co">; load opponent&#39;s move</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sub</span>     <span class="at">a</span>, <span class="st">&#39;A&#39;</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, DONE <span class="co">; finish when &lt; &#39;A&#39;</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="at">a</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>) <span class="co">; load my move</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sub</span>     <span class="at">a</span>, <span class="st">&#39;X&#39;</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SCORE</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">e</span>    <span class="co">; add A into DE</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, <span class="at">a</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="bn">0</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">a</span>, <span class="at">d</span></span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, <span class="at">a</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      ROUNDS</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">call</span>    PRINT16</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a><span class="fu">STRATEGY:</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;A&#39;</span>, <span class="st">&#39;Y&#39;</span></span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;B&#39;</span>, <span class="st">&#39;X&#39;</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;C&#39;</span>, <span class="st">&#39;Z&#39;</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">0</span></span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Day 1 required printing a 32-bit number. Day 2’s results fits into a 16-bit number on real input - and an 8-bit number for the sample input - which is simpler to print:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    DE      a 16-bit unsigned number to print</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT   A       clobbered</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="fu">@PRINT16:</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="st">&#39;0&#39;</span>  <span class="co">; the &#39;non-zero&#39; flag</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="co">; force last digit to print</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="bn">1</span></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a><span class="fu">DIGIT:</span>  <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">&#39;0&#39;</span>-<span class="bn">1</span></span>
+<span id="cb4-37"><a href="#cb4-37" aria-hidden="true" tabindex="-1"></a><span class="fu">DLOOP:</span>  <span class="bu">inc</span>     <span class="at">a</span></span>
+<span id="cb4-38"><a href="#cb4-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb4-39"><a href="#cb4-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, DLOOP</span>
+<span id="cb4-40"><a href="#cb4-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb4-41"><a href="#cb4-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="at">c</span></span>
+<span id="cb4-42"><a href="#cb4-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, NOPRINT</span>
+<span id="cb4-43"><a href="#cb4-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb4-44"><a href="#cb4-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="bn">1</span></span>
+<span id="cb4-45"><a href="#cb4-45" aria-hidden="true" tabindex="-1"></a><span class="fu">NOPRINT:</span></span>
+<span id="cb4-46"><a href="#cb4-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb4-47"><a href="#cb4-47" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Let’s fire it up and see what it does.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jp</span>      DAY02</span></code></pre></div>
+<p>Huzzah and hurrah, 15 is printed.</p>
+<h2 id="star-2">Star 2</h2>
+<p>For star 2, the meaning of the second column has changed: an ‘X’ means to lose, a ‘Y’ to draw, and a ‘Z’ to win. The score is still calculated the same way, so all I need is an extra step to convert the ‘X’, ‘Y’, and ‘Z’ into the appropriate move, then just repeat the first star’s computations.</p>
+<p>I can use the same table-based approach as for scoring to translate to a move: the move to be made depends on both the opponent’s move and the desired outcome. Once again ensuring the table is aligned will prevent overflow and allow 8-bit arithmetic to be used.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.align</span>  <span class="bn">256</span>, <span class="bn">0</span>, <span class="bn">9</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="fu">MOVES:</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">; oppt: R, P, S</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">2</span>, <span class="bn">0</span>, <span class="bn">1</span> <span class="co">; lose</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">0</span>, <span class="bn">1</span>, <span class="bn">2</span> <span class="co">; draw</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">defb</span>    <span class="bn">1</span>, <span class="bn">2</span>, <span class="bn">0</span> <span class="co">; win</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   B       opponent&#39;s move (0: Rock, 1: Paper, 2: Scissors)</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">;       C       win/loss/draw goal (0: Loss, 1: Draw, 2: Win)</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  A       score</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="fu">@SCORE2:</span><span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, MOVES &amp; <span class="bn">0ffh</span></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; goal * 1</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; goal * 2</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">c</span>    <span class="co">; goal * 3</span></span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">b</span>    <span class="co">; + opponent move</span></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">l</span>, <span class="at">a</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">h</span>, MOVES &gt;&gt; <span class="bn">8</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load the move to make</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">hl</span>)</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>        <span class="co">; score it</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SCORE</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>The remainder of the star 2 implementation is exactly the same as the star 1 implementation save for calling <code class="sourceCode z80">SCORE2</code> instead of <code class="sourceCode z80">SCORE1</code>.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">@STAR2:</span> <span class="bu">ld</span>      <span class="at">hl</span>, STRATEGY</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, <span class="bn">0</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="fu">ROUNDS:</span> <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>) <span class="co">; load opponent&#39;s move</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sub</span>     <span class="at">a</span>, <span class="st">&#39;A&#39;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, DONE <span class="co">; finish when &lt; &#39;A&#39;</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="at">a</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>) <span class="co">; load my move</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sub</span>     <span class="at">a</span>, <span class="st">&#39;X&#39;</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SCORE2</span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">e</span>    <span class="co">; add A into DE</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, <span class="at">a</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="bn">0</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">a</span>, <span class="at">d</span></span>
+<span id="cb7-21"><a href="#cb7-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, <span class="at">a</span></span>
+<span id="cb7-22"><a href="#cb7-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-23"><a href="#cb7-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      ROUNDS</span>
+<span id="cb7-24"><a href="#cb7-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-25"><a href="#cb7-25" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">call</span>    PRINT16</span>
+<span id="cb7-26"><a href="#cb7-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb7-27"><a href="#cb7-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-28"><a href="#cb7-28" aria-hidden="true" tabindex="-1"></a><span class="fu">STRATEGY:</span></span>
+<span id="cb7-29"><a href="#cb7-29" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;A&#39;</span>, <span class="st">&#39;Y&#39;</span></span>
+<span id="cb7-30"><a href="#cb7-30" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;B&#39;</span>, <span class="st">&#39;X&#39;</span></span>
+<span id="cb7-31"><a href="#cb7-31" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;C&#39;</span>, <span class="st">&#39;Z&#39;</span></span>
+<span id="cb7-32"><a href="#cb7-32" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">0</span></span>
+<span id="cb7-33"><a href="#cb7-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-34"><a href="#cb7-34" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>And executing this should print 12.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jp</span>      STAR2</span></code></pre></div>]]></summary>
+</entry>
+<entry>
     <title>AOC 2022 - Z80</title>
     <link href="https://bje.id.au/blog/posts/2023-01-15-aoc-z80-day01.html" />
     <id>https://bje.id.au/blog/posts/2023-01-15-aoc-z80-day01.html</id>
@@ -980,220 +1186,6 @@ MiRw 0016F  38 (00111000)</code></pre>
 <td style="text-align: center;">────</td>
 <td style="text-align: center;">███─</td>
 <td style="text-align: center;">done</td>
-</tr>
-</tbody>
-</table>]]></summary>
-</entry>
-<entry>
-    <title>The TRS-20 - Timing check</title>
-    <link href="https://bje.id.au/blog/posts/trs20/010-timing-check.html" />
-    <id>https://bje.id.au/blog/posts/trs20/010-timing-check.html</id>
-    <published>2020-05-03T00:00:00Z</published>
-    <updated>2020-05-03T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>I am working on the CPU board design, which covers too many topics and decisions to fit into just one post. This particular post explores timing in depth, checking that I understand how fast my logic circuits must be to keep the bus contention free and the CPU state valid.</p>
-<!--more-->
-<h2 id="but-first-a-digression">But first, a digression…</h2>
-<p>When, say, an adder circuit in a CPU is presented with some values on its input wires, some brief amount of time will elapse before the correct value presents on its output wires. In the meantime, it’s even possible that the output value will pass through intermediate states before settling on the right answer. The clock in a processor is the solution to this: it doesn’t matter what the circuit does while computing its answer, so long as it’s got the right answer by the time the next clock transition happens. The clock signal synchronises all the circuits of the processor, shuffling data from circuit to circuit with metronomic regularity.</p>
-<p>When you pop out of the CPU and look at its immediate peripherals, the clock signal comes along for the ride. External components must march to the same drum as the processor, consuming data it outputs before the processor has moved on to the next task, and providing data as input before the processor acts on it.</p>
-<p>This manifests in data sheets and other documentation as <em>timing diagrams</em>. These diagrams have time as the horizontal axis, and signal levels as the vertical axis, with multiple signals on the same diagram to show how the signals must synchronise with each other. If there’s a clock synchronising the signals, it’ll usually be the first signal in the diagram. Since the diagram’s purpose is to show relative timing constraints, the time axis isn’t accurate - if two signals change at the same point horizontally, they’re only specified to change at the same time if the diagram indicates a zero time delay between them.</p>
-<figure>
-<img src="/images/timing-diagram-example.svg" alt="Three signals (one a bus), and two indicated timing data." />
-<figcaption aria-hidden="true">Three signals (one a bus), and two indicated timing data.</figcaption>
-</figure>
-<p>A timing diagram’s value is in explaining how one signal’s change in state is related to another signal. In the above diagram, a table would give an upper or lower bound for the intervals marked <code>1</code> and <code>2</code>. An upper bound for interval <code>1</code> would specify the maximum time that the address lines will settle after the rising edge of T1. A lower bound for interval <code>2</code> would specify the minimum time that the address lines will be settled before /MREQ falls.</p>
-<h2 id="processor-timing-details-for-the-z180">Processor timing details for the Z180</h2>
-<p>For the Z180 processor, there’s a feast of timing diagrams to dine on. They get their own section of the User Manual, and are one of the few pieces of information that appear in both the User Manual and the specification document. They’re accompanied by large data tables specifying bounds for various durations in the diagram. Time value t<sub>CYC</sub> is the clock cycle time - the time between each rising edge. For the Z8L180-20 t<sub>CYC</sub> lies between 50ns and DC, reflecting that the maximum speed of the processor is 20MHz (<span class="math inline">\(\frac{1}{20e^6} = 50e^{-9}\)</span>), and there is no minimum speed: you can stop its clock entirely.</p>
-<p>Some of these timing values tell me useful information for my board design - my clock should be able to satisfy not only the clock cycle time bounds, but also the high and low pulse width bounds, which are only specified as minimum values. The Z80180 expects that the low and high pulses are each at least 40ns long. The upper bound is determined by the actual clock cycle time and the other pulse time minimum - for a 100ns cycle, the maximum high or low pulse is 60ns. There’s also clock rise and fall times: signal levels don’t change instantaneously, and if they transition too slowly a CMOS input can oscillate between reading a high and a low, or if you’re lucky, just chew up relatively huge amounts of power.</p>
-<p>Others of these timing values tell me useful information for my component selection, when read in conjunction with a timing diagram. How fast does my SRAM have to be if I want to access it with no wait states? Well - in an opcode fetch cycle, the address pins will stabilise no more than t<sub>AD</sub> (30ns) after the first rising edge of the first clock cycle of the opcode fetch machine cycle, and no less than t<sub>AS</sub> (5ns) before /MREQ or /IORQ falls. In turn, /MREQ promises it will fall no later than t<sub>MED1</sub> (25ns) after the falling edge of that first clock cycle. Similarly, t<sub>RDD1</sub> (25ns) promises that /RD will fall at most that long after the falling edge as well. There’s nothing tying /RD and /MREQ together though, so there’s no commitment made as to which will fall first, or how much time will elapse between the two falling.</p>
-<p>It’s all a bit complicated. Perhaps a diagram would help…</p>
-<figure>
-<img src="/images/z180-timing-main.png" alt="z8018x User Manual (UM005004-0918), p.197, Figure 81." />
-<figcaption aria-hidden="true">z8018x User Manual (UM005004-0918), p.197, Figure 81.</figcaption>
-</figure>
-<p>There’s a lot going on in this one diagram, but I can use it to produce the information I really need - if I have 12ns SRAM, how fast does my glue logic have to be before I need a wait state? And for my Flash ROM and any on-board I/O devices, similar questions play out.</p>
-<h2 id="working-out-maximum-delays">Working out maximum delays</h2>
-<p>The figure I included above shows an opcode fetch cycle and I/O read/write cycles, but not a memory read or write cycle. As it turns out memory read cycles look almost the same as opcode fetch cycles with one key difference - the data lines are sampled on the falling edge of T3, not the rising edge. Taking a leaf from Application Note AN009602-0808 (“The Z180 Interfaced with the SCC at 10 MHz”) a simplified diagram showing a read and a write memory cycle will clear up the clutter nicely and show just what’s needed for memory timing constraints.</p>
-<table>
-<caption>Values for the timing parameters of the Z80L180-20. All times in ns.</caption>
-<thead>
-<tr class="header">
-<th style="text-align: left;">No.</th>
-<th style="text-align: left;">Label</th>
-<th style="text-align: left;">Time</th>
-<th style="text-align: left;">Purpose</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: left;">6</td>
-<td style="text-align: left;">t<sub>AD</sub></td>
-<td style="text-align: left;">≤ 30</td>
-<td style="text-align: left;">PHI rise to Address Valid Delay</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">7</td>
-<td style="text-align: left;">t<sub>AS</sub></td>
-<td style="text-align: left;">≥ 5</td>
-<td style="text-align: left;">Address Valid to /MREQ or /IORQ fall</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">8</td>
-<td style="text-align: left;">t<sub>MED1</sub></td>
-<td style="text-align: left;">≤ 25</td>
-<td style="text-align: left;">PHI fall to /MREQ fall delay</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">9</td>
-<td style="text-align: left;">t<sub>RDD1</sub></td>
-<td style="text-align: left;">≤ 25</td>
-<td style="text-align: left;">PHI fall to /RD fall delay</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">11</td>
-<td style="text-align: left;">t<sub>AH</sub></td>
-<td style="text-align: left;">≥ 5</td>
-<td style="text-align: left;">Address Hold time from /MREQ, /IORQ, /RD, /WR high</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">12</td>
-<td style="text-align: left;">t<sub>MED2</sub></td>
-<td style="text-align: left;">≤ 25</td>
-<td style="text-align: left;">PHI fall to /MREQ rise delay</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">13</td>
-<td style="text-align: left;">t<sub>RDD2</sub></td>
-<td style="text-align: left;">≤ 25</td>
-<td style="text-align: left;">PHI fall to /RD rise delay</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">15</td>
-<td style="text-align: left;">t<sub>DRS</sub></td>
-<td style="text-align: left;">≥ 10</td>
-<td style="text-align: left;">Data Read Set-up time</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">16</td>
-<td style="text-align: left;">t<sub>DRH</sub></td>
-<td style="text-align: left;">≥ 0</td>
-<td style="text-align: left;">Data Read Hold time</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">22</td>
-<td style="text-align: left;">t<sub>WRD1</sub></td>
-<td style="text-align: left;">≤ 25</td>
-<td style="text-align: left;">PHI rise to /WR fall delay</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">23</td>
-<td style="text-align: left;">t<sub>WDD</sub></td>
-<td style="text-align: left;">≤ 25</td>
-<td style="text-align: left;">PHI fall to Write Data Delay time</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">24</td>
-<td style="text-align: left;">t<sub>WDS</sub></td>
-<td style="text-align: left;">≥ 10</td>
-<td style="text-align: left;">Write Data Set-up time to /WR fall</td>
-</tr>
-<tr class="odd">
-<td style="text-align: left;">25</td>
-<td style="text-align: left;">t<sub>WRD2</sub></td>
-<td style="text-align: left;">≤ 25</td>
-<td style="text-align: left;">PHI fall to /WR rise delay</td>
-</tr>
-<tr class="even">
-<td style="text-align: left;">27</td>
-<td style="text-align: left;">t<sub>WDH</sub></td>
-<td style="text-align: left;">≥ 10</td>
-<td style="text-align: left;">Write Data Hold time from /WR rise</td>
-</tr>
-</tbody>
-</table>
-<figure>
-<img src="/images/z180-timing-memory.svg" alt="Memory access timing diagram, opcode fetch and write cycles." />
-<figcaption aria-hidden="true">Memory access timing diagram, opcode fetch and write cycles.</figcaption>
-</figure>
-<p>The only timing not specified in the table above is 1 (t<sub>CYC</sub>, the clock cycle time). I will use an 18.432MHz MEMS oscillator, the DSC1001DE5. This part is accurate to 10ppm, which means t<sub>CYC</sub> will fall between 54.253ns and 54.254ns, which I will call 54ns. It outputs 0.9xV<sub>DD</sub>, or 2.97V, with a rise and fall time no longer than 2ns. The duty cycle could be anywhere between 45% and 55%, or 24.3ns to 29.7ns.</p>
-<p>A regular memory read cycle shortes the data window by only requiring that data has been set up t<sub>DRS</sub> before the falling edge of T3, rather than the rising edge. I/O read cycles are the same as regular memory read cycles, except that /IORQ replaces /MREQ and there is always at least one wait state. In Z80-compatible mode though, /IORQ and /RD fall after the rising edge of T2, so that’s a little trap to be wary of.</p>
-<p>To read a byte from a typical memory chip, one will decode the address lines plus /MREQ to activate the chip enable input of the memory, then activate either output enable or write enable depending on whether /RD or /WR is active. /MREQ activates 5ns after the address lines have settled, or 25ns after T1 falls. T1 could fall as late as 29.7ns after T1 rises, so /MREQ will not become active until 54.7ns have elapsed. /RD will become active at the same time. This is 1.7ns after T2 has begun, leaving 53.3ns until T3 begins, and 43.3ns until the data must be available.</p>
-<figure>
-<img src="/images/z180-memory-read-timing.svg" alt="Laid out as a timeline, it’s starting to make sense." />
-<figcaption aria-hidden="true">Laid out as a timeline, it’s starting to make sense.</figcaption>
-</figure>
-<p>This 43.3ns is eaten up by address decoding to drive the SRAM’s /CE input, by any logic required to translate the CPU’s /RD and /WR outputs into the SRAM’s /OE and /WE inputs, by any buffering or logic level conversions required, and of course by the SRAM’s own timing constraints. Fortunately, these are easier to understand - in a nutshell, data will be ready at most 10ns after /CE is active and 6ns after /OE is active. The data outputs will be Hi-Z again 5ns after /OE goes high. These figures are specific to the SRAM chip I’m using: check your datasheet.</p>
-<p>There’s also parasitics that add delay to the signal. On my sized board, this will be well below 3.3ns - the <a href="https://blog.zuken.com/how-to-calculate-trace-length-from-time-delay-value-for-high-speed-signals/">speed of signals</a> on stripline traces is close to 150mm/ns, so it’ll take less than one nanosecond for a signal to traverse my 10cm^2 board corner to corner. This leaves me a tidy 40ns to work with.</p>
-<p>For SRAM, this is an enormous surplus of time, with a whopping 30ns available for logic. For Flash ROM, it’s not so much time. My chosen ROM is the SST39SF020A, a 2Mbit 55ns IC. 55ns is, of course, greater than 40ns. But all is not lost, because as with the SRAM the 55ns applies from the time /CE is active. Data will be available 35ns after /OE is active, so if I can decode the address lines and toggle /CE early enough I will have 5ns to activate /OE on the ROM and still have data available inside the zero wait state window. Data must be ready at t+98ns and the address lines are settled at t+30ns, leaving 10ns for address decoding and 3ns for parasitics.</p>
-<p>The Z180 has a 16-bit I/O space so A16-A19 should all be low for any I/O request. Address decoding on ADDR alone can be fairly sure that if the ROM bits are set (A18, A19) that it’s really going to be a ROM request. In a similar vein, if A18 is set and A19 is clear it’s going to be an off-board memory request, and a wait state could be immediately generated, but I’m quite comfortable requiring software to manage this via the CPU’s wait state generator if off-board memory is needed.</p>
-<figure>
-<img src="/images/z180-memory-write-timing.svg" alt="My eyes are starting to glaze." />
-<figcaption aria-hidden="true">My eyes are starting to glaze.</figcaption>
-</figure>
-<p>When writing, the SRAM IC has from the fall of /WR to the fall of T3 to store data. /WR should fall no later than t+79ns, and T3 should fall no earlier than t+131.4ns. /WR will rise up to 25ns later. Timing constraint 26 (t<sub>WRP</sub>, write pulse width) guarantees that /WR will be low for at least 80ns. You could almost write the byte down on paper with that much time.</p>
-<h2 id="wait-state-generation">Wait state generation</h2>
-<p>Wait states are inserted between T2 and T3, either because the Z180’s internal wait state generator has been configure to insert them, or because the /WAIT signal is low when sampled at the fall of T2. The internal wait state generator can add zero to three wait states to every memory or I/O access, with three being added at reset.</p>
-<p>The /WAIT signal must be asserted low at least t<sub>WS</sub> (15ns) before T2 falls, and held low at least t<sub>WH</sub> (10ns) after T2 falls. To allow the processor to continue, it must be de-asserted at least t<sub>WS</sub> before a TW clock cycle falls, and held high at least t<sub>WH</sub> after it falls.</p>
-<p>T2 could fall as early as t+78.3ns, and /WAIT must be asserted low 15ns before that at t+63.3ns. If /WAIT is asserted in response to /MREQ falling at t+54.7ns then only 8.6ns is available. /WAIT transitions are ideally done on the rising edge of a system clock, but /MREQ might fall after T2 rises - if wait states are required for a memory read, they are likely to need to be generated either based on address alone or done using the internal wait state generator. For IO, there’s already one wait state inserted at a minimum, giving at least 62.6ns.</p>
-<h2 id="interrupt-acknowledgement">Interrupt acknowledgement</h2>
-<p>The Mode 0 and Mode 2 INT0 acknowledgement cycles both read a data byte from the bus, where only M1 and IORQ go low. In both cases there are two wait states, /M1 falls up to 35ns after T1 rises, /IORQ falls at least 125ns (2.5 clock cycles) after /M1 falls and at most 25ns after TW<sub>1</sub> falls. Data must be ready 10ns before T3 begins to rise. Assuming TW<sub>1</sub> falls late at 29.7ns and /IORQ falls 25ns after that, and a few ns for parasitics, there’ll be 40ns left in which to respond to the acknowledgement cycle with data on the bus.</p>
-<p>Memory writes</p>
-<ul>
-<li>10 t<sub>M1D1</sub> PHI rise to M1 fall ≤ 35ns</li>
-<li>28 t<sub>IOD1</sub> PHI rise/fall to IORQ fall ≤ 25ns</li>
-<li>29 t<sub>IOD2</sub> PHI fall to IORQ rise ≤ 25ns</li>
-<li>30 t<sub>IOD3</sub> M1 fall to IORQ fall ≥ 125ns</li>
-</ul>
-<h2 id="io-timing">IO timing</h2>
-<p>IO read and write cycles differ from memory only by the addition of one mandatory wait cycle. This adds 54ns to all timing constraints. In the case of t<sub>WRP</sub>, the minimum write pulse time is 150ns.</p>
-<h2 id="timing-constraint-summary">Timing constraint summary</h2>
-<table>
-<thead>
-<tr class="header">
-<th>Constraint</th>
-<th style="text-align: left;">Description</th>
-<th style="text-align: left;">Time</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>Mem read</td>
-<td style="text-align: left;">ADDR to data available</td>
-<td style="text-align: left;">65ns</td>
-</tr>
-<tr class="even">
-<td>Mem read</td>
-<td style="text-align: left;">/MREQ, /RD fall to data available</td>
-<td style="text-align: left;">40ns</td>
-</tr>
-<tr class="odd">
-<td>Mem write</td>
-<td style="text-align: left;">/WR fall duration</td>
-<td style="text-align: left;">80ns</td>
-</tr>
-<tr class="even">
-<td>Mem wait</td>
-<td style="text-align: left;">/MREQ fall to clock rise</td>
-<td style="text-align: left;">-0.7ns</td>
-</tr>
-<tr class="odd">
-<td>IO read</td>
-<td style="text-align: left;">/IORQ, /RD fall to data available</td>
-<td style="text-align: left;">94ns</td>
-</tr>
-<tr class="even">
-<td>IO write</td>
-<td style="text-align: left;">/WR fall duration</td>
-<td style="text-align: left;">150ns</td>
-</tr>
-<tr class="odd">
-<td>IO wait</td>
-<td style="text-align: left;">/IORQ fall to clock rise</td>
-<td style="text-align: left;">50ns</td>
-</tr>
-<tr class="even">
-<td>INT0 read</td>
-<td style="text-align: left;">/M1 and /IORQ fall to data available</td>
-<td style="text-align: left;">40ns</td>
 </tr>
 </tbody>
 </table>]]></summary>
