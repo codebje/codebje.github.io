@@ -82,10 +82,10 @@
 <p>After attempting to send a valid (meta)data packet the retry byte becomes corrupted. After a failed packet transfer instead of getting a ‘C’ back I start getting NULs. I tracked this down to the code invoked after a data packet command is received.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">recv_body:</span>	<span class="bu">ld</span>	(cmd), <span class="at">a</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv_byte</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv<span class="bn">_b</span>yte</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">c</span>, <span class="at">a</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv_byte</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv<span class="bn">_b</span>yte</span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cpl</span></span>
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cp</span>	<span class="at">a</span>, <span class="at">c</span></span>
@@ -100,12 +100,12 @@
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">bc</span>, <span class="bn">130</span></span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">a</span>, (cmd)</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cp</span>	<span class="at">a</span>, YM_SOH</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cp</span>	<span class="at">a</span>, YM<span class="bn">_</span>SOH</span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, <span class="bn">$</span>+<span class="bn">5</span></span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">bc</span>, <span class="bn">1026</span></span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv_wait</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv<span class="bn">_</span>wait</span>
 <span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>		<span class="bu">pop</span>	<span class="at">bc</span></span>
 <span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>		<span class="bu">pop</span>	<span class="at">hl</span></span></code></pre></div>
@@ -113,7 +113,7 @@
 <p>Then I restore <code class="sourceCode z80"><span class="at">bc</span></code>.</p>
 <p>At this point in receiving the metadata packet <code class="sourceCode z80"><span class="at">bc</span></code> contains <code class="sourceCode z80"><span class="bn">$0a00</span></code>. There are still ten retries allowed, and the retry byte has been replaced by NUL. The payload length I calculated is gone.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	ym_crc		<span class="co">; CRC should be zero</span></span></code></pre></div>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	ym<span class="bn">_</span>crc		<span class="co">; CRC should be zero</span></span></code></pre></div>
 <p>Then I call the CRC code. This expects the data to checksum in <code class="sourceCode z80"><span class="at">hl</span></code> (check: I preserved <code class="sourceCode z80"><span class="at">hl</span></code> for exactly this reason) and the length of the data in <code class="sourceCode z80"><span class="at">bc</span></code> … but that’s not the length of the received data any more. It’s much, much bigger than the received data.</p>
 <p>The Y-modem 16-bit CRC isn’t the world’s best choice of checksum. It’s definitely an improvement over X-modem’s naive 8-bit checksum but it’s a long way short of a reliable hash. In this case one simple flaw plays out: <code class="sourceCode c">crc16<span class="op">(</span><span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">)</span> <span class="op">==</span> <span class="dv">0</span></code>.</p>
 <p>My emulator’s SRAM is initialised to zero. Real SRAM is initialised to the background noise of the universe. On my emulator, I checksum 2560 bytes and come up with the same answer I would if I only checksummed the first 130 or 1026 bytes: zero. On the real board the CRC computes over 130 or 1026 bytes of data, getting zero - and then goes on to incorporate the noise.</p>

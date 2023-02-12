@@ -1,0 +1,47 @@
+        .block
+; IN    DE      a 16-bit unsigned number to print
+; OUT   A       clobbered
+@PRINT16:
+        push    bc
+        push    de
+        push    hl
+
+        ex      de, hl
+
+        ld      c, '0'  ; the 'non-zero' flag
+
+        ld      de, -10_000
+        call    DIGIT
+
+        ld      de, -1_000
+        call    DIGIT
+
+        ld      de, -100
+        call    DIGIT
+
+        ld      de, -10
+        call    DIGIT
+
+        ; force last digit to print
+        ld      c, 1
+
+        ld      de, -1
+        call    DIGIT
+
+        pop     hl
+        pop     de
+        pop     bc
+        ret
+
+DIGIT:  ld      a, '0'-1
+DLOOP:  inc     a
+        add     hl, de
+        jr      c, DLOOP
+        sbc     hl, de
+        cp      c
+        jr      z, NOPRINT
+        out     (1), a
+        ld      c, 1
+NOPRINT:
+        ret
+        .endblock

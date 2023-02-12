@@ -1,5 +1,5 @@
-import { Align, Org, Phase, EndPhase, Block, EndBlock, Emitted, StatementType, Expression, Relative, AnyResult,
-        Label, }
+import { Align, Org, Phase, EndPhase, Block, EndBlock, Bytes, Expression, Relative, AnyResult, Label,
+         Defw, Defb, Defs, Include, parse }
     from './z80/parser.js';
 import { Scope, RefUpdater } from './scope.js';
 
@@ -11,19 +11,11 @@ function isExpression(v: null | string | number | Expression | Relative): v is E
     return (v as Expression)?.expression !== undefined;
 }
 
-function isWordExpression(v: null | string | number | Expression | WordExpression | Relative): v is WordExpression {
-    return (v as WordExpression)?.size === 2;
-}
-
 // A fragment of assembled bytes
 export type Assembly = {
     bytes: Uint8Array;          // the assembled bytes
     org: number;                // where they belong in memory
 };
-
-type WordExpression = Expression & {
-    size: 2;
-}
 
 export class Compiler {
     org: number;
@@ -41,24 +33,28 @@ export class Compiler {
         crypto.getRandomValues(this.output);
     }
 
-    compile(source: AnyResult[]): Assembly[] {
-        return source.flatMap(stmt => {
+    async compile(source: AnyResult[]): Promise<Assembly[]> {
+        let promises = await Promise.all(source.flatMap(stmt => {
             switch (stmt.type) {
                 case "comment": return [];
-                case "org": this.compile_org(stmt); return [];
-                case "phase": this.compile_phase(stmt); return [];
-                case "endphase": this.compile_endphase(stmt); return [];
-                case "align": this.compile_align(stmt); return [];
-                case "block": this.compile_block(stmt); return [];
-                case "endblock": this.compile_endblock(stmt); return [];
-                case "bytes":
-                case "defb": return this.compile_bytes(stmt, 1);
-                case "defw": return this.compile_bytes(stmt, 2);
-                case "label": this.compile_label(stmt); return [];
+                case "org": return this.compile_org(stmt);
+                case "phase": return this.compile_phase(stmt);
+                case "endphase": return this.compile_endphase(stmt);
+                case "align": return this.compile_align(stmt);
+                case "block": return this.compile_block(stmt);
+                case "endblock": return this.compile_endblock(stmt);
+                case "bytes": return this.compile_bytes(stmt);
+                case "defb": return this.compile_defx(stmt);
+                case "defw": return this.compile_defx(stmt);
+                case "defs": return this.compile_defs(stmt);
+                case "label": return this.compile_label(stmt);
+                case "include": return this.compile_include(stmt);
                 default:
                     throw "unknown statement type " + stmt.type;
             }
-        });
+        }));
+
+        return promises.flat();
     }
 
     // finalise compilation, checking for any remaining undefined symbols, unclosed blocks/macros, etc
@@ -66,16 +62,49 @@ export class Compiler {
         // TODO
     }
 
-    private compile_org(stmt: Org): void {
+    private as_byte(val: number | string): number {
+        if (typeof val === "string") {
+            let bytes = new TextEncoder().encode(val);
+            if (bytes.length !== 1) {
+                throw "overflow converting string to number";
+            }
+            val = bytes[0];
+        }
+
+        if (val < -128 || val > 255) {
+            throw "byte expression out of range: " + val;
+        }
+
+        return val;
+    }
+
+    private as_word(val: number | string): number {
+        if (typeof val === "string") {
+            let bytes = new TextEncoder().encode(val);
+            if (bytes.length !== 1 && bytes.length !== 2) {
+                throw "overflow converting string to number";
+            }
+            val = bytes[0] + (bytes[1] ?? 0) << 8;
+        }
+        if (val < -32768 || val > 65535) {
+            throw "word expression out of range: " + val;
+        }
+
+        return val;
+    }
+
+    private async compile_org(stmt: Org): Promise<Assembly[]> {
         let val = this.scope.resolve(stmt.org, () => {});
         if (typeof val === "number") {
             this.org = this.phase = val;
         } else {
             throw "org value MUST be resolvable in first pass";
         }
+
+        return [];
     }
 
-    private compile_phase(stmt: Phase): void {
+    private async compile_phase(stmt: Phase): Promise<Assembly[]> {
         let val = this.scope.resolve(stmt.phase, () => {});
         if (typeof val === "number") {
             // setting phase while already phased just sets a new logical address
@@ -83,14 +112,18 @@ export class Compiler {
         } else {
             throw "phase value MUST be resolvable in first pass";
         }
+
+        return [];
     }
 
-    private compile_endphase(_stmt: EndPhase): void {
+    private async compile_endphase(_stmt: EndPhase): Promise<Assembly[]> {
         // endphase/phase are not matching pairs, and endphase on its own is legal
         this.phase = this.org;
+
+        return [];
     }
 
-    private compile_align(stmt: Align): void {
+    private async compile_align(stmt: Align): Promise<Assembly[]> {
         // align works against the logical address but will add offset to phyiscal as well
         let align = this.scope.resolve_immediate(stmt.align);
         let fill = this.scope.resolve_immediate(stmt.fill);
@@ -106,17 +139,17 @@ export class Compiler {
             this.phase += offset;
             this.org += offset;
         }
+
+        return [];
     }
 
-    // compile_include(stmt: Include): void {}
-    // compile_incbin(stmt: Include): void {}
-    // compile_macrocall(stmt: Include): void {}
-
-    private compile_block(_stmt: Block): void {
+    private async compile_block(_stmt: Block): Promise<Assembly[]> {
         this.scope = new Scope(this.scope);
+
+        return [];
     }
 
-    private compile_endblock(_stmt: EndBlock): void {
+    private async compile_endblock(_stmt: EndBlock): Promise<Assembly[]> {
         // forward references found in this scope get moved to the parent scope
         if (this.scope.outer === undefined) {
             throw ".endblock without matching .block";
@@ -124,18 +157,13 @@ export class Compiler {
             this.scope.defer_unresolved();
             this.scope = this.scope.outer;
         }
+
+        return [];
     }
 
     private resolve_relative(assembly: Assembly, idx: number, base: number): RefUpdater {
         return (resolved: number | string) => {
-            let val = resolved;
-            if (typeof val === "string") {
-                // TODO: utf8 convert first
-                if (val.length !== 1) {
-                    throw "invalid relative jump destination";
-                }
-                val = val.charCodeAt(0);
-            }
+            let val = this.as_word(resolved);
             let gap = val - base;
             if (gap > 127 || gap < -128) {
                 throw "relative jump out of range";
@@ -146,90 +174,52 @@ export class Compiler {
 
     private resolve_byte(assembly: Assembly, idx: number): RefUpdater {
         return (resolved: number | string) => {
-            if (typeof resolved === "string") {
-                let bytes = new TextEncoder().encode(resolved);
-                if (bytes.length !== 1) {
-                    throw "overflow converting string to number";
-                }
-                assembly.bytes[idx] = bytes[0];
-            } else {
-                if (resolved < -128 || resolved > 255) {
-                    throw "byte expression out of range: " + resolved;
-                }
-                assembly.bytes[idx] = resolved;
-            }
+            assembly.bytes[idx] = this.as_byte(resolved);
         }
     }
 
     private resolve_word(assembly: Assembly, idx: number): RefUpdater {
         return (resolved: number | string) => {
-            if (typeof resolved === "string") {
-                let bytes = new TextEncoder().encode(resolved);
-                if (bytes.length !== 1 && bytes.length !== 2) {
-                    throw "overflow converting string to number";
-                }
-                assembly.bytes[idx] = bytes[0];
-                assembly.bytes[idx+1] = bytes[0] ?? 0;
-            } else {
-                if (resolved < -32768 || resolved > 65535) {
-                    throw "word expression out of range: " + resolved;
-                }
-                assembly.bytes[idx] = resolved & 0xff;
-                assembly.bytes[idx+1] = resolved >> 8;
-            }
+            resolved = this.as_word(resolved);
+            assembly.bytes[idx] = resolved & 0xff;
+            assembly.bytes[idx+1] = resolved >> 8;
         }
     }
 
-    // Invoked for bytes, defb, and defw
-    private compile_bytes<T extends StatementType>(stmt: Emitted<T>, sizing: number): Assembly[] {
-        // coalesce [<expr>, null] pairs into WordExpressions
-        let bytes: (string | number | WordExpression | Expression | Relative)[] = [];
-        for (let i = 0; i < stmt.bytes.length; i++) {
-            let byte = stmt.bytes[i];
-            if (isExpression(byte) && stmt.bytes[i+1] === null) {
-                bytes.push({size: 2, ... byte});
-                i = i + 1;
-            } else if (byte === null) {
-                console.log(stmt.bytes, bytes, i, byte);
-                throw "unexpected null byte";
-            } else {
-                bytes.push(byte);
-            }
-        }
+    private async compile_defx(stmt: Defw | Defb): Promise<Assembly[]> {
+        // Byte or word sized constants?
+        let sizing = stmt.type === "defb" ? 1 : 2;
 
         // take a pass through the bytes resolving expressions and expanding strings
-        bytes = bytes.flatMap(byte => {
+        let bytes = stmt.bytes.flatMap(byte => {
             // If an expression is resolvable now, do so
             if (isExpression(byte)) {
                 let value = this.scope.resolve_immediate(byte);
                 if (typeof value === "string") {
                     let utf8 = [ ... new TextEncoder().encode(value) ];
                     if (utf8.length % sizing != 0) {
-                        utf8.push(...Array(sizing - utf8.length % sizing).fill(0));
+                        utf8.push(0);
                     }
                     return utf8;
                 } else if (typeof value === "number") {
-                    let orig = value;
-                    let bytes = [value & 0xff];
-                    if (isWordExpression(byte)) {
-                        value = value >> 8;
-                        bytes.push(value & 0xff);
-                    } else {
-                        for (let i = 1; i < sizing; i++) {
-                            value = value >> 8;
-                            bytes.push(value & 0xff);
+                    if (sizing == 1) {
+                        if (value > 255 || value < -128) {
+                            throw "numeric overflow: value " + value + " from '" + byte.expression + "' out of range";
                         }
+                        return [value & 0xff];
+                    } else {
+                        if (value > 65535 || value < -32768) {
+                            throw "numeric overflow: value " + value + " from '" + byte.expression + "' out of range";
+                        }
+                        return [value & 0xff, (value >> 8) & 0xff];
                     }
-                    if (value > 255) {
-                        throw "numeric overflow: value " + orig + " too large";
-                    }
-                    return bytes;
                 } else {
-                    return [byte, 0] as (string | number | WordExpression | Expression | Relative)[];
+                    // an unresolved expression, one or two bytes for defb or defw, respectively
+                    return [byte, 0].slice(0, sizing);
                 }
+            } else {
+                return [byte];
             }
-
-            return [byte];
         });
 
         let assembly = {
@@ -237,8 +227,37 @@ export class Compiler {
             org: this.org
         };
 
-        for (let idx = 0; idx < bytes.length; idx++) {
-            let byte: string | number | WordExpression | Expression | Relative = bytes[idx];
+        assembly.bytes.set(bytes.map((byte, idx) => {
+            if (isExpression(byte)) {
+                if (sizing == 1) {
+                    this.scope.resolve(byte, this.resolve_byte(assembly, idx));
+                } else {
+                    this.scope.resolve(byte, this.resolve_word(assembly, idx));
+                }
+                return 0;
+            } else {
+                return byte;
+            }
+        }));
+
+        this.org += assembly.bytes.length;
+        this.phase += assembly.bytes.length;
+
+        return [assembly];
+    }
+
+    private async compile_bytes(stmt: Bytes): Promise<Assembly[]> {
+        let assembly = {
+            bytes: this.output.subarray(this.org, this.org + stmt.bytes.length),
+            org: this.org
+        };
+
+        for (let idx = 0; idx < stmt.bytes.length; idx++) {
+            let byte = stmt.bytes[idx];
+
+            if (byte === null) {
+                throw "unexpected null byte at " + stmt.location;
+            }
 
             if (typeof byte === "number") {
                 assembly.bytes[idx] = byte;
@@ -248,7 +267,7 @@ export class Compiler {
                 this.scope.resolve((byte as Relative).relative,
                     this.resolve_relative(assembly, idx, this.phase + idx + 1));
             } else {
-                if (bytes[idx+1] === null) {
+                if (stmt.bytes[idx+1] === null) {
                     this.scope.resolve(byte, this.resolve_word(assembly, idx++));
                 } else {
                     this.scope.resolve(byte, this.resolve_byte(assembly, idx));
@@ -263,7 +282,32 @@ export class Compiler {
         return [assembly];
     }
 
-    private compile_label(stmt: Label) {
+    private async compile_defs(stmt: Defs): Promise<Assembly[]> {
+        let val = this.scope.resolve_immediate(stmt.defs);
+        if (typeof val !== "string" && typeof val !== "number") {
+            throw "defs size must be resolvable in one pass";
+        }
+
+        val = this.as_word(val);
+
+        if (val + this.org > 65535) {
+            throw "defs overflows remaining memory";
+        }
+
+        let assembly = {
+            bytes: this.output.subarray(this.org, this.org + val),
+            org: this.org
+        };
+
+        assembly.bytes.fill(0);
+
+        this.org += val;
+        this.phase += val;
+
+        return [assembly];
+    }
+
+    private async compile_label(stmt: Label): Promise<Assembly[]> {
         // add the label to the appropriate scope
         if (stmt.public) {
             // prevent redefinition
@@ -278,13 +322,25 @@ export class Compiler {
             }
             this.scope.set(stmt.label, this.phase);
         }
+
+        return [];
+    }
+
+    private async compile_include(stmt: Include): Promise<Assembly[]> {
+        const resource = await fetch('../z80/' + stmt.include);
+
+        if (!resource.ok) {
+            throw "failed to include " + stmt.include;
+        }
+
+        const source = await resource.text()
+
+        const stmts = parse(source, { line: 0, source: stmt });
+
+        return this.compile(stmts);
     }
 
     /*
-                            case "macrodef":
-                                throw "fit";
-                            case "endmacro":
-                                throw "fit";
                             case "equ": {
                                 // prevent redefinition
                                 if (scope.symbols.has(stmt.label)) {
@@ -296,33 +352,6 @@ export class Compiler {
                                 //let resolved = scope.set(stmt.label, stmt.equ);
                                 break;
                             }
-                            case "defs": {
-                                let val = scope.resolve(stmt.defs, () => {});
-                                if (typeof val === "number") {
-                                    output.fill(0, org, org + val);
-                                    phase += val;
-                                    org += val;
-                                } else {
-                                    throw "defs value MUST be resolvable in first pass";
-                                }
-                                break;
-                            }
-                            case "label":
-                                // prevent redefinition
-                                if (scope.symbols.has(stmt.label)) {
-                                    throw "fit";
-                                }
-                                // add the label to the appropriate scope
-                                if (stmt.public) {
-                                    globals.set(stmt.label, phase);
-                                } else {
-                                    scope.set(stmt.label, phase);
-                                }
-                                break;
-                            case "if":
-                            case "else":
-                            case "endif":
-                                throw "fit";
                         }
 */
 }

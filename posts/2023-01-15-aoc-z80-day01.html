@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width initial-scale=1">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>λbje - AOC 2022 - Z80</title>
+    <title>λbje - Advent of Z80 - Day 1, 2022</title>
     <link rel="stylesheet" type="text/css" href="../css/main.css">
     <link rel="stylesheet" type="text/css" href="../css/animation.css">
     <link rel="stylesheet" type="text/css" href="../css/syntax.css">
@@ -14,7 +14,7 @@
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
     <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
-    
+    <link rel="stylesheet" type="text/css" href="../css/literate.css">
     
     <script defer src="../js/Z80.js" type="text/javascript"></script><script defer src="../js/z80lit.js" type="text/javascript"></script>
     
@@ -48,7 +48,7 @@
   
     <img class="post-logo" src="../images/trs80.jpg">
   
-  <h1 class="post-title">AOC 2022 - Z80</h1>
+  <h1 class="post-title">Advent of Z80 - Day 1, 2022</h1>
   <p class="post-meta">January 15, 2023 • bje</p>
 </header>
 
@@ -238,32 +238,32 @@
 <div class="sourceCode" id="cb14"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">ix</span>-<span class="bn">1</span>), <span class="st">'0'</span></span></code></pre></div>
 <p>For each of the 10 digit locations <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> will be loaded with the constant to subtract and a subroutine will be called. For the last digit location the non-zero character flag will be forced true, so at least one digit is printed each time.</p>
 <p>One more limitation of the Z80 instruction set now rears its head: there is an <code class="sourceCode z80"><span class="bu">ADD</span> <span class="at">IY</span>, <span class="at">DE</span></code> instruction but no corresponding subtraction. Fortunately subtracing a number is the same as adding its negation and inverting the carry flag’s meaning, so instead of loading positive constants for subtraction I will load negative constants for addition.</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<div class="sourceCode" id="cb15"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1_000_000_000</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1_000_000_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100_000_000</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100_000_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10_000_000</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10_000_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1_000_000</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1_000_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span>_<span class="bn">000</span></span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100_000</span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10</span>_<span class="bn">000</span></span>
-<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10_000</span></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span></span>
-<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1_000</span></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span></span>

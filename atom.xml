@@ -8,8 +8,489 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2023-01-29T00:00:00Z</updated>
+    <updated>2023-02-13T00:00:00Z</updated>
     <entry>
+    <title>Advent of Z80 - Day 3, 2022</title>
+    <link href="https://bje.id.au/blog/posts/2023-02-13-aoc-z80-day03.html" />
+    <id>https://bje.id.au/blog/posts/2023-02-13-aoc-z80-day03.html</id>
+    <published>2023-02-13T00:00:00Z</published>
+    <updated>2023-02-13T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>It’s day three of the Advent of Z80. As with <a href="2023-01-15-aoc-z80-day01.html">day 1</a> and <a href="2023-01-29-aoc-z80-day02.html">day 2</a> the post will focus more on the Z80 assembly than on the puzzle, and is a “literate assembly” document that will execute in your browser.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY03</span></code></pre></div>
+<!--more-->
+<p>Today’s puzzle introduces some additional solution elements to play with. There’s a bit of string processing to do: input strings need to be split into two equal halves and checked for characters in common.</p>
+<p>Here’s the sample input, newline separated, and zero terminated.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">SAMPLE:</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;vJrwpWtwJgWrhcsFMMfFFhFp\n&#39;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;jqHRNqRjqzjGDLGLrsFMfFZSrLrFZsSL\n&#39;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;PmmdzqPrVvPwwTWBwg\n&#39;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;wMqvLMZHhHMvwLHjbvcjnnSBnvTQFn\n&#39;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;ttgJtRGJQctTZtZT\n&#39;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&#39;CrZsJsPPZsGzwwsLwLmpwMDw\n&#39;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">0</span></span></code></pre></div>
+<p>Star 1’s challenge is to find the character in common between the first and second halves of each string, convert them to a number, and sum the numbers.</p>
+<p>I will start by pre-processing the input from characters to priority numbers, 1-52 for a-z and A-Z. This code will convert all other characters to zero, such that those newlines become NULs instead of being mixed up with converted ’m’s.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   hl      the string to convert to priorities</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:          all alphabetic characters at (hl) converted</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">@PRIORITISE:</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">af</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">dec</span>     <span class="at">hl</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="fu">LOOP:</span>   <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">; finish on NUL</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">; test for A-Z</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="st">&#39;A&#39;</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, ZERO</span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="st">&#39;Z&#39;</span>+<span class="bn">1</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nc, LOWER</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sub</span>     <span class="at">a</span>, <span class="st">&#39;A&#39;</span>-<span class="bn">27</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">hl</span>), <span class="at">a</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      LOOP</span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>        <span class="co">; test for a-z</span></span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a><span class="fu">LOWER:</span>  <span class="bu">cp</span>      <span class="st">&#39;a&#39;</span></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, ZERO</span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="st">&#39;z&#39;</span>+<span class="bn">1</span></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nc, ZERO</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sub</span>     <span class="at">a</span>, <span class="st">&#39;a&#39;</span>-<span class="bn">1</span></span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">hl</span>), <span class="at">a</span></span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      LOOP</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a><span class="fu">ZERO:</span>   <span class="bu">xor</span>     <span class="at">a</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">hl</span>), <span class="at">a</span></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      LOOP</span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">af</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Let’s see that in action:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80 run dump_SAMPLE_PRIORITISE"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRIORITISE</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
+<p>The next challenge is to find the midpoint of each string, which involves scanning along the string until a NUL is encountered.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   hl      the data to find the midpoint of</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  a       the number of bytes in each half</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">; This function assumes an even number of bytes. If the terminating NUL</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co">; falls on an odd byte location the function will overshoot the NUL.</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="fu">@MIDPOINT:</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="bn">0</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="fu">LOOP:</span>   <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">c</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      LOOP</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">ld</span>      <span class="at">a</span>, <span class="at">c</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>And let’s see that in action on the sample input (converted):</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRIORITISE</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MIDPOINT</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
+<p>If all went well <code class="sourceCode z80"><span class="at">A</span></code> will contain the midpoint of <code>vJrwpWtwJgWrhcsFMMfFFhFp</code>, which is 12 or <code class="sourceCode z80"><span class="bn">$0c</span></code>.</p>
+<p>The next step is to find the letter in common. Rather than naively doing a quadratic comparison approach I will implement a basic bit-based set for numbers 0 to 52, taking up 7 bytes of space . I will need a function to OR a sequence of numbers into a set, for loading the first set of numbers, and a function to AND another sequence in, for mixing the second set of numbers in.</p>
+<p>I will require that sets are aligned such that adding up to 6 to the set address doesn’t overflow 8 bits. Finding a bit address can be done cheaply by dividing by 8 then shifting <code class="sourceCode z80"><span class="bn">1000_0000b</span></code> right by the remainder. I shift right rather than left such that value <span class="math inline">\(n\)</span> sets bit <span class="math inline">\(n\)</span> in the set: if I shifted left everything would still work correctly but the bits within each byte would be reversed.</p>
+<p>Here’s some space carved out for a set, aligned to not overflow in 8 bits:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.align</span> <span class="bn">256</span>, <span class="bn">0</span>, <span class="bn">7</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">SEEN:</span>   <span class="kw">defs</span>    <span class="bn">7</span></span></code></pre></div>
+<p>There will be two pointers in action: one pointing to the 7 bytes of the set, and one pointing to the source number sequence. I can either use <code class="sourceCode z80"><span class="at">DE</span></code> or <code class="sourceCode z80"><span class="at">IX</span>/<span class="at">IY</span></code> for the second pointer. <code class="sourceCode z80"><span class="at">DE</span></code> is generally faster to work with, as swapping <code class="sourceCode z80"><span class="at">DE</span></code> and <code class="sourceCode z80"><span class="at">HL</span></code> with <code class="sourceCode z80"><span class="bu">EX</span> <span class="at">DE</span>, <span class="at">HL</span></code> takes 4 cycles, loading from <code class="sourceCode z80">(<span class="at">HL</span>)</code> takes 7 cycles, and loading from <code class="sourceCode z80">(<span class="at">IX</span>+<span class="bn">0</span>)</code> takes 19 cycles. A sequence of exchange, load from <code class="sourceCode z80">(<span class="at">HL</span>)</code>, and exchange is the same number of bytes as a single load from <code class="sourceCode z80">(<span class="at">IX</span>+<span class="bn">0</span>)</code> but one clock cycle faster, while an <code class="sourceCode z80"><span class="bu">INC</span> <span class="at">DE</span></code> is one byte and six clocks compared to <code class="sourceCode z80"><span class="bu">INC</span> <span class="at">IX</span></code> at two bytes and ten cycles.</p>
+<p>Doing OR is straightforward - each value in the source data sets a bit. Loop over the source data, find the address of the bit to set, and set it.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   hl      pointer to the source data to load</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       de      pointer to the 7-byte set to update</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       c       the number of values to load</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:          7-byte set ORed with source data</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="fu">@SET_OR:</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">af</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">; for DJNZ...</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="at">c</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a><span class="fu">LOOP:</span>   <span class="bu">push</span>    <span class="at">de</span>      <span class="co">; hang onto this</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span>    <span class="co">; keep it for later</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">; divide by 8</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">srl</span>     <span class="at">a</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">srl</span>     <span class="at">a</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">srl</span>     <span class="at">a</span></span>
+<span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a>        <span class="co">; add to set address</span></span>
+<span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">a</span>, <span class="at">e</span></span>
+<span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, <span class="at">a</span></span>
+<span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-28"><a href="#cb8-28" aria-hidden="true" tabindex="-1"></a>        <span class="co">; get the low 8 bits</span></span>
+<span id="cb8-29"><a href="#cb8-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="bn">7</span></span>
+<span id="cb8-30"><a href="#cb8-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span>     <span class="at">a</span>, <span class="at">c</span></span>
+<span id="cb8-31"><a href="#cb8-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-32"><a href="#cb8-32" aria-hidden="true" tabindex="-1"></a>        <span class="co">; compute $80 &lt;&lt; a</span></span>
+<span id="cb8-33"><a href="#cb8-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">a</span></span>
+<span id="cb8-34"><a href="#cb8-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb8-35"><a href="#cb8-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="bn">$80</span></span>
+<span id="cb8-36"><a href="#cb8-36" aria-hidden="true" tabindex="-1"></a><span class="fu">SHIFT:</span>  <span class="bu">dec</span>     <span class="at">c</span></span>
+<span id="cb8-37"><a href="#cb8-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE</span>
+<span id="cb8-38"><a href="#cb8-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">rrca</span></span>
+<span id="cb8-39"><a href="#cb8-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      SHIFT</span>
+<span id="cb8-40"><a href="#cb8-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-41"><a href="#cb8-41" aria-hidden="true" tabindex="-1"></a>        <span class="co">; OR with (de)</span></span>
+<span id="cb8-42"><a href="#cb8-42" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb8-43"><a href="#cb8-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb8-44"><a href="#cb8-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">hl</span>), <span class="at">a</span></span>
+<span id="cb8-45"><a href="#cb8-45" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb8-46"><a href="#cb8-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-47"><a href="#cb8-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb8-48"><a href="#cb8-48" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb8-49"><a href="#cb8-49" aria-hidden="true" tabindex="-1"></a>        <span class="bu">djnz</span>    LOOP</span>
+<span id="cb8-50"><a href="#cb8-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-51"><a href="#cb8-51" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb8-52"><a href="#cb8-52" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb8-53"><a href="#cb8-53" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb8-54"><a href="#cb8-54" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">af</span></span>
+<span id="cb8-55"><a href="#cb8-55" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb8-56"><a href="#cb8-56" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Let’s see what happens when this is run on the first half of the first input string:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode z80 run dump_SEEN_7"><code class="sourceCode z80"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, SEEN</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRIORITISE</span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MIDPOINT</span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SET<span class="bn">_</span>OR</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
+<p>The string <code>vJrwpWtwJgWr</code> translates to priorities <code>22, 36, 18, 23, 16, 49, 20, 23, 36, 7, 49, 18</code>, or uniquely <code>7, 16, 18, 20, 22, 23, 36, 49</code>. Writing 7 into the set will turn on bit 7 of byte 0. In byte 2, 16 will set bit 0, 18 will set bit 2, 20, 22, and 23 will set bits 4, 6, and 7. 36 sets bit 4 of byte 4. 49 sets bit 1 of byte 6. All up, these numbers turn into the bit set <code>01 00 ab 00 08 00 40</code>, which is what I get above.</p>
+<div class="sourceCode">
+<pre>
+-abc defg  hijk lmno  pqrs tuvw  xyzA BCDE  FGHI JKLM  NOPQ RSTU  VWXY Z---
+0000 0001  0000 0000  1010 1011  0000 0000  0000 1000  0000 0000  0100 0000
+       01         00         ab         00         08         00         40
+</pre>
+</div>
+<p>AND is a little less straightforward. Naively one might simply replace the ‘OR’ above with an ‘AND’, but the operation desired is the intersection of two sets. Doing one AND per input value will clear other bits in any updated byte and ignore all bits in any byte that isn’t updated. Preferable is to compute the set for the new input data then perform seven AND operations - this requires an extra seven bytes of space. In <a href="2023-01-15-aoc-z80-day01.html">day 1</a> I used the stack to carve out temporary space. I will do that again here, but as I do so I’ll ensure that the resulting space is aligned. I’ll do this a little bit wastefully by reserving 15 bytes instead of 7, and rounding the set address up to the nearest 8 byte boundary.</p>
+<p>Doing arithmetic on <code class="sourceCode z80"><span class="at">SP</span></code> in the frame setup code requires the use of <code class="sourceCode z80"><span class="at">HL</span></code>. I don’t much want to clobber HL, but in my subroutine preamble I’ll preserve registers I modify during the subroutine anyway. The original value will be available at <code>(IX+2)</code>. Accessing word data via <code class="sourceCode z80"><span class="at">IX</span></code> is extremely slow at 38 cycles, so in I will avoid it as much as possible, but the value is there. However, the first thing I’m going to do is OR the incoming source data into the new buffer, so I will want the original <code class="sourceCode z80"><span class="at">HL</span></code> straight away, and to put the address of the new buffer into <code class="sourceCode z80"><span class="at">DE</span></code>, so I’ll swap <code class="sourceCode z80"><span class="at">DE</span></code> and <code class="sourceCode z80"><span class="at">HL</span></code> early on.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   hl      pointer to the source data to load</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       de      pointer to the 7-byte set to update</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       b       the number of values to load</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:          7-byte set ANDed with source data</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="fu">@SET_AND:</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">; save modified registers</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">af</span>      <span class="co">; ix+8,9</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span>      <span class="co">; ix+6,7</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span>      <span class="co">; ix+4,5</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span>      <span class="co">; ix+2,3</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">; set up stack frame, 8-16 bytes of local storage</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">ix</span>      <span class="co">; ix+0,1</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, <span class="bn">0</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">ix</span>, <span class="at">sp</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span>  <span class="co">; I want the value in HL</span></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, -<span class="bn">16</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">sp</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="at">hl</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>        <span class="co">; align HL to an 8-byte boundary</span></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>        <span class="co">; HL = (HL + 8) &amp; ~7</span></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, <span class="bn">8</span></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="bn">1111_1000b</span></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span>     <span class="at">l</span></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">l</span>, <span class="at">a</span></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>        <span class="co">; initialise the new buffer</span></span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, <span class="at">h</span></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, <span class="at">l</span></span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">de</span></span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">xor</span>     <span class="at">a</span></span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">hl</span>), <span class="at">a</span></span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, <span class="bn">6</span></span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ldir</span></span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a>        <span class="co">; these POPs swap DE and HL</span></span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span>      <span class="co">; = stack buffer</span></span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span>      <span class="co">; = source data</span></span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load the source data into the new buffer</span></span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">ix</span>+<span class="bn">6</span>)</span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SET<span class="bn">_</span>OR</span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>        <span class="co">; AND data between the buffers</span></span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">l</span>, (<span class="at">ix</span>+<span class="bn">4</span>)</span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">h</span>, (<span class="at">ix</span>+<span class="bn">5</span>)</span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, <span class="bn">07ffh</span></span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a><span class="fu">LOOP:</span>   <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span>     (<span class="at">hl</span>)</span>
+<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb10-57"><a href="#cb10-57" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">hl</span>), <span class="at">a</span></span>
+<span id="cb10-58"><a href="#cb10-58" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb10-59"><a href="#cb10-59" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">de</span></span>
+<span id="cb10-60"><a href="#cb10-60" aria-hidden="true" tabindex="-1"></a>        <span class="bu">djnz</span>    LOOP</span>
+<span id="cb10-61"><a href="#cb10-61" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-62"><a href="#cb10-62" aria-hidden="true" tabindex="-1"></a>        <span class="co">; restore stack frame</span></span>
+<span id="cb10-63"><a href="#cb10-63" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, <span class="bn">16</span></span>
+<span id="cb10-64"><a href="#cb10-64" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">sp</span></span>
+<span id="cb10-65"><a href="#cb10-65" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="at">hl</span></span>
+<span id="cb10-66"><a href="#cb10-66" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">ix</span></span>
+<span id="cb10-67"><a href="#cb10-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-68"><a href="#cb10-68" aria-hidden="true" tabindex="-1"></a>        <span class="co">; restore modified registers</span></span>
+<span id="cb10-69"><a href="#cb10-69" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb10-70"><a href="#cb10-70" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb10-71"><a href="#cb10-71" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb10-72"><a href="#cb10-72" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">af</span></span>
+<span id="cb10-73"><a href="#cb10-73" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb10-74"><a href="#cb10-74" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Adding in the <code>AND</code> call should result in a single bit being set:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode z80 run dump_SEEN_7"><code class="sourceCode z80"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, SEEN</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRIORITISE</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MIDPOINT</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SET<span class="bn">_</span>OR</span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">l</span></span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">l</span>, <span class="at">a</span></span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SET<span class="bn">_</span>AND</span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
+<div class="sourceCode">
+<pre>
+X = vJrwpWtwJgWr && hcsFMMfFFhFp
+    -abc defg  hijk lmno  pqrs tuvw  xyzA BCDE  FGHI JKLM  NOPQ RSTU  VWXY Z---
+    0000 0001  0000 0000  1010 1011  0000 0000  0000 1000  0000 0000  0100 0000
+  & 0001 0010  1000 0000  1001 0000  0000 0000  1000 0001  0000 0000  0000 0000
+  = 0000 0000  0000 0000  1000 0000  0000 0000  0000 0000  0000 0000  0000 0000
+  =    00         00         80         00         00         00         00
+</pre>
+</div>
+<p>The <code>SET_AND</code> implementation takes around 3,500 clock cycles to execute, around 2ms on a TRS-80 Model 1.</p>
+<p>The last function I’ll need will find the first one bit in a set, so I can find the common bit. After finding a non-zero byte I will <code class="sourceCode z80"><span class="bu">rlca</span></code> until the carry flag is set. This instruction rotates the bits in <code class="sourceCode z80"><span class="at">A</span></code> left, with bit 7 going into the carry flag and bit 0. If the carry flag is set on the first rotate it means bit 7 was set. Because <code class="sourceCode z80"><span class="at">A</span></code> is non-zero I know at least one bit is set and I don’t need any other loop guard: just keep rotating until carry is set.</p>
+<p>As a small help to myself this function will also unset the discovered bit; if all is going well this will be the only set bit and clearing it will leave the buffer ready to use again for the next pair of input strings.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   de      the set to read</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  a       the first set bit, or 0ffh if none are set</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="fu">@FIRST:</span> <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">; work out of (hl)</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">; for each byte ...</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, <span class="bn">700h</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a><span class="fu">BYTE:</span>   <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>        <span class="co">; skip zeros</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, FOUND</span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>        <span class="co">; move along 8 bits</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="bn">8</span></span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">c</span></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">djnz</span>    BYTE</span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>        <span class="co">; didn&#39;t find anything...</span></span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="bn">0ffh</span></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">ld</span>      <span class="at">a</span>, <span class="at">c</span></span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>        <span class="co">; switch these back now</span></span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a>        <span class="co">; found a non-zero byte, clear it and find the first bit</span></span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a><span class="fu">FOUND:</span>  <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">0</span></span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">hl</span>), <span class="at">b</span></span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">c</span></span>
+<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">rlca</span></span>
+<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nc, FOUND</span>
+<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-45"><a href="#cb12-45" aria-hidden="true" tabindex="-1"></a>        <span class="co">; overshot it by one...</span></span>
+<span id="cb12-46"><a href="#cb12-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">dec</span>     <span class="at">c</span></span>
+<span id="cb12-47"><a href="#cb12-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      DONE</span>
+<span id="cb12-48"><a href="#cb12-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-49"><a href="#cb12-49" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Let’s see if this can successfully find ‘p’ in the sample data:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, ONEBIT</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    FIRST</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.align</span> <span class="bn">256</span>, <span class="bn">0</span>, <span class="bn">7</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="fu">ONEBIT:</span> db      <span class="bn">00h</span>, <span class="bn">00h</span>, <span class="bn">80h</span>, <span class="bn">00h</span>, <span class="bn">00h</span>, <span class="bn">00h</span>, <span class="bn">00h</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>This test is succcessful if <code class="sourceCode z80"><span class="at">A</span></code> is the priority of ‘p’, which is 16 or <code class="sourceCode z80"><span class="bn">$10</span></code>.</p>
+<p>It would also be possible to merge <code>SET_AND</code> and <code>FIRST</code> into a single routine that finds an arbitrary bit in common with an input string and a bit set. This would likely shave many cycles off the star 1 test, but at the cost of readability. The Z80 comes from an era where machines had extremely limited resources, and good programmers would always be looking for ways to save a few bytes or cycles in their programs. As this series progresses I will be more aggressively pursuing optimisations, not because there’s any real need for the performance gains here, but to build up more understanding of the ways in which Z80 assembly can be wrangled. Here in day 3, I’ll stick with the more readable version.</p>
+<p>Once again, the final output will be a 16-bit number that needs to be printed. Rather than duplicating the same functions over and over again I will refer to external definitions and include them.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">include</span>        <span class="st">&quot;print16.z80&quot;</span></span></code></pre></div>
+<p>I now have all the pieces in place to solve star 1: loop over the input, splitting each string into two, putting the two halves into sets, finding the common entry, summing them up, and printing the answer.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">@STAR1:</span> <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, SEEN</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">; convert to priority values</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRIORITISE</span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">; loop over each input</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a><span class="fu">LOOP:</span>   <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE</span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>        <span class="co">; find the midpoint</span></span>
+<span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MIDPOINT</span>
+<span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">0</span></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load it in to SEEN</span></span>
+<span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SET<span class="bn">_</span>OR</span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>        <span class="co">; increment HL past it</span></span>
+<span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>        <span class="co">; combine it in SEEN</span></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SET<span class="bn">_</span>AND</span>
+<span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a>        <span class="co">; find the common value and reset SEEN</span></span>
+<span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    FIRST</span>
+<span id="cb15-30"><a href="#cb15-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-31"><a href="#cb15-31" aria-hidden="true" tabindex="-1"></a>        <span class="co">; running sum</span></span>
+<span id="cb15-32"><a href="#cb15-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb15-33"><a href="#cb15-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb15-34"><a href="#cb15-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span>    <span class="co">; b = 0</span></span>
+<span id="cb15-35"><a href="#cb15-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (SUM)</span>
+<span id="cb15-36"><a href="#cb15-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb15-37"><a href="#cb15-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (SUM), <span class="at">hl</span></span>
+<span id="cb15-38"><a href="#cb15-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb15-39"><a href="#cb15-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb15-40"><a href="#cb15-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-41"><a href="#cb15-41" aria-hidden="true" tabindex="-1"></a>        <span class="co">; move to next input</span></span>
+<span id="cb15-42"><a href="#cb15-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb15-43"><a href="#cb15-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span> <span class="co">; NUL terminator</span></span>
+<span id="cb15-44"><a href="#cb15-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      LOOP</span>
+<span id="cb15-45"><a href="#cb15-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-46"><a href="#cb15-46" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">ld</span>      <span class="at">de</span>, (SUM)</span>
+<span id="cb15-47"><a href="#cb15-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRINT16</span>
+<span id="cb15-48"><a href="#cb15-48" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb15-49"><a href="#cb15-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-50"><a href="#cb15-50" aria-hidden="true" tabindex="-1"></a>        <span class="co">; running total of priorities in common</span></span>
+<span id="cb15-51"><a href="#cb15-51" aria-hidden="true" tabindex="-1"></a><span class="fu">SUM:</span>    dw      <span class="bn">0</span></span>
+<span id="cb15-52"><a href="#cb15-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-53"><a href="#cb15-53" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<h2 id="star-2">Star 2</h2>
+<p>Now, the puzzle changes to finding a common letter across a group of three inputs. I can re-use my bit set subroutines, but I need to find the length of each full string instead of just the mid point. Since that’s the mid point times two I can also just re-use that subroutine as well. I will assume that the input is well-formed, again: there will always be a multiple of three lines.</p>
+<p>The general flow is the same as for Star 1 - convert to priorities, loop while the input doesn’t start with NUL, load one value in with <code>SET_OR</code>, load other value(s) in with <code>SET_AND</code>, find the <code>FIRST</code> bit set, and sum it up.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">@STAR2:</span> <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, SEEN</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">; convert to priority values</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRIORITISE</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">; loop over each input</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a><span class="fu">LOOP:</span>   <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE</span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-14"><a href="#cb16-14" aria-hidden="true" tabindex="-1"></a>        <span class="co">; find the midpoint</span></span>
+<span id="cb16-15"><a href="#cb16-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MIDPOINT</span>
+<span id="cb16-16"><a href="#cb16-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">rla</span>             <span class="co">; double it</span></span>
+<span id="cb16-17"><a href="#cb16-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">0</span></span>
+<span id="cb16-18"><a href="#cb16-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb16-19"><a href="#cb16-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-20"><a href="#cb16-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load in the first input</span></span>
+<span id="cb16-21"><a href="#cb16-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SET<span class="bn">_</span>OR</span>
+<span id="cb16-22"><a href="#cb16-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-23"><a href="#cb16-23" aria-hidden="true" tabindex="-1"></a>        <span class="co">; increment HL past it</span></span>
+<span id="cb16-24"><a href="#cb16-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb16-25"><a href="#cb16-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb16-26"><a href="#cb16-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-27"><a href="#cb16-27" aria-hidden="true" tabindex="-1"></a>        <span class="co">; second input - find midpoint</span></span>
+<span id="cb16-28"><a href="#cb16-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MIDPOINT</span>
+<span id="cb16-29"><a href="#cb16-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">rla</span>             <span class="co">; double it</span></span>
+<span id="cb16-30"><a href="#cb16-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">0</span></span>
+<span id="cb16-31"><a href="#cb16-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb16-32"><a href="#cb16-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-33"><a href="#cb16-33" aria-hidden="true" tabindex="-1"></a>        <span class="co">; mix it with the first input</span></span>
+<span id="cb16-34"><a href="#cb16-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SET<span class="bn">_</span>AND</span>
+<span id="cb16-35"><a href="#cb16-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-36"><a href="#cb16-36" aria-hidden="true" tabindex="-1"></a>        <span class="co">; increment HL past it</span></span>
+<span id="cb16-37"><a href="#cb16-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb16-38"><a href="#cb16-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb16-39"><a href="#cb16-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-40"><a href="#cb16-40" aria-hidden="true" tabindex="-1"></a>        <span class="co">; third input - find midpoint</span></span>
+<span id="cb16-41"><a href="#cb16-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MIDPOINT</span>
+<span id="cb16-42"><a href="#cb16-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">rla</span>             <span class="co">; double it</span></span>
+<span id="cb16-43"><a href="#cb16-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">0</span></span>
+<span id="cb16-44"><a href="#cb16-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span></span>
+<span id="cb16-45"><a href="#cb16-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-46"><a href="#cb16-46" aria-hidden="true" tabindex="-1"></a>        <span class="co">; mix it with the first two inputs</span></span>
+<span id="cb16-47"><a href="#cb16-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    SET<span class="bn">_</span>AND</span>
+<span id="cb16-48"><a href="#cb16-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-49"><a href="#cb16-49" aria-hidden="true" tabindex="-1"></a>        <span class="co">; increment HL past it</span></span>
+<span id="cb16-50"><a href="#cb16-50" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb16-51"><a href="#cb16-51" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb16-52"><a href="#cb16-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-53"><a href="#cb16-53" aria-hidden="true" tabindex="-1"></a>        <span class="co">; find the common value and reset SEEN</span></span>
+<span id="cb16-54"><a href="#cb16-54" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    FIRST</span>
+<span id="cb16-55"><a href="#cb16-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-56"><a href="#cb16-56" aria-hidden="true" tabindex="-1"></a>        <span class="co">; running sum</span></span>
+<span id="cb16-57"><a href="#cb16-57" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb16-58"><a href="#cb16-58" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb16-59"><a href="#cb16-59" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">a</span>    <span class="co">; b = 0</span></span>
+<span id="cb16-60"><a href="#cb16-60" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (SUM)</span>
+<span id="cb16-61"><a href="#cb16-61" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb16-62"><a href="#cb16-62" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (SUM), <span class="at">hl</span></span>
+<span id="cb16-63"><a href="#cb16-63" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb16-64"><a href="#cb16-64" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb16-65"><a href="#cb16-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-66"><a href="#cb16-66" aria-hidden="true" tabindex="-1"></a>        <span class="co">; go back for more input</span></span>
+<span id="cb16-67"><a href="#cb16-67" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      LOOP</span>
+<span id="cb16-68"><a href="#cb16-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-69"><a href="#cb16-69" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">ld</span>      <span class="at">de</span>, (SUM)</span>
+<span id="cb16-70"><a href="#cb16-70" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRINT16</span>
+<span id="cb16-71"><a href="#cb16-71" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb16-72"><a href="#cb16-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-73"><a href="#cb16-73" aria-hidden="true" tabindex="-1"></a>        <span class="co">; running total of priorities in common</span></span>
+<span id="cb16-74"><a href="#cb16-74" aria-hidden="true" tabindex="-1"></a><span class="fu">SUM:</span>    dw      <span class="bn">0</span></span>
+<span id="cb16-75"><a href="#cb16-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-76"><a href="#cb16-76" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Today’s puzzle was again quite a simple one, and the translation to Z80 assembly was correspondingly simple. The second star took around 60,000 cycles to compute on the small sample input alone, clocking in at around 33ms on my imaginary TRS-80 Model 1, or 1.2ms on my real eZ80 board.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DAY03:</span>  <span class="bu">call</span>    STAR1</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    STAR2</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>]]></summary>
+</entry>
+<entry>
     <title>Advent of Z80 - Day 2, 2022</title>
     <link href="https://bje.id.au/blog/posts/2023-01-29-aoc-z80-day02.html" />
     <id>https://bje.id.au/blog/posts/2023-01-29-aoc-z80-day02.html</id>
@@ -103,10 +584,10 @@
 <span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="st">&#39;0&#39;</span>  <span class="co">; the &#39;non-zero&#39; flag</span></span>
 <span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10_000</span></span>
 <span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1_000</span></span>
 <span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span></span>
@@ -216,7 +697,7 @@
 <div class="sourceCode" id="cb8"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jp</span>      STAR2</span></code></pre></div>]]></summary>
 </entry>
 <entry>
-    <title>AOC 2022 - Z80</title>
+    <title>Advent of Z80 - Day 1, 2022</title>
     <link href="https://bje.id.au/blog/posts/2023-01-15-aoc-z80-day01.html" />
     <id>https://bje.id.au/blog/posts/2023-01-15-aoc-z80-day01.html</id>
     <published>2023-01-15T00:00:00Z</published>
@@ -401,32 +882,32 @@
 <div class="sourceCode" id="cb14"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">ix</span>-<span class="bn">1</span>), <span class="st">&#39;0&#39;</span></span></code></pre></div>
 <p>For each of the 10 digit locations <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> will be loaded with the constant to subtract and a subroutine will be called. For the last digit location the non-zero character flag will be forced true, so at least one digit is printed each time.</p>
 <p>One more limitation of the Z80 instruction set now rears its head: there is an <code class="sourceCode z80"><span class="bu">ADD</span> <span class="at">IY</span>, <span class="at">DE</span></code> instruction but no corresponding subtraction. Fortunately subtracing a number is the same as adding its negation and inverting the carry flag’s meaning, so instead of loading positive constants for subtraction I will load negative constants for addition.</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<div class="sourceCode" id="cb15"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1_000_000_000</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1_000_000_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
-<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100_000_000</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100_000_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
-<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10_000_000</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10_000_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span></span>
-<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1_000_000</span></span>
+<span id="cb15-14"><a href="#cb15-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1_000_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-15"><a href="#cb15-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-16"><a href="#cb15-16" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span>_<span class="bn">000</span></span>
-<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-17"><a href="#cb15-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100_000</span></span>
+<span id="cb15-18"><a href="#cb15-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">100_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-19"><a href="#cb15-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-20"><a href="#cb15-20" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10</span>_<span class="bn">000</span></span>
-<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-21"><a href="#cb15-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">10_000</span></span>
+<span id="cb15-22"><a href="#cb15-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">10_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-23"><a href="#cb15-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-24"><a href="#cb15-24" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1</span>_<span class="bn">000</span></span>
-<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1</span>_<span class="bn">000</span> &gt;&gt; <span class="bn">16</span></span>
+<span id="cb15-25"><a href="#cb15-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">1_000</span></span>
+<span id="cb15-26"><a href="#cb15-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, -<span class="bn">1_000</span> &gt;&gt; <span class="bn">16</span></span>
 <span id="cb15-27"><a href="#cb15-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    DIGIT</span>
 <span id="cb15-28"><a href="#cb15-28" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb15-29"><a href="#cb15-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, -<span class="bn">100</span></span>
@@ -670,10 +1151,10 @@
 <p>After attempting to send a valid (meta)data packet the retry byte becomes corrupted. After a failed packet transfer instead of getting a ‘C’ back I start getting NULs. I tracked this down to the code invoked after a data packet command is received.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">recv_body:</span>	<span class="bu">ld</span>	(cmd), <span class="at">a</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv_byte</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv<span class="bn">_b</span>yte</span>
 <span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
 <span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">c</span>, <span class="at">a</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv_byte</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv<span class="bn">_b</span>yte</span>
 <span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
 <span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cpl</span></span>
 <span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cp</span>	<span class="at">a</span>, <span class="at">c</span></span>
@@ -688,12 +1169,12 @@
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">bc</span>, <span class="bn">130</span></span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">a</span>, (cmd)</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cp</span>	<span class="at">a</span>, YM_SOH</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cp</span>	<span class="at">a</span>, YM<span class="bn">_</span>SOH</span>
 <span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, <span class="bn">$</span>+<span class="bn">5</span></span>
 <span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">bc</span>, <span class="bn">1026</span></span>
 <span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv_wait</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv<span class="bn">_</span>wait</span>
 <span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
 <span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>		<span class="bu">pop</span>	<span class="at">bc</span></span>
 <span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>		<span class="bu">pop</span>	<span class="at">hl</span></span></code></pre></div>
@@ -701,7 +1182,7 @@
 <p>Then I restore <code class="sourceCode z80"><span class="at">bc</span></code>.</p>
 <p>At this point in receiving the metadata packet <code class="sourceCode z80"><span class="at">bc</span></code> contains <code class="sourceCode z80"><span class="bn">$0a00</span></code>. There are still ten retries allowed, and the retry byte has been replaced by NUL. The payload length I calculated is gone.</p>
 <div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	ym_crc		<span class="co">; CRC should be zero</span></span></code></pre></div>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	ym<span class="bn">_</span>crc		<span class="co">; CRC should be zero</span></span></code></pre></div>
 <p>Then I call the CRC code. This expects the data to checksum in <code class="sourceCode z80"><span class="at">hl</span></code> (check: I preserved <code class="sourceCode z80"><span class="at">hl</span></code> for exactly this reason) and the length of the data in <code class="sourceCode z80"><span class="at">bc</span></code> … but that’s not the length of the received data any more. It’s much, much bigger than the received data.</p>
 <p>The Y-modem 16-bit CRC isn’t the world’s best choice of checksum. It’s definitely an improvement over X-modem’s naive 8-bit checksum but it’s a long way short of a reliable hash. In this case one simple flaw plays out: <code class="sourceCode c">crc16<span class="op">(</span><span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">)</span> <span class="op">==</span> <span class="dv">0</span></code>.</p>
 <p>My emulator’s SRAM is initialised to zero. Real SRAM is initialised to the background noise of the universe. On my emulator, I checksum 2560 bytes and come up with the same answer I would if I only checksummed the first 130 or 1026 bytes: zero. On the real board the CRC computes over 130 or 1026 bytes of data, getting zero - and then goes on to incorporate the noise.</p>
@@ -959,229 +1440,6 @@ MiRw 0016F  38 (00111000)</code></pre>
 <tr class="odd">
 <td style="text-align: center;">███─</td>
 <td style="text-align: center;">done</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">────</td>
-<td style="text-align: center;">███─</td>
-<td style="text-align: center;">done</td>
-</tr>
-</tbody>
-</table>]]></summary>
-</entry>
-<entry>
-    <title>The TRS-20 - CPU board design</title>
-    <link href="https://bje.id.au/blog/posts/trs20/011-motherboard.html" />
-    <id>https://bje.id.au/blog/posts/trs20/011-motherboard.html</id>
-    <published>2020-06-06T00:00:00Z</published>
-    <updated>2020-06-06T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>In this post I’ll document my progress on the design of the CPU board. I’m still happy with the PC104 form factor, so into a 10cm² area I’ll see if I can pack on the socketed processor, a clock, the PC104 headers, a power supply, SRAM, and ROM. Snuck in around this needs to be the address decoding logic, glue logic, and a few status LEDs.</p>
-<!--more-->
-<p>I’ve also switched from Eagle CAD to KiCad for this stage of the project. The main motivation is frugality: I want to design a schematic of moderate complexity, which means multiple schematic files are desirable, but that feature is not part of the free edition of Eagle. As a bonus: the 3D rendering feature of KiCad is pretty fun, and adding parts is easy enough that I’m spending more time hunting for 3D models of parts than worrying about finding footprints or schematics.</p>
-<h2 id="the-boards-main-features">The board’s main features</h2>
-<p>The motherboard will be responsible for the core of the computer, with everything required for program execution natively on-board. It’s practically a single-board computer, though as seems to be the pattern for Z80-based SBCs there will be at most serial I/O on board, and that only if space permits.</p>
-<p>The chief elements to fit on the board, in decreasing order of priority, are:</p>
-<ol type="1">
-<li><p><a href="#cpu">The CPU</a></p>
-<p>Without this, there’s no computer. Because the days of 5V are waning, I’ve decided to settle on a Z8L180-20 part at 3.3V. Whether I use a socketed part or risk a QFP-80 is still to be determined.</p></li>
-<li><p><a href="#clock">The clock system</a></p>
-<p>This needs to be close to the CPU. An 18.432MHz MEMS oscillator will have excellent rise and fall times, take up little room, and provide a USART compatible clock.</p></li>
-<li><p><a href="#power">The power and reset supervision circuitry</a></p>
-<p>The CPU needs to be held in reset long enough to initialise, and the single-IC solutions for this problem will also debounce my reset switch for me. This can’t reasonably be off-board, the CPU needs it to start.</p></li>
-<li><p><a href="#memory">SRAM</a></p>
-<p>Like the clock, this also needs to be close to the CPU for zero wait state access. There’s little choice other than a TSOP-II 48 pin part here.</p></li>
-<li><p><a href="#power">Power regulation</a></p>
-<p>While I could offload power regulation in a pinch I’d prefer to keep it on-board. I’ll feed in a Raspberry Pi 2.5A 5.1v Micro-USB supply and regulate that down to 3.3v and 1.2v on-board.</p></li>
-<li><p><a href="#memory">Flash ROM</a></p>
-<p>This could move off-board if necessary, but since it’s essential for booting I’d prefer not to. The tricky part for the ROM is how to program it. A boot loader in the ROM allowing it to be programmed via the Z180 has appeal but risks bricking my system, so this part needs to be socketed.</p></li>
-<li><p><a href="#pic">Interrupt controller</a></p>
-<p>Responding to interrupts requires programmable I/O registers. I’ve looked at a few ways to do this, and in the end I’ve settled on an ICE40HX1K FPGA, which should offer me plenty of flexibility to do other things as I think of them too, <em>if</em> I can get it in-system programmable. Running it as an I2C controller, for example, would be an interesting use of a few pins on the main header.</p></li>
-<li><p><a href="#uart">Serial I/O</a></p>
-<p>Without some kind of I/O I really won’t have a clue if my system is working. Ensuring I keep room for USART headers lets me communicate with the CPU after some amount of ROM wrangling, and get into a faster iteration on system development than I would otherwise have.</p></li>
-</ol>
-<p>This is a lot to try and pack onto a 10cm<sup>2</sup> board. I had originally planned to stick to two layers, but that makes routing substantially harder and I’ve caved and spent extra on four layers. I can offload some parts to a second board, with the caveat that signals will need to go across the PC104 headers. There’s no value I can see in aiming for PC104 pin compatibility, but even so my header pin count isn’t infinite.</p>
-<h2 id="cpu">The CPU</h2>
-<p>I’ve been aiming at the Z80180 family basically since I discovered the chip - the Z80 core plus a handful of useful peripherals. My debug IC is a rather vanilla Z80180-10 from Aliexpress clocked at 1MHz, with my eye set on (of course) the maximum speed of a Z8S180 clocked at 33MHz.</p>
-<p>Running through the timing exercise of the last blog post, plus part selections while designing this board, have brought me to two accommodations. The first is that a 3.3V part has better compatibility with other parts I want to use, as mentioned above. The second is that while it’s possible for me to meet the 30ns timing constrants of a 33MHz part, doing so will require much more care and time. I’m nearly half way through the year and don’t even have a CPU board yet, so ensuring my ambitions don’t exceed my capabilities is important.</p>
-<p>Also since the last blog post, all suppliers of the Z8L180 have dried up, unless I want to buy 100 of them. Which I do not. However, if I am reading the datasheet correctly, the Z8S180 will happily run at 3.3V as long as it’s not clocked over 20MHz. Back to the S180 it is.</p>
-<p>Parts required:</p>
-<ul>
-<li>Z8S180-33 CPU</li>
-<li>PLCC socket</li>
-</ul>
-<h2 id="clock">Clocking in</h2>
-<p>The Z80180 needs to be clocked at a <a href="003-basic-board.html">magic frequency</a> for UART usage, though the S180 adds a baud rate generator that can divide the clock by a 16-bit value. I toyed with the idea of having a software configurable clock, mostly so I could clock up to maximum for general use and clock down to something approaching the TRS-80 Model I’s 1.777MHz for an emulation mode (10.664MHz crystal divided by 6). But the Z180 is not a Z80. It won’t ever execute a Z80 program at the same speed as an original Z80. I’d rather save a lot of board space and hassle and use a fixed clock that gets my Z180 up and running, at the cost of definitely not being able to run original TRS-80 software at the original speed.</p>
-<p>Parts required:</p>
-<ul>
-<li>A MEMS oscillator at 18.432MHz</li>
-</ul>
-<h2 id="power">Power supply</h2>
-<p>Much like clocks, I’ve cycled around a few ideas here. I need a rough estimate of the total power my system will draw, which I’ve guessed at under an amp. I need input power from an AC adapter, and regulated 3.3V and 1.2V supplies on board. And I don’t want it all to take up too much space, else I’ll have to put it on a separate board.</p>
-<p>My solution currently (sic!) is to use a Raspberry Pi USB-Micro power supply. These supplies are rated for 2.5A and deliver power into a USB Micro port. There’s no power negotiation involved - on the Pi the data pins are unconnected - so there’s no IC needed. The supply should deliver a fairly well regulated 5.1V that I can down-regulate to 3.3V and 1.2V.</p>
-<p>A RECOM R-783.3-1.0 DC/DC converter is pretty much ideal for me. It’s a three-pin potted package containing all the components needed to regulate 4.75V to 18V down to 3.3V, at 1A. All I need to add is a bypass capacitor or two, and to provide ~250mA at 1.2v for the FPGA’s core with a simple LDO like the <a href="http://ww1.microchip.com/downloads/en/DeviceDoc/22070a.pdf">MCP1824S</a>.</p>
-<p>Power management comes in the form of a small collection of ICs. The <a href="http://www.ti.com/lit/ds/symlink/tps25921l.pdf?ts=1588770951061">TPS25921</a> eFuse protects the computer from over-current faults. A 150kΩ resistor sets the current limit of the eFuse to 1.6A. An eFuse provides similar protections to a traditional fuse, but with a much faster response rate. The <a href="http://ww1.microchip.com/downloads/en/DeviceDoc/mic2774.pdf">MIC2774</a> reset controller monitors two voltages and maintains a reset signal for 140ms to 280ms after voltages have reached their target levels, while also supporting a manual reset input.</p>
-<p>To let me know what’s going on, I’ll want an LED on the 5.1V supply, an LED tied to the /FLT line of the TPS25921, and an LED on the output of the RECOM. The MIC2774 has a very low current tolerance on its /MR line, so I’ll need to find some other way to indicate that the CPU is being released from reset. I’ve chosen a mix of orange and yellow-green LEDs, which all have a 1.9-2.4V forward voltage and a 30mA forward current. These will need resistors for both 5V and 3.3V, at around 20mA.</p>
-<p>Parts required:</p>
-<ul>
-<li>USB micro port, 2A capable</li>
-<li>RECOM R-783.3-1.0 DC/DC converter</li>
-<li>1x 22uF MLCC capacitor, 1210</li>
-<li>1x 10uF MLCC capacitor, 1206</li>
-<li>2x 1uF MLCC capacitor, 0805</li>
-<li>TPS25921L, 8SOIC</li>
-<li>150kΩ resistor, 0603</li>
-<li>MIC2774, SOT23-5</li>
-<li>270kΩ, 732kΩ resistors, 0603</li>
-<li>Orange and yellow-green LEDs</li>
-<li>68Ω and 150Ω resistors, 0603</li>
-</ul>
-<p>And in general for power management:</p>
-<ul>
-<li>Lots of 0.1uF MLCC capacitors, 0603</li>
-<li>Lots of 10kΩ resistors, 0603</li>
-</ul>
-<figure>
-<img src="/images/trs20/power%20supply.svg" alt="A higher part count than I would have liked in the end, but still relatively simple." />
-<figcaption aria-hidden="true">A higher part count than I would have liked in the end, but still relatively simple.</figcaption>
-</figure>
-<h2 id="memory">RAM and ROM</h2>
-<p>The <a href="010-timing-check.html">last post</a> went into detail on the specific timings required for zero wait state memory access. In particular, zero wait state ROM requires clever tricks with enabling the IC before I am even sure that a memory request is coming. In the end I’ve chosen not to be too clever, and instead require at least one wait state for memory accesses when the ROM (or off-board memory-mapped I/O) is in use.</p>
-<h3 id="utilising-the-z180-mmu">Utilising the Z180 MMU</h3>
-<p>One of the selling points for the Z180 is the onboard peripherals, pegged as space and cost savers. The peripheral of the most interest to me right now is the memory management unit. This maps the 20-bit physical address space of the Z180 to a 16-bit logical space, neatly sidestepping a number of problems I’d otherwise face.</p>
-<p>The Z180’s MMU divides logical memory into three regions. At the bottom and top of memory are what the processor designers call the Common Areas, and between them is the Bank Area. Common Area 0 at logical address <code class="sourceCode z80"><span class="bn">$0000</span></code> is always mapped to physical address <code class="sourceCode z80"><span class="bn">$00000</span></code>, and at boot is 64K in size. The Bank Area starts at the end of Common Area 0, and Common Area 1 starts at the end of the Bank Area. All addresses are aligned to 4K, such that logical addresses are 4-bits long and physical addresses are 8-bits long.</p>
-<p><img src="/images/z180-mmu.svg" /></p>
-<p>At reset, the Z180 will set the program counter to <code class="sourceCode z80"><span class="bn">$0000</span></code> and will fetch an opcode from phyiscal address <code class="sourceCode z80"><span class="bn">$00000</span></code>. Putting the ROM at this physical address makes booting simple, but after boot it makes Common Area 0 less valuable, as it must always be the boot ROM. CP/M in particular expects useful memory at least as low as <code class="sourceCode z80"><span class="bn">$0200</span></code>.</p>
-<p>More annoying is that dividing a 1Mb physical memory space into one 512Kb and two 256Kb regions is really easy with an <a href="http://www.ti.com/lit/gpn/sn74lvc1g29">SN74LVC1G29</a> - but its truth table only aligns with selecting SRAM when A<sub>19</sub> is low, and using A<sub>18</sub> to choose between the off-board bus or the ROM when A<sub>19</sub> is high. With a 5.1ns propagation delay this IC is plenty fast enough for the job.</p>
-<table>
-<caption>How RAM, ROM, and the BUS relate to the CPU’s signals</caption>
-<thead>
-<tr class="header">
-<th>A<sub>19</sub></th>
-<th>A<sub>18</sub></th>
-<th>RAM</th>
-<th>BUS</th>
-<th>ROM</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td>L</td>
-<td>-</td>
-<td>L</td>
-<td>H</td>
-<td>H</td>
-</tr>
-<tr class="even">
-<td>H</td>
-<td>L</td>
-<td>H</td>
-<td>L</td>
-<td>H</td>
-</tr>
-<tr class="odd">
-<td>H</td>
-<td>H</td>
-<td>H</td>
-<td>H</td>
-<td>L</td>
-</tr>
-</tbody>
-</table>
-<p>But for this to work, I need to have SRAM at phyiscal address <code class="sourceCode z80"><span class="bn">$00000</span></code>. Except right at boot.</p>
-<h3 id="booting-from-rom">Booting from ROM</h3>
-<p>The /RESET signal on the CPU will be pulled low by the MIC2774 voltage supervisor for 140ms or so after power is first applied or the reset button is mashed. When this signal goes high the processor will enter its reset cycle and very shortly thereafter it will start the first opcode read cycle for address <code class="sourceCode z80"><span class="bn">$00000</span></code>.</p>
-<p>To instead read that first opcode from ROM at <code class="sourceCode z80"><span class="bn">$80000</span></code> I need A<sub>19</sub> to be high after reset. I can OR together the output of a D flip-flip and A<sub>19</sub>, and latch the flip-flop high on the rising edge of /RESET. I also need to clear the flip-flop during the boot sequence. Feeding the inverted A<sub>19</sub> line into the /CLR line of the flip-flop will clear it when A<sub>19</sub> rises, which I can arrange to happen by programming the MMU and jumping.</p>
-<object class="paper" data="/images/shadow-rom.svg" type="image/svg+xml">
-</object>
-<p>In this circuit, U4 is an SN74LVC1G29 2-of-3 decoder. Its A1 input selects its Y0 output when A1 is low. When A1 is high, it selects either Y1 or Y2 depending on whether A0 is low or high, respectively. Feeding into U4 is A<sub>19a</sub>, which is the output of U3, an OR gate. The idea is that a high BOOTUP signal means A<sub>19a</sub> is set no matter what the real A<sub>19</sub> does, and BOOTUP is active at boot.</p>
-<p>To achieve this goal, BOOTUP is the Q output of a D flip flop (U1, SN74LVC1G74) whose D line is tied to V<sub>CC</sub>. With its clock signal coming from /RESET, the flip-flop latches Q high when /RESET has a rising edge, or when the CPU is coming out of reset. This in turn makes A<sub>19a</sub> high after reset, causing the CPU to address ROM instead of RAM.</p>
-<p>To disable BOOTUP, any CPU access that has A<sub>19</sub> set will do. This feeds into the inverter U2 (SN74LVC1G04), which drives /CLR low on U1, resetting BOOTUP. In this way, all the ROM code needs to do is use the MMU to map ROM into the logical space, then jump to it, and RAM access will be enabled.</p>
-<p>While /RESET is active, the address lines from the processor are high-Z. However, the Z8S180 has auto-latches on all its I/O pins, so A<sub>19</sub> will be pulled either low or high - due to its design, it will most likely be pulled high. A pull-down resistor will keep it low when it’s not being driven, and prevent my flip-flop from being reset incorrectly.Zilog’s AN0009 discusses choice of resistor strength, but the text has several errors that muddy the choice a little.</p>
-<p>Alternatively, I can combine the signal from A<sub>19</sub> with the signal from /M1. /M1 is held high during reset, and will only go low for a small number of CPU modes, only one of which will occur during boot-up: fetching opcodes. Instead of using an inverter at U2 I can use another IC that will output low iff /M1 is low and A<sub>19</sub> is high. The logic function is a two-input OR (or NAND) gate with one inverted input, <code>/M1 | ~A19</code>. The SN74LVC1G57 and ’97 both support this configuration in a SOT-23-6 package.</p>
-<p>I will also swap out the 1G74 for a 1G175 which has no /Q and no /PRE, also in a SOT23-6 package. Dropping the unnecessary pins saves some board space.</p>
-<h3 id="programming-the-rom">Programming the ROM</h3>
-<p>Until reaching this section, the /WE input of my ROM was hard-wired to Vcc, and I planned to laboriously remove the thing from its socket, put it in a programming socket, burn a new image on, and move it back. Well, no more! I sat down and had a proper read of the datasheet, and I’ve convinced myself that programming it via the CPU is no harder than ensuring I have a wait state or two configured and just writing bytes to the right memory addresses. To write one byte, you need to write <code class="sourceCode z80"><span class="bn">$AA</span></code> to <code class="sourceCode z80"><span class="bn">$5555</span></code>, then <code class="sourceCode z80"><span class="bn">$55</span></code> to <code class="sourceCode z80"><span class="bn">$2AAA</span></code>, then <code class="sourceCode z80"><span class="bn">$A0</span></code> to <code class="sourceCode z80"><span class="bn">$5555</span></code>, and finally, write the byte to program to the address it should be at. Of course, this is Flash memory so you can only write zeros, and must also first erase a sector or the whole chip to one, but this too is accomplished with a sequence of bytes written to magic addresses.</p>
-<p>I’ve wired /WE up to the memory write logic, and /WE will now go active when /MREQ and /WR go active. /CE will go active when A<sub>19</sub> (modified by the flip-flop) and /MREQ are active but A<sub>18</sub> is not. If I got it wrong, I only have one trace to cut to disable Flash writes altogether.</p>
-<p>Other than needing a series of bytes written on the bus to write one byte to the Flash memory, there’s also of course a much larger time required to write that final byte. This time begins after /WE goes inactive, so the usual CPU write cycle will latch the byte in for writing. Completion of the write can be detected by simple timing, or by reading a byte and examining bit 7, which will be the complement of the true data until the write is finished, or bit 6, which will toggle high and low on successive reads until the write is finished.</p>
-<h2 id="pic">Interrupt controller</h2>
-<p>There are four interrupt lines on the Z180. The /NMI always restarts the processor at <code class="sourceCode z80"><span class="bn">$0066</span></code>. /INT0 has three modes of operation. Mode 0 fetches a single byte instruction from the bus. Mode 1 restarts at fixed address <code class="sourceCode z80"><span class="bn">$0033</span></code>. Mode 2 fetches an index into an interrupt vector from the bus, and is the mode I expect to use. /INT1 and /INT2 construct an address similarly to /INT0 Mode 2, but the index is retrieved from a register instead of the data bus. Internal interrupts operate in the same way as /INT1 and /INT2, and all such interrupts have a fixed 5-bit code specific to that interrupt source.</p>
-<p>It’s common for Z80 machines to daisy-chain peripherals that raise interrupts. Each peripheral in the chain has an Interrupt Enable Input (IEI) pin. If this pin is asserted low, the peripheral must not signal an interrupt to the CPU. The highest priority peripheral has this pin tied to Vcc. Each peripheral also has an Interrupt Enable Output (IEO) pin that will be connected to the IEI of the next lowest priority peripheral. When the peripheral wishes to raise an interrupt it will assert IEO. If its IEI is not asserted, it will also assert the OR-wired /INT0 line. This will interrupt the processor, which will begin an interrupt acknowledge cycle. Only a peripheral with IEI unasserted will respond by writing its interrupt vector to the bus, then deasserting /INT. It will not deassert IEO until it sees the processor fetch a RETI instruction from the bus while the peripheral’s IEI line is deasserted.</p>
-<p>A higher priority peripheral can interrupt another peripheral’s interrupt service routine. A lower priority peripheral must wait until all higher priority interrupts have been serviced before raising its own. And each peripheral must watch the bus for opcode fetch cycles, to detect RETI.</p>
-<p>The scheme is quite neat, allowing a priority interrupt scheme without a dedicated controller. However, it’s not at all suited to a PC/104-style stack of boards, where every pin passes directly through each layer to the next. It’s not possible to have a daisy chained signal with stacked headers.</p>
-<p>Since I’m not using any of the Z80 peripheral ICs, this isn’t a big problem. I can instead use an Intel 8259 style interrupt controller: one CPU interrupt line is split into a number of peripheral interrupt lines, each claimed by a single peripheral. This requires hard wiring peripherals to the appropriate interrupt on each child board, but doesn’t need any specific wiring for interrupt acknowledgement. Typically a peripheral will keep its interrupt flag active until acknowledged directly via I/O operations, or will keep it active for a short period.</p>
-<p>The FPGA is also able to run an I2C core, and maybe down the track other tricks, so I’ve used five pins for interrupts and two for SDA/SCL lines. The I2C lines need pull-ups, and I’ve chosen 2.2kΩ. This is 1.5mA of current drain to pull low, but most of the time those lines will be idle.</p>
-<p>The 8259A interface watches for rising edges or high signal levels on its interrupt lines, but I would prefer to configure the inputs in the FPGA as hi-Z unless explicitly configured as enabled rather than adding pull-downs or jumpers.</p>
-<p>The FPGA itself requires an SPI slave device to feed it configuration data. I’ve chosen a DIP-8 package ROM in a socket so I can remove and reprogram it reasonably easily. The IC is a Winbond 32Mbit ROM, which has room for around 129 bitstream images for an iCE40HX1K device at 32,303 bytes per bitstream. The iCE40 has the option of selecting one of four image locations on boot based on the state of two pins at reset, or under software control using two internal signals. This allows me to store a bitstream in a different region of the Flash memory and load that image into the FPGA to test it before committing it to be the main boot-up bitstream. Adding a few jumpers to control the cold boot pins lets me have an emergency recovery bitstream I never touch.</p>
-<figure>
-<img src="/images/trs20/pcb_fpga.png" alt="The PCB’s layout is dominated by capacitors that are large enough for me to solder." />
-<figcaption aria-hidden="true">The PCB’s layout is dominated by capacitors that are large enough for me to solder.</figcaption>
-</figure>
-<p>The FPGA is a 0.5mm pitch VQFP-100 IC. This might be the most difficult part to solder on this board. I have done a practice solder of a TQFP-100, which sadly had several bridged pins. I corrected those bridges after buying the flux I should have used in the first place, but I’ve no idea if I cooked the IC with my hamfisted soldering and repair attempts. I’m a little nervous about this. Also in this section of the board is the only no-lead package I’ve used. X1 is a 100MHz MEMS oscillator that has no specific reason to exist, other than someday maybe I’d like a 100MHz clock input on the FPGA. Because it doesn’t need to be there, mucking X1 up won’t be such a big deal.</p>
-<p>The FPGA is connected to all address and data lines, after buffering. It receives the CPU control signals: /MREQ, /IORQ, /RD, /WR, and /M1. It is the only part of the system wired up to the DMA control signals and the bus master control signals, and controls the three maskable external interrupt lines. It’s also wired to USART1’s RX and TX pins, and since taking the above image I also wired up CTS1. Again, I have no specific plans here, but it costs nothing except the time to try for a neat trace to leave the option of using USART1 with the FPGA open.</p>
-<p>The control input lines for the CPU are all pulled high with 10kΩ resistors. Each pin on the iCE40HX1K has a drive current of 8mA maximum (“sysIO Single-Ended DC Electrical Characteristics”, iCE40 LP/HX Family Data Sheet) for an R<sub>min</sub> of 412.5Ω. R<sub>max</sub> is determined by timing constraints. For interrupts it’s not too critical. Sooner is better, but using 2.2kΩ at the ~15pF capacitance on the CPU and traces is around 30ns, and I will live with that. The /DREQn signals indicate to the CPU that an I/O device is ready for a DMA read or write to proceed, and it shouldn’t matter terribly if it’s delayed 30ns either.</p>
-<p>/WAIT is a bit trickier. The Z8018x User Manual recommends synchronising changes to the signal with the rising edge of the system clock to meet timing requirements. This suggests a D flip-flop clocked from PHI sitting between open-drain drivers of /WAIT and the input pin on the CPU, with a pull-up to keep it high in the absence of a /WAIT claim. The ’175 D flip-flop I’m using elsewhere will do fine for this job: it has an input capacitance of around 3pF, so at 2.2kΩ this is close to a 10ns delay. With around 62ns to react and insert an additional wait state (assuming the CPU supplies at least one) this is a reasonable delay.</p>
-<p>The two jumpers to configure <code>CBSEL0</code> and <code>CBSEL1</code> are below the ROM socket. U20 is a MIC803 supervisor, wired to <code>CRESET_B</code> on the FPGA. This pin pulls low to hard reset the FPGA, and the MIC803 holds it low for 20-44ms after the 3.3V rail has powered up. This is because the SPI ROM requirements include it being ready to accept commands 10µs after meeting power-on conditions, but the Winbond ROM takes a minimum of 20µs. The FPGA will be configured and ready to communicate long before the CPU has been released from reset with its minimum 140ms reset hold time - at the slowest configuration frequency, the typical configuration time is 53ms. This falls to 13ms with the fastest configuration frequency.</p>
-<p>During this review, I found two errors in the PCB layout above. The first was the lack of a pull-up resistor on <code>CRESET_B</code>. Without this, the FPGA would have reset itself randomly as the MIC803 is an open-drain supervisor. The second is that I had a pull-up resistor on the SPI clock line, which the iCE40 does not want or recommend, and which the Winbond also doesn’t specify. I’ve added one and removed the other. I also noticed I haven’t connected <code>CDONE</code> to a status LED, which would at this point require rerouting large parts of the board to accommodate. It’s properly pulled up to Vcc as per the iCE40 programming manual, at least.</p>
-<h2 id="uart">Serial I/O</h2>
-<p>The Z180 has two USARTs, one with a full suite of control signals and one with just /CTS. I have wired USART1 up to the FPGA, which leaves USART0 as the obvious choice for my first interface into my computer. The easiest way to handle it is to expose a pin header with the various signals and use a USB to serial dongle to hook it up to a terminal program. Neater, though, is to put the USB port directly on the board and use one of many USB to UART ICs directly. I’ve chosen the FTDI FT230X, which can be powered at 3.3V without needing an external clock, can drive RX/TX LEDs, and has CTS/RTS signalling.</p>
-<p><img src="/images/trs20/schm-usb-serial.svg" /></p>
-<p>I’ve chosen to run the FT230X in a self powered configuration, using my on-board power to supply the IC. In this configuration there’s a few items to check off:</p>
-<ol type="1">
-<li>It’s not nice to push current down the D wires to an inactive hub or host. To resolve this the FT230X expects to have a VBUS sense input on one of its four configurable I/O pins, which is just a voltage divider on VBUS from the USB port. When this input reads zero the FT230X isolates the D wires. When it’s high the FT230X pulls D+ up to 3.3V, which identifies the FT230X as a full speed device.</li>
-<li>There is an internal LDO regulator that provdes 3.3V to various internal components. It also provides power output on the 3V3OUT pin which can be wired to VCCIO to supply power for the I/O pins. When VCC is less than 4.3V this voltage will fall out of regulation, and the FT230X datasheet says that when VCC is at 3.3V, 3V3OUT becomes an input pin and should be connected to VCC. Without this those internal components won’t get the 3.3V they need.</li>
-<li>Some revisions of this IC had a fault in which they would mistakenly believe the host or hub had powered down, and USB communications would stop. This was fixed in revision D of the chip, which I believe was released in 2012 or so. The work-around for revisions A, B, and C is to pull a Keep Awake input low on another configurable I/O pin.</li>
-</ol>
-<p>These things aren’t as straightforward to resolve as I would like. For each item to check off, there’s a corresponding wrinkle to deal with.</p>
-<ol type="1">
-<li>All four CBUSx pins are programmed as outputs in the factory. They can be reprogrammed easily over USB, but trying to connect over USB when CBUS0 is configured as an output and wired up to get ~3.4V from VBUS is a recipe for smoke. To sort this out, I need to avoid soldering R11 and R12 until I have reprogrammed the IC.</li>
-<li>KiCad has a feature that treats having more than one power output on a net as an error. This is generally a good idea as it’ll pick up if you’ve accidentally wired two voltage sources together. However 3V3OUT is marked as a power output in the FT230X package, but it must be wired up to the 3.3V output of my regulator. KiCad complains about this. I could copy the FT230X package and modify the pin to be an input, but instead I am just going to live with KiCad telling me I have an error.</li>
-<li>I expect I will get a revision D chip when ordering from a reputable supplier like DigiKey, but I can’t easily fix the problem once I’ve soldered the chip in place. I’ve added a resistor on the back of the board to pull CBUS3 to ground, which I can jumper or put a low value resistor on in the unlikely circumstance that my IC has this fault - after programming CBUS3 to the right function, that is.</li>
-</ol>
-<h2 id="reviewing-everything">Reviewing everything</h2>
-<p>The <a href="/images/trs20/cpu%20board.pdf">full schematic</a> shows how long this has taken me - I started work on this in February. It’s not quite complete yet, either - I want to review the datasheets of each IC and ensure the pin assignments are right, because it’s dang hard to fix that sort of problem once you’ve fabbed a board.</p>
-<p>So here we go, one IC at a time, checking everything. Let’s see how many errors I pick up, and sweat over how many I don’t pick up.</p>
-<ol type="1">
-<li>I have 1210, 1206, and 0805 capacitors in my DigiKey BOM for the 22uF, 10uF, and 1uF parts, respectively. On the board I’d assigned 0805 footprints to them all. I fixed that up, and popped a second 22uF on near the USB power input. The eFuse IC also suggests a Schottky diode on the output to protect against negative transients, which I am still considering.</li>
-<li>I wired D+ to USBDM and D- to USBDP on the FT230X. You can see the mistake in the schematic above. I think it’s because they just lined up neatly that way. I needed to rotate the FT230X on the board to resolve it.</li>
-<li>My 74LVC2G32 gates had the wrong pin assignments in the schematic. Rather than use the two-unit IC schematic supplied with KiCad I drew up my own one-unit schematic, and got it wrong. There’s three on the board, but they just needed re-routing.</li>
-<li>My MCP1824S linear regulator was wired directly to the USB power, not to the eFuse output. On top of that, I’m not really happy with a 300mA limit for the FPGA’s core. I have no idea how much power it will actually draw, I can’t find that information, but other board designs I’ve looked at give it more juice. So - it’s now an MCP1826S rated for 1A, in a 3DDPAK footprint that can dissipate twice as much heat. If I can solder it down. DDPAKs are huge, so I had to move a few things around to fit it in. And I threw in that diode. I should be able to feed up to 700mA to the FPGA without any stress on the parts now.</li>
-<li>A big one. I force A<sub>19</sub> high at boot to select ROM - but A<sub>18</sub> will be low, which would have selected unassigned bus memory addresses. I correctly identified the ROM would be at <code class="sourceCode z80"><span class="bn">$80000</span></code>, and clearly got that right in the circuit that forces A<sub>19</sub> high, but got it wrong in my logic table and wiring.</li>
-<li>Another big one, courtesy BFLmouse from the 8 Bit World Discourse server: U16 is a ’245 buffer for the data bus, with DIRection controlled by /WR. If the CPU releases the bus via /BUSREQ, then this buffer must stay off the data bus. It needs the inverse of /BUSACK wired into /OE to disable the outputs. This could also be applied to the /OE pins of the address ’245s, but their DIR pin is wired to /BUSACK already - when /BUSACK is low, the Z180’s address lines are high-Z, and those ’245s will replicate whatever’s on the address bus outside to be ignored by the CPU on the inside.</li>
-<li>KiCad’s SOT-23 footprints are smaller than the parts I’ve checked expect. I’ve switched to the hand soldering footprints in most cases, which gives me more room to get in with an iron and ensures I have enough overhang to successfully solder these parts down even if I’m not perfectly lined up. The same appears to be true of the diode footprints.</li>
-<li>The lack of connection of the <code>CDONE</code> signal bothered me enough that I did the work to add an LED in. This meant moving a few components around to make room for an extra LED in the status LED section of the board. It also meant figuring out why the iCEstick appears to have an LED wired up to a 4.7kΩ resistor from 3.3V - at 1.8V<sub>F</sub> that’s only 0.32mA of forward current, though it’s also only 0.7mA of current into the <code>CDONE</code> pin when it’s being pulled low. I think the board must be using very low current LEDs, so I added a few of those to my BOM and I’ll drive them with 2.2kΩ resistors.</li>
-<li>This isn’t really a board error, but I also added two user LEDs to the FPGA. This will let me do the usual “blinky” FPGA test code and confirm it’s working reasonably correctly early on, and let me use those LEDs as “printf debug” signals when programming the FPGA to interact with the CPU. And when it’s all working satisfactorily, I’ll have two system-controlled status lights.</li>
-<li>The footprint for the MCP1826S didn’t match the datasheet in pretty much any dimension. I suspect it would have been okay, but I replaced it with a footprint that does match the datasheet. I also boosted the input capacitor to 4.7µF, which the datasheet seems to like sprinkling around a lot. The power input comes off a fairly long cable, so that extra buffering is likely to be used.</li>
-<li>All CPU output signals were buffered before reaching the 40-pin header except for PHI. That now runs through a clock fanout buffer IC (the Microchip Technology PL133-37) with three outputs - one is used for the /WAIT flip-flop, one feeds both the FPGA and the header, and one is unused.</li>
-</ol>
-<p>I’ve checked all components wired to the address and data buses. I’ve checked every datasheet for pins, footprints, capacitor and resistor selection guidelines. I’ve reviewed whether component labels are obscured by other components or vias. And I’ve, most importantly, added decor to the board with the excellent <a href="https://www.1001fonts.com/park-tech-cg-font.html">Park Tech CG Font Family</a> and an adaptation of a logo Zilog was using in the ’80s and ’90s. The second revision schematic is <a href="/images/trs20/cpu%20board%20rev%202.pdf">here</a>.</p>
-<p>This is a risky project for me. I’ve never designed such a complex circuit before, nor have I soldered so many tiny SMD parts. Most of the elements of this design are new to me: FPGAs, USB ICs, and management of the timing constraints the 18.432Mhz clock demands. This blog post serves as my major design review, and picked up a handful of issues that would have been painful to hit after fabrication.</p>
-<p>I’ve pulled the trigger on ordering parts (they left Honolulu early this morning) and the board (four layers with ENIG finish, in fabrication) for close to $190 all up, so my budget is now blown. I’ve got to somehow successfully solder all the parts to the board, write code for the FPGA, write a ROM, and hopefully not discover any mistakes that I can’t monkey patch, and if all that goes to plan I’ll have a working computer I can interact with over a USB serial link. Adding keyboard and video I/O will have to wait.</p>
-<p><img src="/images/trs20/logo.svg" /></p>
-<table style="width:86%;">
-<caption>Project status update</caption>
-<colgroup>
-<col style="width: 21%" />
-<col style="width: 8%" />
-<col style="width: 10%" />
-<col style="width: 13%" />
-<col style="width: 10%" />
-<col style="width: 11%" />
-<col style="width: 11%" />
-</colgroup>
-<thead>
-<tr class="header">
-<th style="text-align: center;">Budget</th>
-<th style="text-align: center;">CPU</th>
-<th style="text-align: center;">Power</th>
-<th style="text-align: center;">Keyboard</th>
-<th style="text-align: center;">Video</th>
-<th style="text-align: center;">Memory</th>
-<th style="text-align: center;">Debug</th>
-</tr>
-</thead>
-<tbody>
-<tr class="odd">
-<td style="text-align: center;">$425.76 of $400</td>
-<td style="text-align: center;">███─</td>
-<td style="text-align: center;">███─</td>
 <td style="text-align: center;">────</td>
 <td style="text-align: center;">────</td>
 <td style="text-align: center;">███─</td>
