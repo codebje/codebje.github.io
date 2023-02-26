@@ -12,37 +12,77 @@ export class Compiler {
     output;
     scope;
     globals;
+    macros;
+    macro;
     constructor(output) {
         this.org = this.phase = 0;
         this.globals = this.scope = new Scope();
         this.output = output;
+        this.macros = new Map();
         // reset memory to noise
         crypto.getRandomValues(this.output);
     }
+    async compile_statement(stmt) {
+        switch (stmt.type) {
+            case "comment": return [];
+            case "org": return this.compile_org(stmt);
+            case "phase": return this.compile_phase(stmt);
+            case "endphase": return this.compile_endphase(stmt);
+            case "align": return this.compile_align(stmt);
+            case "block": return this.compile_block(stmt);
+            case "endblock": return this.compile_endblock(stmt);
+            case "bytes": return this.compile_bytes(stmt);
+            case "defb": return this.compile_defx(stmt);
+            case "defw": return this.compile_defx(stmt);
+            case "defs": return this.compile_defs(stmt);
+            case "label": return this.compile_label(stmt);
+            case "include": return this.compile_include(stmt);
+            case "macrodef": return this.compile_macrodef(stmt);
+            case "macrocall": return this.compile_macrocall(stmt);
+            default:
+                throw "unknown statement type " + stmt.type;
+        }
+    }
+    async compile_macro(macro, stmt) {
+        switch (stmt.type) {
+            case "comment": return [];
+            case "org":
+            case "phase":
+            case "endphase":
+            case "align":
+            case "block":
+            case "endblock":
+            case "bytes":
+            case "defb":
+            case "defw":
+            case "defs":
+            case "label":
+                macro.body.push(stmt);
+                return [];
+            case "macrocall": return this.compile_macrocall(stmt);
+            case "macrodef":
+                throw "nested macros are not supported";
+            case "endmacro":
+                this.macro = undefined;
+                return [];
+            default:
+                throw "unknown statement type " + stmt.type;
+        }
+    }
     async compile(source) {
         let promises = await Promise.all(source.flatMap(stmt => {
-            switch (stmt.type) {
-                case "comment": return [];
-                case "org": return this.compile_org(stmt);
-                case "phase": return this.compile_phase(stmt);
-                case "endphase": return this.compile_endphase(stmt);
-                case "align": return this.compile_align(stmt);
-                case "block": return this.compile_block(stmt);
-                case "endblock": return this.compile_endblock(stmt);
-                case "bytes": return this.compile_bytes(stmt);
-                case "defb": return this.compile_defx(stmt);
-                case "defw": return this.compile_defx(stmt);
-                case "defs": return this.compile_defs(stmt);
-                case "label": return this.compile_label(stmt);
-                case "include": return this.compile_include(stmt);
-                default:
-                    throw "unknown statement type " + stmt.type;
+            if (this.macro === undefined) {
+                return this.compile_statement(stmt);
+            }
+            else {
+                return this.compile_macro(this.macro, stmt);
             }
         }));
         return promises.flat();
     }
     // finalise compilation, checking for any remaining undefined symbols, unclosed blocks/macros, etc
     finalise() {
+        this.scope.report_unresolved();
         // TODO
     }
     as_byte(val) {
@@ -254,7 +294,14 @@ export class Compiler {
             bytes: this.output.subarray(this.org, this.org + val),
             org: this.org
         };
-        assembly.bytes.fill(0);
+        if (stmt.init !== null) {
+            this.scope.resolve(stmt.init, fill => {
+                assembly.bytes.fill(this.as_byte(fill));
+            });
+        }
+        else {
+            assembly.bytes.fill(0);
+        }
         this.org += val;
         this.phase += val;
         return [assembly];
@@ -263,14 +310,14 @@ export class Compiler {
         // add the label to the appropriate scope
         if (stmt.public) {
             // prevent redefinition
-            if (this.globals.symbols.has(stmt.label)) {
+            if (this.globals.has(stmt.label)) {
                 throw "redefined label " + stmt.label;
             }
             this.globals.set(stmt.label, this.phase);
         }
         else {
             // prevent redefinition
-            if (this.scope.symbols.has(stmt.label)) {
+            if (this.scope.has(stmt.label)) {
                 throw "redefined label " + stmt.label;
             }
             this.scope.set(stmt.label, this.phase);
@@ -285,6 +332,31 @@ export class Compiler {
         const source = await resource.text();
         const stmts = parse(source, { line: 0, source: stmt });
         return this.compile(stmts);
+    }
+    async compile_macrodef(stmt) {
+        this.macro = {
+            params: stmt.params,
+            body: [],
+        };
+        this.macros.set(stmt.macrodef, this.macro);
+        return [];
+    }
+    async compile_macrocall(stmt) {
+        let macro = this.macros.get(stmt.macrocall);
+        if (macro !== undefined) {
+            console.log(stmt.args, macro.params);
+            //this.scope = new MacroScope(this.scope, new Map());
+            let asm = this.compile(macro.body);
+            //this.scope.defer_unresolved();
+            //if (this.scope.outer === undefined) {
+            //throw "that's just weird";
+            //}
+            //this.scope = this.scope.outer;
+            return asm;
+        }
+        else {
+            throw ("undefined macro: " + stmt.macrocall);
+        }
     }
 }
 //# sourceMappingURL=compiler.js.map

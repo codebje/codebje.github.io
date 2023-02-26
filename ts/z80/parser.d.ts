@@ -36,17 +36,13 @@ export interface Align extends Result<"align"> {
 }
 export interface Include extends Result<"include"> {
     include: string;
-    included?: true;
 }
 export interface Incbin extends Result<"incbin"> {
     incbin: string;
-    included?: true;
 }
 export interface MacroCall extends Result<"macrocall"> {
     macrocall: string;
     args: (string | number | Expression)[];
-    params: string[];
-    expanded: boolean;
 }
 export interface Block extends Result<"block"> {
 }
@@ -66,7 +62,8 @@ export interface Equ extends Result<"equ"> {
     equ: Expression;
 }
 export interface Defs extends Result<"defs"> {
-    defs: Expression;
+    defs: string | number | Expression;
+    init: string | number | Expression | null;
 }
 export interface Emitted<T extends StatementType> extends Result<T> {
     bytes: (Expression | Relative | number | null)[];

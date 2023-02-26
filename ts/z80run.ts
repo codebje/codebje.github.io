@@ -47,9 +47,11 @@ function regs(z80: Z80): string {
 class Execution {
     org: number;
     display: JQuery;
+    trace: boolean;
 
-    constructor(org: number, pre: JQuery) {
+    constructor(org: number, pre: JQuery, trace: boolean) {
         this.org = org;
+        this.trace = trace;
         let outer = $('<pre class="console"></pre>').insertAfter(pre);
         this.display = $('<code>CONSOLE OUTPUT:\n</code>').appendTo(outer);
     }
@@ -70,8 +72,8 @@ class Execution {
 class DumpExecution extends Execution {
     dump: { from: number, count: number };
 
-    constructor(org: number, pre: JQuery, from: number, count: number) {
-        super(org, pre);
+    constructor(org: number, pre: JQuery, trace: boolean, from: number, count: number) {
+        super(org, pre, trace);
         this.dump = { from: from, count: count };
     }
 
@@ -138,8 +140,15 @@ class Runner implements Core {
         let state = this.z80.getState();
 
         while (!state.halted && cycles < limit) {
-            //this.trace();
-            cycles = cycles + this.z80.run_instruction();
+            if (this.execution.trace) {
+                let pc = this.z80.getState().pc;
+                let mem = new Memory(pc, this.zmem);
+                let dis = Disasm.disassemble(mem, pc);
+                cycles = cycles + this.z80.run_instruction();
+                this.trace(dis, state);
+            } else {
+                cycles = cycles + this.z80.run_instruction();
+            }
             state = this.z80.getState();
         }
 
@@ -167,16 +176,57 @@ class Runner implements Core {
         }
     }
 
-    trace(): void {
-        let pc = this.z80.getState().pc;
-        let mem = new Memory(pc, this.zmem);
-        let dis = Disasm.disassemble(mem, pc);
-        let trace = $('<span class="co">' + regs(this.z80) + '\n</span>' +
-                      '<span>' + print_bytes(new Uint8Array(dis.bytes)) + '</span> ' + Disasm.syntaxify(dis) +
-                      '<span>\n</span>');
+    trace(dis: Disasm.Instruction | Disasm.Invalid, last: State): void {
+        let pc = hex16(last.pc);
+        let bytes = print_bytes(new Uint8Array(dis.bytes));
+        let instr = $('<span>' + Disasm.syntaxify(dis) + '</span>');
+        let changed = this.diff_state(last, this.z80.getState(), dis.bytes.length);
 
-        //console.log(trace);
+        let ilen = instr.text().length;
+
+        let trace = $('<span>' + pc + ': ' + bytes + '</span>' + instr.html() + ' '.repeat(22 - ilen)
+                      + '<span class="co">; ' + changed + '</span>'
+                      + '<span>\n</span>');
+
         this.execution.append(trace);
+    }
+
+    diff_state(then: State, now: State, len: number): string {
+        let result = []
+
+        if (then.a !== now.a) result.push('A ← ' + hex8(now.a));
+
+        if (then.b !== now.b || then.c !== now.c) result.push('BC ← ' + hex8(now.b) + hex8(now.c));
+        if (then.d !== now.d || then.e !== now.e) result.push('DE ← ' + hex8(now.d) + hex8(now.e));
+        if (then.h !== now.h || then.l !== now.l) result.push('HL ← ' + hex8(now.h) + hex8(now.l));
+        if (then.ix !== now.ix) result.push('IX ← ' + hex16(now.ix));
+        if (then.iy !== now.iy) result.push('IY ← ' + hex16(now.iy));
+        if (then.sp !== now.sp) result.push('SP ← ' + hex16(now.sp));
+
+        if (then.flags.S !== now.flags.S
+            || then.flags.Z !== now.flags.Z
+            || then.flags.H !== now.flags.H
+            || then.flags.P !== now.flags.P
+            || then.flags.N !== now.flags.N
+            || then.flags.C !== now.flags.C) {
+            result.push('F ← ' + [
+                now.flags.S ? 'S' : 's',
+                now.flags.Z ? 'Z' : 'z',
+                '-',
+                now.flags.H ? 'H' : 'h',
+                '-',
+                now.flags.P ? 'P' : 'p',
+                now.flags.N ? 'N' : 'n',
+                now.flags.C ? 'C' : 'c',
+            ].join(''));
+        }
+
+        if (then.pc + len !== now.pc) {
+            result.push('PC ← ' + hex16(now.pc));
+        }
+
+        return result.join(", ");
+
     }
 
 }
@@ -238,6 +288,7 @@ class RunZ80 {
 
             // If the block is marked up as runnable save the location
             if ($(pre).hasClass('run')) {
+                let trace = $(pre).hasClass('trace');
                 let dump = $(pre).attr('class')?.split(/\s+/).filter(s => s.startsWith('dump_'))[0];
                 if (dump !== undefined) {
                     let [_, start, end] = dump.split(/_/);
@@ -264,14 +315,14 @@ class RunZ80 {
                     }
 
                     if (typeof startN === "number" && typeof endN === "number") {
-                        runs.push(new DumpExecution(compiler.org, $(pre), startN, endN));
+                        runs.push(new DumpExecution(compiler.org, $(pre), trace, startN, endN));
                     } else {
-                        let exec = new Execution(compiler.org, $(pre));
+                        let exec = new Execution(compiler.org, $(pre), trace);
                         exec.print('!!! Cannot dump memory: start/end are not resolvable\n');
                         runs.push(exec);
                     }
                 } else {
-                    runs.push(new Execution(compiler.org, $(pre)));
+                    runs.push(new Execution(compiler.org, $(pre), trace));
                 }
             }
 
@@ -311,7 +362,7 @@ class RunZ80 {
         let total_cycles = 0;
 
         let frame = () => {
-            if (++frame_count > 10) {
+            if (++frame_count > 1000) {
                 let pc = runner.z80.getState().pc;
                 run.print('\n!!! Run limit elapsed, halting execution (PC=' + hex16(pc) + ')\n');
                 run.completed(runner.z80, runner.zmem);

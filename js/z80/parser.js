@@ -755,11 +755,12 @@ function peg$parse(input, options) {
         location: loc()
     }
 };
-  var peg$f20 = function(expr) {
+  var peg$f20 = function(expr, init) {
     return {
         type: "defs",
         location: loc(),
-        defs: expr  // note: expression must be evaluable before assigning addresses
+        defs: expr,  // note: expression must be evaluable before assigning addresses
+        init: (init ?? [])[3] ?? null,
     };
 };
   var peg$f21 = function(dbytes) {
@@ -2891,7 +2892,7 @@ function peg$parse(input, options) {
   }
 
   function peg$parseds() {
-    var s0, s1, s2, s3, s4;
+    var s0, s1, s2, s3, s4, s5, s6, s7, s8, s9;
 
     s0 = peg$currPos;
     if (input.charCodeAt(peg$currPos) === 46) {
@@ -2927,8 +2928,40 @@ function peg$parse(input, options) {
       }
       s4 = peg$parseexpr();
       if (s4 !== peg$FAILED) {
+        s5 = peg$currPos;
+        s6 = peg$parsews();
+        if (s6 === peg$FAILED) {
+          s6 = null;
+        }
+        if (input.charCodeAt(peg$currPos) === 44) {
+          s7 = peg$c9;
+          peg$currPos++;
+        } else {
+          s7 = peg$FAILED;
+          if (peg$silentFails === 0) { peg$fail(peg$e12); }
+        }
+        if (s7 !== peg$FAILED) {
+          s8 = peg$parsews();
+          if (s8 === peg$FAILED) {
+            s8 = null;
+          }
+          s9 = peg$parseexpr();
+          if (s9 !== peg$FAILED) {
+            s6 = [s6, s7, s8, s9];
+            s5 = s6;
+          } else {
+            peg$currPos = s5;
+            s5 = peg$FAILED;
+          }
+        } else {
+          peg$currPos = s5;
+          s5 = peg$FAILED;
+        }
+        if (s5 === peg$FAILED) {
+          s5 = null;
+        }
         peg$savedPos = s0;
-        s0 = peg$f20(s4);
+        s0 = peg$f20(s4, s5);
       } else {
         peg$currPos = s0;
         s0 = peg$FAILED;

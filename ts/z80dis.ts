@@ -142,7 +142,7 @@ export function syntaxify(i: Instruction | Invalid): string {
                 case "indirect": return "(" + at(regname(op.reg)) + ")";
                 case "immediate": return bn('$' + op.val.toString(16));
                 case "memory": return "(" + bn('$' + op.loc.toString(16)) + ")";
-                case "indexed": return "(" + at(regname(op.index)) + (op.offset >= 0 ? "+" : "-") + bn('' + Math.abs(op.offset)) + ")";
+                case "indexed": return '(' + at(regname(op.index)) + (op.offset >= 0 ? "+" : "-") + bn('' + Math.abs(op.offset)) + ')';
             }
         }).join(", ");
 
@@ -189,63 +189,77 @@ class Buffer {
 }
 
 interface Disassembler {
-    (buf: Buffer): Operand;
+    (buf: Buffer, opcode: number): Operand;
 }
 
 /* Decode an R register in bits 5:3 */
-function r(buf: Buffer): Operand {
-    return R[(buf.prev() >> 3) & 7];
+function r(_buf: Buffer, opcode: number): Operand {
+    return R[(opcode >> 3) & 7];
 }
 
 /* Decode an R register in bits 2:0 */
-function r_(buf: Buffer): Operand {
-    return R[buf.prev() & 7];
+function r_(_buf: Buffer, opcode:  number): Operand {
+    return R[opcode & 7];
 }
 
 /* Decode an RR register in bits 5:4 */
-function rr(buf: Buffer): Operand {
-    return direct(RR[(buf.prev() >> 4) & 3]);
+function rr(_buf: Buffer, opcode: number): Operand {
+    return direct(RR[(opcode >> 4) & 3]);
 }
 
 /* Decode a stack RR register in bits 5:4 */
-function rr_(buf: Buffer): Operand {
-    return direct([Register.BC, Register.DE, Register.HL, Register.AF][(buf.prev() >> 4) & 3]);
+function rr_(_buf: Buffer, opcode: number): Operand {
+    return direct([Register.BC, Register.DE, Register.HL, Register.AF][(opcode >> 4) & 3]);
 }
 
 /* Decode an immediate byte */
-function n(buf: Buffer): Operand {
+function n(buf: Buffer, _opcode: number): Operand {
     return immediate(buf.next());
 }
 
 /* Decode an immediate memory address */
-function imm_n(buf: Buffer): Operand {
+function imm_n(buf: Buffer, _opcode: number): Operand {
     return memory(buf.next());
 }
 
 /* Decode an immediate word */
-function nn(buf: Buffer): Operand {
+function nn(buf: Buffer, _opcode: number): Operand {
     return immediate(buf.next() + (buf.next() << 8));
 }
 
 /* Decode an immediate memory address */
-function inn(buf: Buffer): Operand {
+function inn(buf: Buffer, _opcode: number): Operand {
     return memory(buf.next() + (buf.next() << 8));
 }
 
 /* Decode a signed 8-bit displacement */
-function d(buf: Buffer): Operand {
+function d(buf: Buffer, _opcode: number): Operand {
     let d = new Int8Array([buf.next()])[0];
     return immediate((buf.org + d + 2) & 0xffff);
 }
 
 /* Decode a condition code in bits 4:3 */
-function cc(buf: Buffer): Operand {
-    return condition((buf.prev() >> 3) & 3);
+function cc(_buf: Buffer, opcode: number): Operand {
+    return condition((opcode >> 3) & 3);
 }
 
 /* Decode a RST target */
-function rst(buf: Buffer): Operand {
-    return immediate(buf.prev() & 0x38);
+function rst(_buf: Buffer, opcode: number): Operand {
+    return immediate(opcode & 0x38);
+}
+
+/* Decode an indexed register displacement */
+function ix_d(buf: Buffer, _opcode: number): Operand {
+    let d = new Int8Array([buf.next()])[0];
+    return indexed(Register.IX, d);
+}
+function iy_d(buf: Buffer, _opcode: number): Operand {
+    let d = new Int8Array([buf.next()])[0];
+    return indexed(Register.IY, d);
+}
+
+interface Resolver {
+    (buf: Buffer): Instruction | Invalid;
 }
 
 type DecodeOperand = Disassembler | Operand;
@@ -253,13 +267,17 @@ type DecodeOperand = Disassembler | Operand;
 type OpcodeTable = {
     mask: number;
     match: number;
-    opcode: string;
+    opcode: Resolver | string;
     operands: DecodeOperand[];
     undoc: boolean;
 }
 
-function opcode(mask: number, match: number, opcode: string, operands: DecodeOperand[], undoc: boolean = false): OpcodeTable {
+function opcode(mask: number, match: number, opcode: Resolver | string, operands: DecodeOperand[], undoc: boolean = false): OpcodeTable {
     return { mask: mask, match: match, opcode: opcode, operands: operands, undoc: undoc };
+}
+
+function invalid(mask: number, match: number): OpcodeTable {
+    return { mask: mask, match: match, opcode: (buf) => { return { bytes: buf.bytes, invalid: true } }, operands: [], undoc: false };
 }
 
 function resolve(buf: Buffer, table: OpcodeTable[]): Instruction | Invalid {
@@ -267,16 +285,20 @@ function resolve(buf: Buffer, table: OpcodeTable[]): Instruction | Invalid {
 
     for (let entry of table) {
         if ((b & entry.mask) === entry.match) {
-            return {
-                opcode: entry.opcode,
-                operands: entry.operands.map(operand => {
-                    if (typeof operand === 'function') {
-                        operand = operand(buf);
-                    }
-                    return operand;
-                }),
-                bytes: buf.bytes,
-                undocumented: entry.undoc
+            if (typeof entry.opcode === 'function') {
+                return entry.opcode(buf);
+            } else {
+                return {
+                    opcode: entry.opcode,
+                    operands: entry.operands.map(operand => {
+                        if (typeof operand === 'function') {
+                            operand = operand(buf, b);
+                        }
+                        return operand;
+                    }),
+                    bytes: buf.bytes,
+                    undocumented: entry.undoc
+                }
             }
         }
     }
@@ -332,13 +354,14 @@ const base_opcodes: OpcodeTable[] = [
     opcode(0xff, 0xc6, "add", [direct(Register.A), n]),
     opcode(0xc7, 0xc7, "rst", [rst]),
     opcode(0xff, 0xc9, "ret", []),
-    // 0xcb prefix
+    opcode(0xff, 0xcb, resolve_cb, []),
     opcode(0xff, 0xcd, "call", [nn]),
     opcode(0xff, 0xce, "adc", [direct(Register.A), n]),
     opcode(0xff, 0xd3, "out", [imm_n, direct(Register.A)]),
     opcode(0xff, 0xd6, "sub", [n]),
     opcode(0xff, 0xd9, "exx", []),
     opcode(0xff, 0xdb, "in", [direct(Register.A), imm_n]),
+    opcode(0xff, 0xdd, resolve_dd, []),
     // 0xdd prefix: IX
     opcode(0xff, 0xde, "sbc", [direct(Register.A), n]),
     opcode(0xff, 0xe3, "ex", [indirect(Register.SP), direct(Register.HL)]),
@@ -351,27 +374,108 @@ const base_opcodes: OpcodeTable[] = [
     opcode(0xff, 0xf6, "or", [n]),
     opcode(0xff, 0xf9, "ld", [direct(Register.SP), direct(Register.HL)]),
     opcode(0xff, 0xfb, "ei", []),
-    // 0xfd prefix
+    opcode(0xff, 0xfd, resolve_fd, []),
     opcode(0xff, 0xfe, "cp", [n]),
 ];
+
+/* TODO: undocumented opcodes */
+const dd_opcodes: OpcodeTable[] = [
+    opcode(0xff, 0x21, "ld", [direct(Register.IX), nn]),
+    opcode(0xff, 0x22, "ld", [inn, direct(Register.IX)]),
+    opcode(0xff, 0x23, "inc", [direct(Register.IX)]),
+    opcode(0xff, 0x2a, "ld", [direct(Register.IX), inn]),
+    opcode(0xff, 0x2b, "inc", [direct(Register.IX)]),
+    opcode(0xff, 0x29, "add", [direct(Register.IX), direct(Register.IX)]),
+    opcode(0xcf, 0x09, "add", [direct(Register.IX), rr]),
+    opcode(0xff, 0x34, "inc", [ix_d]),
+    opcode(0xff, 0x35, "dec", [ix_d]),
+    opcode(0xff, 0x36, "ld", [ix_d, n]),
+    invalid(0xff, 0x76), // ld (ix+d), (ix+d)
+    opcode(0xc7, 0x46, "ld", [r, ix_d]),
+    opcode(0xf8, 0x70, "ld", [ix_d, r]),
+    opcode(0xff, 0x86, "add", [direct(Register.A), ix_d]),
+    opcode(0xff, 0x8e, "adc", [direct(Register.A), ix_d]),
+    opcode(0xff, 0x96, "sub", [ix_d]),
+    opcode(0xff, 0x9e, "sbc", [direct(Register.A), ix_d]),
+    opcode(0xff, 0xa6, "and", [ix_d]),
+    opcode(0xff, 0xae, "xor", [ix_d]),
+    opcode(0xff, 0xb6, "or", [ix_d]),
+    opcode(0xff, 0xbe, "cp", [ix_d]),
+
+    opcode(0xff, 0xe1, "pop", [direct(Register.IX)]),
+    opcode(0xff, 0xe3, "ex", [indirect(Register.SP), direct(Register.IX)]),
+    opcode(0xff, 0xe5, "push", [direct(Register.IX)]),
+    opcode(0xff, 0xe9, "jp", [indirect(Register.IX)]),
+    opcode(0xff, 0xf9, "ld", [direct(Register.SP), direct(Register.IX)]),
+];
+
+/* TODO: undocumented opcodes */
+const fd_opcodes: OpcodeTable[] = [
+    opcode(0xff, 0x21, "ld", [direct(Register.IY), nn]),
+    opcode(0xff, 0x22, "ld", [inn, direct(Register.IY)]),
+    opcode(0xff, 0x23, "inc", [direct(Register.IY)]),
+    opcode(0xff, 0x2a, "ld", [direct(Register.IY), inn]),
+    opcode(0xff, 0x2b, "inc", [direct(Register.IY)]),
+    opcode(0xff, 0x29, "add", [direct(Register.IY), direct(Register.IY)]),
+    opcode(0xcf, 0x09, "add", [direct(Register.IY), rr]),
+    opcode(0xff, 0x34, "inc", [iy_d]),
+    opcode(0xff, 0x35, "dec", [iy_d]),
+    opcode(0xff, 0x36, "ld", [iy_d, n]),
+    invalid(0xff, 0x76), // ld (iy+d), (iy+d)
+    opcode(0xc7, 0x46, "ld", [r, iy_d]),
+    opcode(0xf8, 0x70, "ld", [iy_d, r]),
+    opcode(0xff, 0x86, "add", [direct(Register.A), iy_d]),
+    opcode(0xff, 0x8e, "adc", [direct(Register.A), iy_d]),
+    opcode(0xff, 0x96, "sub", [iy_d]),
+    opcode(0xff, 0x9e, "sbc", [direct(Register.A), iy_d]),
+    opcode(0xff, 0xa6, "and", [iy_d]),
+    opcode(0xff, 0xae, "xor", [iy_d]),
+    opcode(0xff, 0xb6, "or", [iy_d]),
+    opcode(0xff, 0xbe, "cp", [iy_d]),
+
+    opcode(0xff, 0xe1, "pop", [direct(Register.IY)]),
+    opcode(0xff, 0xe3, "ex", [indirect(Register.SP), direct(Register.IY)]),
+    opcode(0xff, 0xe5, "push", [direct(Register.IY)]),
+    opcode(0xff, 0xe9, "jp", [indirect(Register.IY)]),
+    opcode(0xff, 0xf9, "ld", [direct(Register.SP), direct(Register.IY)]),
+];
+
+function resolve_dd(buf: Buffer): Instruction | Invalid {
+    return resolve(buf, dd_opcodes);
+}
+
+function resolve_fd(buf: Buffer): Instruction | Invalid {
+    return resolve(buf, fd_opcodes);
+}
+
+function resolve_cb(buf: Buffer): Instruction | Invalid {
+    let b = buf.next();
+
+    // Everything has an 8-bit register argument
+    let reg = r_(buf, b);
+
+    if (b < 0x40) {
+        return {
+            opcode: ["rlc", "rrc", "rl", "rr", "sla", "sra", "sll", "srl"][b >> 3],
+            operands: [reg],
+            bytes: buf.bytes,
+            undocumented: (b >> 3) == 0x30,
+        }
+    } else {
+        let bit = (b >> 3) & 7;
+        return {
+            opcode: ["bit", "res", "set"][(b >> 6) - 1],
+            operands: [immediate(bit), reg],
+            bytes: buf.bytes,
+            undocumented: false
+        }
+    }
+
+}
 
 export function disassemble(mem: Memory, pc: number): Instruction | Invalid {
     let buf = new Buffer(mem, pc);
 
-    let result = resolve(buf, base_opcodes);
-
-    if (isInvalid(result)) {
-        switch (buf.first()) {
-            // deal with prefixes
-            case 0xcb:
-            case 0xdd:
-            case 0xed:
-            case 0xfd:
-            default:
-                return { bytes: buf.bytes, invalid: true };
-        }
-    } else {
-        return result;
-    }
+    return resolve(buf, base_opcodes);
 }
 

@@ -97,5 +97,12 @@ export class Scope {
             this.waiting = new Map();
         }
     }
+    // report any remaining unresolved references
+    report_unresolved() {
+        if (this.waiting.size !== 0) {
+            console.log(this.waiting.keys());
+            throw "Unresolved symbol(s)";
+        }
+    }
 }
 //# sourceMappingURL=scope.js.map

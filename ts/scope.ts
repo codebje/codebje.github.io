@@ -129,4 +129,13 @@ export class Scope {
             this.waiting = new Map();
         }
     }
+
+    // report any remaining unresolved references
+    report_unresolved(): void {
+        if (this.waiting.size !== 0) {
+            console.log(this.waiting.keys());
+            throw "Unresolved symbol(s)";
+        }
+    }
+
 }
