@@ -9,7 +9,7 @@
     <link rel="stylesheet" type="text/css" href="./css/animation.css">
     <link rel="stylesheet" type="text/css" href="./css/syntax.css">
     <link rel="stylesheet" type="text/css" href="./css/saucecodepro-nerd-font-mono.css">
-    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300,600|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
     <link rel="alternate" type="application/atom+xml" title="Typed Out" href="./atom.xml" />
@@ -45,6 +45,29 @@
     <div class="page-content">
       <div class="wrapper">
         
+  <section class="anim fadeinup">
+    <header class="post-header">
+      
+        <img class="post-logo" src="images/trs80.jpg">
+      
+      <h1 class="post-title"><a href="./posts/2023-02-26-aoc-z80-day04.html" class="plain">Advent of Z80 - Day 4, 2022</a></h1>
+      <p class="post-meta">February 26, 2023 • bje</p>
+    </header>
+
+    <article class="post-content">
+      <a href="./posts/2023-02-26-aoc-z80-day04.html"><img class="post-hero" src="./images/banners/messy-campsites.png"></a>
+      
+        <div class="post-hero-note">"An oil painting of a messy campsite with crates everywhere.", <a href="https://craiyon.com">Craiyon</a>.</div>
+      
+      
+        <p>The Advent of Z80 continues with the Elves cleaning up their campsite and me using a different AI image generator for my banner.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY04</span></code></pre></div>
+
+        <a href="./posts/2023-02-26-aoc-z80-day04.html">Read more…</a>
+      
+    </article>
+  </section>
+
   <section class="anim fadeinup">
     <header class="post-header">
       
@@ -91,29 +114,6 @@
     </article>
   </section>
 
-  <section class="anim fadeinup">
-    <header class="post-header">
-      
-        <img class="post-logo" src="images/trs80.jpg">
-      
-      <h1 class="post-title"><a href="./posts/2023-01-15-aoc-z80-day01.html" class="plain">Advent of Z80 - Day 1, 2022</a></h1>
-      <p class="post-meta">January 15, 2023 • bje</p>
-    </header>
-
-    <article class="post-content">
-      <a href="./posts/2023-01-15-aoc-z80-day01.html"><img class="post-hero" src="./images/banners/pcb-advent.png"></a>
-      
-        <div class="post-hero-note">The 12 components of Christmas? Original design. <a href="https://creativecommons.org/licenses/by-sa/2.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/2.0/80x15.png?zoom=2&w=700"></a></div>
-      
-      
-        <p>This post is the first in a series of articles implementing solutions for the 2022 Advent of Code in Z80 assembly. The series aims to show some examples of programming in Z80 assembly and help newcomers to assembly language begin to think about programs from the assembly perspective, and will focus less on finding clever AoC solutions and more on producing understandable assembly code.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY01</span></code></pre></div>
-
-        <a href="./posts/2023-01-15-aoc-z80-day01.html">Read more…</a>
-      
-    </article>
-  </section>
-
 
 <a href="archive.html">Older posts</a>
 
@@ -140,14 +140,13 @@
     </footer>
 
     <script>
-      (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
-        (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
-        m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
-      })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
-      ga('create', 'UA-68687928-1', 'auto');
-      ga('send', 'pageview');
+        MathJax = {
+            chtml: {
+                matchFontHeight: false,
+            }
+        };
     </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
   </body>
   <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

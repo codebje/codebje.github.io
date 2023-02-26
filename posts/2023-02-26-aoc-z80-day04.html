@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - Advent of Z80 - Day 4, 2022</title>
+    <link rel="stylesheet" type="text/css" href="../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../css/saucecodepro-nerd-font-mono.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300,600|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    <link rel="stylesheet" type="text/css" href="../css/literate.css">
+    
+    <script defer src="../js/Z80.js" type="text/javascript"></script>
+    <script type="module" src="../js/z80run.js" type="text/javascript"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../about.html">About</a>
+            <a class="page-link" href="../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../images/trs80.jpg">
+  
+  <h1 class="post-title">Advent of Z80 - Day 4, 2022</h1>
+  <p class="post-meta">February 26, 2023 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../images/banners/messy-campsites.png">
+
+  <div class="post-hero-note">"An oil painting of a messy campsite with crates everywhere.", <a href="https://craiyon.com">Craiyon</a>.</div>
+
+
+  <p>The Advent of Z80 continues with the Elves cleaning up their campsite and me using a different AI image generator for my banner.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY04</span></code></pre></div>
+<!--more-->
+<p>Today I am going to be a little bit cheeky and write the Star 1 solution already knowing how Star 2 will differ such that I can re-use the vast bulk of the code. Don’t be too outraged though - when solving these puzzles I’ll often tweak a Star 1 solution to support the added Star 2 requirements, and no-one is reading these posts in the belief that they’re the transcript of a live coding session. In fact, as far as I am aware no-one is reading these posts at all.</p>
+<p>And that’s okay: blogging like this is not about you, dear hypothetical reader. It’s about me and my desires to marshal my thoughts more clearly.</p>
+<p>The problem for today is filtering lists of pairs of number ranges; the star 1 predicate will match only pairs where one range fully contains the other, while the star 2 predicate will match only pairs where one range overlaps the other. The result in both cases is a count of matching pairs.</p>
+<p>A high level solution might read something like:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode java"><code class="sourceCode java"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>    input<span class="op">.</span><span class="fu">stream</span><span class="op">()</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>         <span class="op">.</span><span class="fu">filter</span><span class="op">(</span>predicate<span class="op">)</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>         <span class="op">.</span><span class="fu">count</span><span class="op">()</span></span></code></pre></div>
+<p>A decent compiler should be able to perform stream fusion on a bit of code like this, recognising that the intermediate list isn’t needed for the final output and effectively only maintaining a count of how many elements matched the filter predicate. That’s exactly what I will write in assembler: a subroutine taking an input list and a predicate and returning the count of matching elements in the list.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   IX      the input range pairs</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">;       HL      a predicate function to apply to pairs</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  DE      the number of matching pairs</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">@COUNT_FILTER:</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">af</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">ix</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, <span class="bn">0</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, <span class="bn">4</span>   <span class="co">; for ADD IX, BC</span></span></code></pre></div>
+<p>The <code class="sourceCode label"><span class="fu">COUNT_FILTER</span></code> subroutine will be the workhorse of day 4. Its input data consists of four bytes per pair, with all input numbers ranging between 1 and 99 inclusive. As with other days the end of the input will be marked by a zero byte. Its predicate function will take an input address in <code class="sourceCode z80"><span class="at">IX</span></code> and set the zero flag if the predicate matches.</p>
+<p>Why does the predicate set the zero flag on a match? Returning a boolean value from a subroutine will either set some register to a “truthy” value such as zero for false and non-zero for true, or set a flag to indicate the answer. If it’s a register the caller is almost certainly going to want to test the register to set a flag anyway, because the Z80’s conditional execution flows depend on flags. I may as well use a flag directly. I still need to figure out which flag to use, and which value of the flag means “true”. In this case I chose to use the zero flag and have it set when the predicate matches, to make the code I write for the predicates a bit simpler.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">LOOP:</span>   <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE</span></code></pre></div>
+<p>The Z80 has nine ways to call a subroutine: eight conditional calls and one unconditional call. All nine of them take an immediate address as the subroutine destination. Calling a dynamic address isn’t possible. What is possible, though, is jumping to a dynamic address. There are twelve ways to jump to another location, the same nine as for calling another location plus <code class="sourceCode z80"><span class="bu">JP</span> (<span class="at">HL</span>)</code>, <code class="sourceCode z80"><span class="bu">JP</span> (<span class="at">IX</span>)</code> and <code class="sourceCode z80"><span class="bu">JP</span> (<span class="at">IY</span>)</code>, each of which jump to the given register’s location. The only difference between a <code class="sourceCode z80"><span class="bu">CALL</span></code> and a <code class="sourceCode z80"><span class="bu">JP</span></code> is that the processor pushes the program counter onto the stack before jumping for a <code class="sourceCode z80"><span class="bu">CALL</span></code> - so to emulate a <code class="sourceCode z80"><span class="bu">CALL</span></code> with a <code class="sourceCode z80"><span class="bu">JP</span></code> I only have to push the desired return address first. A quick and easy way to do that is to <code class="sourceCode z80"><span class="bu">CALL</span></code> something, which pushes the address of the following instruction. If the <code class="sourceCode z80"><span class="bu">CALL</span></code> destination is a single instruction to <code class="sourceCode z80"><span class="bu">JP</span> (<span class="at">HL</span>)</code> the processor will wind up with the program counter set to <code class="sourceCode z80"><span class="at">HL</span></code> and the stack containing the desired return address. An additional 17 cycles are used for the indirection, so another option is to set some unused 16-bit register to the desired return address and just <code class="sourceCode z80"><span class="bu">PUSH</span></code> that. The downside to this is you need to reserve one of the few 16-bit registers available just for that purpose, and the Z80 does not have many to use. A <code class="sourceCode z80"><span class="bu">PUSH</span> <span class="at">IY</span></code> is 15 cycles, so it would be fractionally faster to load the return address into <code class="sourceCode z80"><span class="at">IY</span></code> outside the loop. It’s more common, however, to do an indirect <code class="sourceCode z80"><span class="bu">CALL</span></code> and not need the additional register, so that’s what I’m doing.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    BOUNCE</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">ix</span>, <span class="at">bc</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        <span class="co">; if the predicate sets ZF, it matched</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, LOOP</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">de</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      LOOP</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="fu">BOUNCE:</span> <span class="bu">jp</span>      (<span class="at">hl</span>)</span></code></pre></div>
+<p>One useful fact about the Z80’s 16-bit addition is that it doesn’t set the zero, sign, or overflow flags. It makes use of the same 4-bit adder as the 8-bit addition instructions, so it’s not clear to me why those flags aren’t also set for 16-bit operands: it may be because the hardware implementation would be difficult, or it may be by design. Either way I can throw in the “+4” operation without resetting the zero flag that should be set or reset by the predicate subroutine.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">call</span>    PRINT16</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">ix</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">af</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>With that done all that remains is to throw together the two predicates required. The first is a “contains” test, which is true if the start and end of one range is greater than or equal and less than or equal the start and end of the other range, respectively.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   IX      the range pair to test</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  ZF      set if one range contains the other</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       A       clobbered</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="fu">@CONTAINS:</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">; compare the two starts</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      (<span class="at">ix</span>+<span class="bn">2</span>)</span></code></pre></div>
+<p>Having done a <code class="sourceCode z80"><span class="bu">CP</span></code> on the two start values one of three conditions will be true. The left range might start before, at the same point as, or after the right range. A shortcut here is that if the two ranges start at the same point one <em>must</em> contain the other: at least one of the two will be smaller than or equal to the other. Using <code class="sourceCode z80"><span class="bu">RET</span> Z</code> immediately returns if the zero flag is set.</p>
+<p>If the two start values are not equal the carry flag will be set if the right range’s start value is larger than the left range’s start value. This determines whether I want to check if the left range’s end value is larger than or smaller than the right range’s end value, which is managed by figuring out which one to compare to the other.</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>        <span class="co">; if the starts are equal, one range definitely contains the other</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span>     z</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">; CF is set if B.start &gt; A.start</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, TEST<span class="bn">_</span>B</span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">; test B.end - A.end</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">3</span>)</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      (<span class="at">ix</span>+<span class="bn">1</span>)</span></code></pre></div>
+<p>At this point the carry flag will be set if the end of the second range is past the end of the first range. What I want, though, is to set the zero flag if the end of the second range is less than or equal to the end of the first range. I could do some fussing about conditionally jumping and doing things to set or reset the zero flag, but instead what I will do is clear <code class="sourceCode z80"><span class="at">A</span></code> to zero without touching the carry flag, then rotate the carry flag into <code class="sourceCode z80"><span class="at">A</span></code> using <code class="sourceCode z80"><span class="bu">RL</span> <span class="at">A</span></code> - not <code class="sourceCode z80"><span class="bu">RLA</span></code>, which doesn’t change the zero flag. This sets bit zero of <code class="sourceCode z80"><span class="at">A</span></code> equal to the carry flag, setting the zero flag to the inverse of the carry flag.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ENDS:</span>   <span class="bu">ld</span>      <span class="at">a</span>, <span class="bn">0</span>    <span class="co">; don't touch carry</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">rl</span>      <span class="at">a</span>       <span class="co">; A=CF</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
+<p>If the right range started after the left range, just invert the order of the operands for the comparison.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">TEST_B:</span> <span class="co">; test A.end - B.end</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      (<span class="at">ix</span>+<span class="bn">3</span>)</span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      ENDS</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>I would like to satisfy myself that this is running more or less to plan, so here’s an execution trace calling the <code class="sourceCode label"><span class="fu">CONTAINS</span></code> subroutine for the first input range <code>2-4,6-8</code>.</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode z80 run trace"><code class="sourceCode z80"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">8000h</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, DATA</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    CONTAINS</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="fu">DATA:</span>   db      <span class="bn">2</span>, <span class="bn">4</span>, <span class="bn">6</span>, <span class="bn">8</span></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>The trace shows the first comparison (<span class="math inline">\(2 - 6\)</span>) resets ZF and sets CF, because <span class="math inline">\(6 &gt; 2\)</span>. The <code class="sourceCode z80"><span class="bu">RET</span> Z</code> shortcut does not apply, and the set carry flag indicates <code>A.start &lt; B.start</code>. The code jumps to <code class="sourceCode label"><span class="fu">TEST_B</span></code> which computes the flags for <code>A.end - B.end</code> (in this case, <span class="math inline">\(4 - 8\)</span>). The carry flag is set because <code>B.end</code> is greater than <code>A.end</code>, and the code jumps to inverting the carry flag into the zero flag with a rotate. The zero flag is cleared, and the subroutine returns with the right answer delivered.</p>
+<p>With that looking good, I can produce the answer for star 1:</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">STAR1:</span>  <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">8000h</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, SAMPLE</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, CONTAINS</span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    COUNT<span class="bn">_</span>FILTER</span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
+<p>The predicate for star 2 checks whether the ranges overlap. The difference between a “contains” check and an “overlaps” check is only the order in which the pieces are compared. For “contains” I want the start of one range to be before the start of the other and the end of the range to be after the end other, while for “overlaps” I want the start of one range to be before the end of the other and the end of the range to be after the start of the other. Consider a high level expression of this convoluted sentence:</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode python"><code class="sourceCode python"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>contains <span class="op">=</span> (a.start <span class="op">&lt;=</span> b.start <span class="kw">and</span> a.end <span class="op">&gt;=</span> b.end)</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>        <span class="kw">or</span> (b.start <span class="op">&lt;=</span> a.start <span class="kw">and</span> b.end <span class="op">&gt;=</span> a.end)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>overlaps <span class="op">=</span> (a.start <span class="op">&lt;=</span> b.end <span class="kw">and</span> a.end <span class="op">&gt;=</span> b.start)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">or</span> (b.start <span class="op">&lt;=</span> a.end <span class="kw">and</span> b.end <span class="op">&gt;=</span> a.start)</span></code></pre></div>
+<p>Translating this to Z80 assembly just means taking a copy of <code class="sourceCode label"><span class="fu">CONTAINS</span></code> and changing the displacement added to <code class="sourceCode z80"><span class="at">IX</span></code> for the loads and compares:</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   IX      the range pair to test</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  ZF      set if one range overlaps the other</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       A       clobbered</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="fu">@OVERLAPS:</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>        <span class="co">; A.start &lt;= B.end ?</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      (<span class="at">ix</span>+<span class="bn">3</span>)</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">; If equal the ranges overlap</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span>     z</span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">; CF is set if B.end &gt; A.start</span></span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, TEST<span class="bn">_</span>B</span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">; test A.end &gt;= B.start</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">2</span>)</span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">; cf set if B.start &gt; A.end</span></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a><span class="fu">ENDS:</span>   <span class="bu">ld</span>      <span class="at">a</span>, <span class="bn">0</span>    <span class="co">; don't touch carry</span></span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">rl</span>      <span class="at">a</span>       <span class="co">; A=CF</span></span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a><span class="fu">TEST_B:</span> <span class="co">; test B.start &gt;= A.end</span></span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      (<span class="at">ix</span>+<span class="bn">2</span>)</span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      ENDS</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>The second star just calls the new predicate:</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">STAR2:</span>  <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">8000h</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, SAMPLE</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, OVERLAPS</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    COUNT<span class="bn">_</span>FILTER</span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
+<p>Today I will also run both parts on my full puzzle input, which is tucked away in an include file.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DAY04:</span>  <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">8000h</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, INPUT</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, CONTAINS</span>
+<span id="cb16-4"><a href="#cb16-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    COUNT<span class="bn">_</span>FILTER</span>
+<span id="cb16-5"><a href="#cb16-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">'\n'</span></span>
+<span id="cb16-6"><a href="#cb16-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb16-7"><a href="#cb16-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, OVERLAPS</span>
+<span id="cb16-8"><a href="#cb16-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    COUNT<span class="bn">_</span>FILTER</span>
+<span id="cb16-9"><a href="#cb16-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">'\n'</span></span>
+<span id="cb16-10"><a href="#cb16-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb16-11"><a href="#cb16-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb16-12"><a href="#cb16-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb16-13"><a href="#cb16-13" aria-hidden="true" tabindex="-1"></a>.<span class="dt">include</span>        <span class="st">&quot;day04-input.z80&quot;</span></span></code></pre></div>
+<p>You will have to take my word for it that these two answers were correct.</p>
+<p>And to wrap up, here’s the include of <code class="sourceCode label"><span class="fu">PRINT16</span></code> and the sample input for the day.</p>
+<div class="sourceCode" id="cb17"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>.<span class="dt">include</span>        <span class="st">&quot;print16.z80&quot;</span></span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="fu">SAMPLE:</span> db      <span class="bn">2</span>, <span class="bn">4</span>, <span class="bn">6</span>, <span class="bn">8</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">2</span>, <span class="bn">3</span>, <span class="bn">4</span>, <span class="bn">5</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">5</span>, <span class="bn">7</span>, <span class="bn">7</span>, <span class="bn">9</span></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">2</span>, <span class="bn">8</span>, <span class="bn">3</span>, <span class="bn">7</span></span>
+<span id="cb17-7"><a href="#cb17-7" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">6</span>, <span class="bn">6</span>, <span class="bn">4</span>, <span class="bn">6</span></span>
+<span id="cb17-8"><a href="#cb17-8" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">2</span>, <span class="bn">6</span>, <span class="bn">4</span>, <span class="bn">8</span></span>
+<span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">0</span></span></code></pre></div>
+<h2 id="the-series">The series</h2>
+<blockquote>
+<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <strong>Day 4</strong> | Day 5 |
+Day 6 | Day 7 | Day 8 | Day 9 | Day 10 |
+Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
+Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
+Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
+</blockquote>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+        MathJax = {
+            chtml: {
+                matchFontHeight: false,
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
+</html>
