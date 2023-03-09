@@ -18,6 +18,11 @@ type Compiled = {
     assemblies: Assembly[];
 };
 
+type Dump = {
+    from: number,
+    count: number
+};
+
 function regs(z80: Z80): string {
     let state = z80.getState();
 
@@ -48,16 +53,38 @@ class Execution {
     org: number;
     display: JQuery;
     trace: boolean;
+    dumps: Dump[];
 
-    constructor(org: number, pre: JQuery, trace: boolean) {
+    constructor(org: number, pre: JQuery, trace: boolean, dumps: Dump[]) {
         this.org = org;
         this.trace = trace;
+        this.dumps = dumps;
         let outer = $('<pre class="console"></pre>').insertAfter(pre);
         this.display = $('<code>CONSOLE OUTPUT:\n</code>').appendTo(outer);
     }
 
-    completed(z80: Z80, _zmem: Uint8Array): void {
+    completed(z80: Z80, zmem: Uint8Array): void {
         this.print(regs(z80) + '\n');
+        for (let dump of this.dumps) {
+            this.print('\n');
+            for (let i = 0; i < dump.count; i += 16) {
+                this.print(hex16(dump.from + i) + ': ');
+                let row = Math.min(16, dump.count - i);
+                for (let j = 0; j < row; j++) {
+                    this.print(hex8(zmem[dump.from + i + j]) + ' ');
+                }
+                this.print('   '.repeat(16 - row) + '  ');
+                for (let j = 0; j < row; j++) {
+                    let c = zmem[dump.from + i + j];
+                    if (c < 32 || c > 126) {
+                        this.print('.');
+                    } else {
+                        this.print(String.fromCharCode(c));
+                    }
+                }
+                this.print('\n');
+            }
+        }
     }
 
     print(s: string) {
@@ -68,37 +95,6 @@ class Execution {
         this.display.append(stuff);
     }
 };
-
-class DumpExecution extends Execution {
-    dump: { from: number, count: number };
-
-    constructor(org: number, pre: JQuery, trace: boolean, from: number, count: number) {
-        super(org, pre, trace);
-        this.dump = { from: from, count: count };
-    }
-
-    completed(z80: Z80, zmem: Uint8Array): void {
-        super.completed(z80, zmem);
-        this.print('\n');
-        for (let i = 0; i <= this.dump.count; i += 16) {
-            this.print(hex16(this.dump.from + i) + ': ');
-            let row = Math.min(16, this.dump.count - i);
-            for (let j = 0; j < row; j++) {
-                this.print(hex8(zmem[this.dump.from + i + j]) + ' ');
-            }
-            this.print('   '.repeat(16 - row) + '  ');
-            for (let j = 0; j < row; j++) {
-                let c = zmem[this.dump.from + i + j];
-                if (c < 32 || c > 126) {
-                    this.print('.');
-                } else {
-                    this.print(String.fromCharCode(c));
-                }
-            }
-            this.print('\n');
-        }
-    }
-}
 
 type RunResult = {
     halted: boolean;
@@ -289,41 +285,39 @@ class RunZ80 {
             // If the block is marked up as runnable save the location
             if ($(pre).hasClass('run')) {
                 let trace = $(pre).hasClass('trace');
-                let dump = $(pre).attr('class')?.split(/\s+/).filter(s => s.startsWith('dump_'))[0];
-                if (dump !== undefined) {
-                    let [_, start, end] = dump.split(/_/);
+                let dumps = ($(pre).attr('class') ?? "").split(/\s+/)
+                    .filter(s => s.startsWith('dump_'))
+                    .map(s => s.split(/_/))
+                    .flatMap(parts => {
+                        let [_, start, end] = parts;
 
-                    let startN = compiler.scope.resolve_immediate({
-                        expression: start,
-                        vars: [start],
-                        location: { line: 0, column: 0, source: $(pre) }
-                    });
-
-                    // dump_<symbol>_<int> dumps from <symbol> for <int> bytes
-                    // dump_<symbolA>_<symbolB> dumps from <sybolA> to <symbolB>
-
-                    let endN: number | string | Unresolved = Number(end);
-                    if (isNaN(endN)) {
-                        endN = compiler.scope.resolve_immediate({
-                            expression: end,
-                            vars: [end],
+                        let startN = compiler.scope.resolve_immediate({
+                            expression: start,
+                            vars: [start],
                             location: { line: 0, column: 0, source: $(pre) }
                         });
-                        if (typeof endN === "number" && typeof startN === "number") {
-                            endN = endN - startN;
-                        }
-                    }
 
-                    if (typeof startN === "number" && typeof endN === "number") {
-                        runs.push(new DumpExecution(compiler.org, $(pre), trace, startN, endN));
-                    } else {
-                        let exec = new Execution(compiler.org, $(pre), trace);
-                        exec.print('!!! Cannot dump memory: start/end are not resolvable\n');
-                        runs.push(exec);
-                    }
-                } else {
-                    runs.push(new Execution(compiler.org, $(pre), trace));
-                }
+                        let endN: number | string | Unresolved = Number(end);
+                        if (isNaN(endN)) {
+                            endN = compiler.scope.resolve_immediate({
+                                expression: end,
+                                vars: [end],
+                                location: { line: 0, column: 0, source: $(pre) }
+                            });
+                            if (typeof endN === "number" && typeof startN === "number") {
+                                endN = endN - startN;
+                            }
+                        }
+
+                        if (typeof startN === "number" && typeof endN === "number") {
+                            return [{from: startN, count: endN}];
+                        } else {
+                            console.log('!!! Cannot dump memory: start/end are not resolvable\n');
+                            return [];
+                        }
+                    });
+                let exec = new Execution(compiler.org, $(pre), trace, dumps);
+                runs.push(exec);
             }
 
             // Iterate over each line of source

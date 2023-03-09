@@ -26,11 +26,14 @@ export class Scope {
     outer?: Scope;
     symbols: Map<string, Value>;
     waiting: Map<string, ToResolve[]>;
+    overlays: Map<string, Value>[];
+
 
     constructor(outer?: Scope) {
         this.outer = outer;
         this.symbols = new Map();
         this.waiting = new Map();
+        this.overlays = [];
     }
 
     has(symbol: string): boolean {
@@ -38,7 +41,9 @@ export class Scope {
     }
 
     lookup(symbol: string): Value | undefined {
-        return this.symbols.get(symbol) ?? this.outer?.lookup(symbol);
+        return this.overlays.find(tab => tab.has(symbol))?.get(symbol)
+            ?? this.symbols.get(symbol)
+            ?? this.outer?.lookup(symbol);
     }
 
     lookup_resolved(symbol: string): number | string | undefined {
@@ -92,11 +97,12 @@ export class Scope {
         }
     }
 
-    set(symbol: string, value: number): Resolved[]  {
+    set(symbol: string, value: Value): Resolved[]  {
         this.symbols.set(symbol, value);
 
         let resolved: Resolved[] = [];
-        if (this.waiting.has(symbol)) {
+
+        if ((typeof value === "number" || typeof value === "string") && this.waiting.has(symbol)) {
             for (let unresolved of this.waiting.get(symbol) ?? []) {
                 unresolved.known[symbol] = value;
                 unresolved.unknown.delete(symbol);
@@ -136,6 +142,16 @@ export class Scope {
             console.log(this.waiting.keys());
             throw "Unresolved symbol(s)";
         }
+    }
+
+    // push a symbol overlay onto the overlay stack
+    push_overlay(overlay: Map<string, Value>): void {
+        this.overlays.push(overlay);
+    }
+
+    // pop a symbol overlay
+    pop_overlay(): void {
+        this.overlays.pop();
     }
 
 }

@@ -1,7 +1,7 @@
 import { Align, Org, Phase, EndPhase, Block, EndBlock, Bytes, Expression, Relative, AnyResult, Label,
          Defw, Defb, Defs, Include, MacroDef, MacroCall, parse }
     from './z80/parser.js';
-import { Scope, RefUpdater } from './scope.js';
+import { Scope, Value, RefUpdater } from './scope.js';
 
 function isRelative(v: null | string | number | Expression | Relative): v is Relative {
     return (v as Relative)?.relative !== undefined;
@@ -237,7 +237,7 @@ export class Compiler {
         let sizing = stmt.type === "defb" ? 1 : 2;
 
         // take a pass through the bytes resolving expressions and expanding strings
-        let bytes = stmt.bytes.flatMap(byte => {
+        let bytes = stmt.bytes.filter(byte => byte !== null).flatMap(byte => {
             // If an expression is resolvable now, do so
             if (isExpression(byte)) {
                 let value = this.scope.resolve_immediate(byte);
@@ -404,14 +404,18 @@ export class Compiler {
     private async compile_macrocall(stmt: MacroCall): Promise<Assembly[]> {
         let macro = this.macros.get(stmt.macrocall);
         if (macro !== undefined) {
-            console.log(stmt.args, macro.params);
-            //this.scope = new MacroScope(this.scope, new Map());
+            if (stmt.args?.length !== macro.params?.length) {
+                throw "invalid number of args for macro call";
+            }
+
+            let args = new Map<string, Value>();
+            for (let i = 0; i < macro.params?.length ?? 0; i++) {
+                args.set(macro.params[i], stmt.args[i]);
+            }
+
+            this.scope.push_overlay(args);
             let asm = this.compile(macro.body);
-            //this.scope.defer_unresolved();
-            //if (this.scope.outer === undefined) {
-                //throw "that's just weird";
-            //}
-            //this.scope = this.scope.outer;
+            this.scope.pop_overlay();
             return asm;
         } else {
             throw("undefined macro: " + stmt.macrocall);
