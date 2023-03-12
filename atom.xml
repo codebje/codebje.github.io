@@ -8,8 +8,356 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2023-02-26T00:00:00Z</updated>
+    <updated>2023-03-12T00:00:00Z</updated>
     <entry>
+    <title>Advent of Z80 - Day 5, 2022</title>
+    <link href="https://bje.id.au/blog/posts/2023-03-12-aoc-z80-day05.html" />
+    <id>https://bje.id.au/blog/posts/2023-03-12-aoc-z80-day05.html</id>
+    <published>2023-03-12T00:00:00Z</published>
+    <updated>2023-03-12T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Today’s puzzle is about stacks. The text of the puzzle is about a giant cargo crane moving crates around, but the implementation is going to focus on stack behaviours.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY05</span></code></pre></div>
+<!--more-->
+<p>The Z80 has a stack built right in to the processor’s instruction set. There’s a special stack pointer register and specific instructions to move values to and from the stack. But it’s always “the” stack, never “a” stack: if you want multiple stacks the CPU no longer has anything special to help you out.</p>
+<p>The challenge posed on day 5 is to execute a series of movements from one stack to another. Each movement specifies the source, the destination, and a count. Star 1 moves one item at a time, while star 2 moves crates as a set - star 1 will reverse the order of a pile of crates moved in one step while star 2 will not.</p>
+<p>The general problem will be to have a set of stacks of varying lengths, and to move bytes between them. A simple approach is to simply align each stack to some boundary, accepting a rather high overhead per stack. For my own input it’s more than enough to reserve 64 bytes for each stack and use up to 16 stacks, for 1KiB total space. To reduce overhead it would become necessary to move stacks around in memory, and it’s very likely the code required to do that would creep up to the same overhead as the stacks themselves.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.align</span>  <span class="bn">64</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">STACKS:</span> <span class="kw">defs</span>    <span class="bn">16</span>*<span class="bn">64</span>, <span class="st">&quot; &quot;</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="fu">PTRS:</span>   dw      STACKS+(<span class="bn">64</span>*<span class="bn">0</span>)</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">1</span>)</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">2</span>)</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">3</span>)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">4</span>)</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">5</span>)</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">6</span>)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">7</span>)</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">8</span>)</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">9</span>)</span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">10</span>)</span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">11</span>)</span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">12</span>)</span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">13</span>)</span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">14</span>)</span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        dw      STACKS+(<span class="bn">64</span>*<span class="bn">15</span>)</span></code></pre></div>
+<p>As usual, I will be glib about error handling. My stacks must never overflow or underflow, else the program will simply go wrong. With that in mind, implementations to push and pop bytes are straightforward - so simple, in fact, that I will write macros for them rather than subroutines.</p>
+<p>Note that my stacks will grow upwards, not downwards, with the stack pointer pointing to the next free byte and not the last written byte.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   HL      The stack pointer</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="co">;       A       The value to push</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  HL      The new stack pointer, incremented by one</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="dt">.macro</span>  spush</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">hl</span>), <span class="at">a</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="dt">.endm</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   HL      the stack pointer</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  A       the popped value</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a><span class="co">;       HL      the new stack pointer, decremented by one</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="dt">.macro</span>  spop</span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">dec</span>     <span class="at">hl</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="dt">.endm</span></span></code></pre></div>
+<p>The puzzle input consists of the initial configuration of stacked crates and the program to execute. As with most days I am not particularly interested in parsing the input, so instead I’ll store the initial configuration in a compact representation and the program slightly modified to be interpreted using macros.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="co">;     [D]</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="co">; [N] [C]</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="co">; [Z] [M] [P]</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="co">; 1   2   3</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="dt">.macro</span>  move    count, from, to</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        db      count</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        dw      PTRS + (from-<span class="bn">1</span>)*<span class="bn">2</span>, PTRS + (to-<span class="bn">1</span>)*<span class="bn">2</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="dt">.endm</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a><span class="fu">SAMPLE:</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;ZN&quot;</span>, <span class="bn">0</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;MCD&quot;</span>, <span class="bn">0</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;P&quot;</span>, <span class="bn">0</span></span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">0</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        move    <span class="bn">1</span>, <span class="bn">2</span>, <span class="bn">1</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        move    <span class="bn">3</span>, <span class="bn">1</span>, <span class="bn">3</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        move    <span class="bn">2</span>, <span class="bn">2</span>, <span class="bn">1</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        move    <span class="bn">1</span>, <span class="bn">1</span>, <span class="bn">2</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">0</span></span></code></pre></div>
+<p>The stacks will need to be initialised based on the input, which is a simple pair of nested loops. The working stacks grow downwards</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   HL      the input</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  HL      the start of the movement program</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       stacks  initialised</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="fu">@INIT:</span>  <span class="bu">push</span>    <span class="at">af</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, PTRS</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, <span class="bn">2</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="fu">OUTER:</span>  <span class="bu">ld</span>      <span class="at">e</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="fu">INNER:</span>  <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">hl</span>), <span class="at">a</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, INNER</span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">ix</span>+<span class="bn">0</span>), <span class="at">e</span></span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">ix</span>+<span class="bn">1</span>), <span class="at">d</span></span>
+<span id="cb5-28"><a href="#cb5-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">ix</span>, <span class="at">bc</span></span>
+<span id="cb5-29"><a href="#cb5-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      OUTER</span>
+<span id="cb5-30"><a href="#cb5-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-31"><a href="#cb5-31" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb5-32"><a href="#cb5-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb5-33"><a href="#cb5-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">af</span></span>
+<span id="cb5-34"><a href="#cb5-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb5-35"><a href="#cb5-35" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Let’s see what the first three stacks look like after executing this:</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode z80 run dump_STACKS_192 dump_PTRS_6"><code class="sourceCode z80"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    INIT</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
+<p>For star 1, executing a move means doing a set of pushes and pops. It turns out here that my macros aren’t as useful as I would have liked: I want to move data between <code class="sourceCode z80">(<span class="at">hl</span>)</code> and <code class="sourceCode z80">(<span class="at">de</span>)</code>, not between <code class="sourceCode z80">(<span class="at">hl</span>)</code> and <code class="sourceCode z80">(<span class="at">hl</span>)</code>.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   HL      source stack</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       DE      destination stack</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       B       movement size</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  HL      updated stack pointer</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a><span class="co">;       DE      updated stack pointer</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="co">;       crates moved from source to destination</span></span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a><span class="fu">@MOVE1:</span> <span class="bu">push</span>    <span class="at">af</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a><span class="fu">LOOP:</span>   <span class="bu">dec</span>     <span class="at">hl</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">de</span>), <span class="at">a</span></span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">de</span></span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">djnz</span>    LOOP</span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-17"><a href="#cb7-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb7-18"><a href="#cb7-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">af</span></span>
+<span id="cb7-19"><a href="#cb7-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb7-20"><a href="#cb7-20" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>For star 2 it’s a bulk copy:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   HL      source stack</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       DE      destination stack</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="co">;       B       movement size</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  HL      updated stack pointer</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a><span class="co">;       DE      updated stack pointer</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a><span class="co">;       crates moved from source to destination</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="fu">@MOVE2:</span> <span class="bu">push</span>    <span class="at">af</span></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">b</span></span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">0</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>       <span class="co">; clear carry</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ldir</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">af</span></span>
+<span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Let’s try moving some stacks around:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode z80 run dump_STACKS_192 dump_PTRS_6"><code class="sourceCode z80"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    INIT</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">; move ZN on top of P one by one, to get PNZ</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (PTRS+<span class="bn">0</span>)</span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (PTRS+<span class="bn">4</span>)</span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">2</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MOVE1</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (PTRS+<span class="bn">0</span>), <span class="at">hl</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (PTRS+<span class="bn">4</span>), <span class="at">de</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">; and move CD to stack one</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (PTRS+<span class="bn">2</span>)</span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (PTRS+<span class="bn">0</span>)</span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">2</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MOVE2</span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (PTRS+<span class="bn">2</span>), <span class="at">hl</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (PTRS+<span class="bn">0</span>), <span class="at">de</span></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
+<p>It’s worth pointing out that moving data around on the stacks doesn’t clear popped data - instead, the tail pointer of the stack merely points at the next write address. The middle stack contains just <code>M</code>, which can be verified through the dumped stack pointer values, or by looking at <code class="sourceCode z80"><span class="at">HL</span></code>.</p>
+<p>Executing the program is just calling the appropriate movement routine depending on the star being executed. To get anywhere useful the program will also need to print the top crate label on each stack:</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   stacks initialised</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  stack heads printed, empty stacks skipped</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="fu">@HEADS:</span> <span class="bu">push</span>    <span class="at">af</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, PTRS</span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">bc</span>, <span class="bn">$103f</span>       <span class="co">; b=16,c=63</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="fu">LOOP:</span>   <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, <span class="at">a</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">and</span>     <span class="at">a</span>, <span class="at">c</span>            <span class="co">; if ptr &amp; 63 == 0</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, EMPTY        <span class="co">; the stack is empty</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, (<span class="at">hl</span>)</span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">dec</span>     <span class="at">de</span></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">de</span>)</span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="fu">EMPTY:</span>  <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">djnz</span>    LOOP</span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">&#39;\n&#39;</span></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">af</span></span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>Let’s see this in action, repeating the same movements above printing out the stack heads each time:</p>
+<div class="sourceCode" id="cb11"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    INIT</span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    HEADS</span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>        <span class="co">; move ZN on top of P one by one, to get PNZ</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (PTRS+<span class="bn">0</span>)</span>
+<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (PTRS+<span class="bn">4</span>)</span>
+<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">2</span></span>
+<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MOVE1</span>
+<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (PTRS+<span class="bn">0</span>), <span class="at">hl</span></span>
+<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (PTRS+<span class="bn">4</span>), <span class="at">de</span></span>
+<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    HEADS</span>
+<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">; and move CD to stack one</span></span>
+<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (PTRS+<span class="bn">2</span>)</span>
+<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, (PTRS+<span class="bn">0</span>)</span>
+<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">2</span></span>
+<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    MOVE2</span>
+<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (PTRS+<span class="bn">2</span>), <span class="at">hl</span></span>
+<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (PTRS+<span class="bn">0</span>), <span class="at">de</span></span>
+<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    HEADS</span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
+<p>It’s finally time to execute the program step by step.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   HL      the program to execute</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       IX      the movement routine</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  HL      end of the program</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a><span class="co">;       stacks modified</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="fu">@RUN:</span>   <span class="bu">push</span>    <span class="at">af</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">iy</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a><span class="fu">LOOP:</span>   <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>) <span class="co">; count</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, DONE</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load the FROM stack pointer address</span></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">hl</span>)</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, (<span class="at">hl</span>)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-22"><a href="#cb12-22" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load the TO stack pointer address</span></span>
+<span id="cb12-23"><a href="#cb12-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, (<span class="at">hl</span>)</span>
+<span id="cb12-24"><a href="#cb12-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb12-25"><a href="#cb12-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, (<span class="at">hl</span>)</span>
+<span id="cb12-26"><a href="#cb12-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb12-27"><a href="#cb12-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-28"><a href="#cb12-28" aria-hidden="true" tabindex="-1"></a>        <span class="co">; save the program pointer and stack pointers</span></span>
+<span id="cb12-29"><a href="#cb12-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb12-30"><a href="#cb12-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb12-31"><a href="#cb12-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb12-32"><a href="#cb12-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-33"><a href="#cb12-33" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load the TO stack pointer</span></span>
+<span id="cb12-34"><a href="#cb12-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb12-35"><a href="#cb12-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, (<span class="at">hl</span>)</span>
+<span id="cb12-36"><a href="#cb12-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb12-37"><a href="#cb12-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, (<span class="at">hl</span>)</span>
+<span id="cb12-38"><a href="#cb12-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-39"><a href="#cb12-39" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load the FROM stack pointer</span></span>
+<span id="cb12-40"><a href="#cb12-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">h</span>, <span class="at">b</span></span>
+<span id="cb12-41"><a href="#cb12-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">l</span>, <span class="at">c</span></span>
+<span id="cb12-42"><a href="#cb12-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, (<span class="at">hl</span>)</span>
+<span id="cb12-43"><a href="#cb12-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb12-44"><a href="#cb12-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">h</span>, (<span class="at">hl</span>)</span>
+<span id="cb12-45"><a href="#cb12-45" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">l</span>, <span class="at">b</span></span>
+<span id="cb12-46"><a href="#cb12-46" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-47"><a href="#cb12-47" aria-hidden="true" tabindex="-1"></a>        <span class="co">; transfer the count</span></span>
+<span id="cb12-48"><a href="#cb12-48" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="at">a</span></span>
+<span id="cb12-49"><a href="#cb12-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-50"><a href="#cb12-50" aria-hidden="true" tabindex="-1"></a>        <span class="co">; do the move</span></span>
+<span id="cb12-51"><a href="#cb12-51" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    BOUNCE</span>
+<span id="cb12-52"><a href="#cb12-52" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-53"><a href="#cb12-53" aria-hidden="true" tabindex="-1"></a>        <span class="co">; store the updated TO pointer</span></span>
+<span id="cb12-54"><a href="#cb12-54" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">iy</span></span>
+<span id="cb12-55"><a href="#cb12-55" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">iy</span>+<span class="bn">0</span>), <span class="at">e</span></span>
+<span id="cb12-56"><a href="#cb12-56" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">iy</span>+<span class="bn">1</span>), <span class="at">d</span></span>
+<span id="cb12-57"><a href="#cb12-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-58"><a href="#cb12-58" aria-hidden="true" tabindex="-1"></a>        <span class="co">; store the updated FROM pointer</span></span>
+<span id="cb12-59"><a href="#cb12-59" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">iy</span></span>
+<span id="cb12-60"><a href="#cb12-60" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">iy</span>+<span class="bn">0</span>), <span class="at">l</span></span>
+<span id="cb12-61"><a href="#cb12-61" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (<span class="at">iy</span>+<span class="bn">1</span>), <span class="at">h</span></span>
+<span id="cb12-62"><a href="#cb12-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-63"><a href="#cb12-63" aria-hidden="true" tabindex="-1"></a>        <span class="co">; restore the program pointer</span></span>
+<span id="cb12-64"><a href="#cb12-64" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">hl</span></span>
+<span id="cb12-65"><a href="#cb12-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-66"><a href="#cb12-66" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      LOOP</span>
+<span id="cb12-67"><a href="#cb12-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-68"><a href="#cb12-68" aria-hidden="true" tabindex="-1"></a><span class="fu">DONE:</span>   <span class="bu">call</span>    HEADS</span>
+<span id="cb12-69"><a href="#cb12-69" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-70"><a href="#cb12-70" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">iy</span></span>
+<span id="cb12-71"><a href="#cb12-71" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb12-72"><a href="#cb12-72" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb12-73"><a href="#cb12-73" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">af</span></span>
+<span id="cb12-74"><a href="#cb12-74" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb12-75"><a href="#cb12-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-76"><a href="#cb12-76" aria-hidden="true" tabindex="-1"></a><span class="co">; indirection to (ix)</span></span>
+<span id="cb12-77"><a href="#cb12-77" aria-hidden="true" tabindex="-1"></a><span class="fu">BOUNCE:</span> <span class="bu">jp</span>      (<span class="at">ix</span>)</span>
+<span id="cb12-78"><a href="#cb12-78" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>There’s some pointer register trickery in the middle, but otherwise this is a straightforward bit of code.</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode z80 run dump_STACKS_192 dump_PTRS_6"><code class="sourceCode z80"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    INIT</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, MOVE1</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    RUN</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, SAMPLE</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    INIT</span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, MOVE2</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    RUN</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
+<p>All looks good for the sample input. It’s time to load up my own input and give it a shot.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DAY05:</span>  <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, INPUT</span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    INIT</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, MOVE1</span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    RUN</span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, INPUT</span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    INIT</span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, MOVE2</span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    RUN</span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a><span class="fu">INPUT:</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>.<span class="dt">include</span>        <span class="st">&quot;day05-input.z80&quot;</span></span></code></pre></div>
+<p>Hooray!</p>
+<h2 id="the-series">The series</h2>
+<blockquote>
+<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <strong>Day 5</strong> |
+Day 6 | Day 7 | Day 8 | Day 9 | Day 10 |
+Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
+Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
+Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
+</blockquote>]]></summary>
+</entry>
+<entry>
     <title>Advent of Z80 - Day 4, 2022</title>
     <link href="https://bje.id.au/blog/posts/2023-02-26-aoc-z80-day04.html" />
     <id>https://bje.id.au/blog/posts/2023-02-26-aoc-z80-day04.html</id>
@@ -177,7 +525,7 @@
 <span id="cb17-9"><a href="#cb17-9" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">0</span></span></code></pre></div>
 <h2 id="the-series">The series</h2>
 <blockquote>
-<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <strong>Day 4</strong> | Day 5 |
+<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <strong>Day 4</strong> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
 Day 6 | Day 7 | Day 8 | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
@@ -666,7 +1014,7 @@ X = vJrwpWtwJgWr && hcsFMMfFFhFp
 <span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
 <h2 id="the-series">The series</h2>
 <blockquote>
-<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <strong>Day 3</strong> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | Day 5 |
+<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <strong>Day 3</strong> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
 Day 6 | Day 7 | Day 8 | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
@@ -880,7 +1228,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <div class="sourceCode" id="cb8"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jp</span>      STAR2</span></code></pre></div>
 <h2 id="the-series">The series</h2>
 <blockquote>
-<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <strong>Day 2</strong> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | Day 5 |
+<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <strong>Day 2</strong> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
 Day 6 | Day 7 | Day 8 | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
@@ -1219,7 +1567,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <p>There is the expected value, all done and dusted.</p>
 <h2 id="the-series">The series</h2>
 <blockquote>
-<p><strong>Day 1</strong> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | Day 5 |
+<p><strong>Day 1</strong> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
 Day 6 | Day 7 | Day 8 | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
@@ -1500,54 +1848,6 @@ MiRw 0016F  38 (00111000)</code></pre>
 <img src="/images/trs20/assembled%20board.jpg" alt="The fully assembled board." />
 <figcaption aria-hidden="true">The fully assembled board.</figcaption>
 </figure>]]></summary>
-</entry>
-<entry>
-    <title>The TRS-20 - ROM programming</title>
-    <link href="https://bje.id.au/blog/posts/trs20/013-program-roms.html" />
-    <id>https://bje.id.au/blog/posts/trs20/013-program-roms.html</id>
-    <published>2020-07-10T00:00:00Z</published>
-    <updated>2020-07-10T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>The <a href="/posts/trs20/012-build-it.html">last post</a> left off after soldering on the FPGA and its companion parts: the SPI Flash ROM, the 100MHz oscillator, all the power parts, and the programmable LEDs. The only way to know if it’s been designed properly and attached to the board without error is to have it do something observable, like control the LEDs. And the only way to do that is to program the SPI ROM.</p>
-<p>The easy way is to order a ROM programmer that can handle SPI Flash ROMs (and, preferably, also handle the parallel ROM). But what would I learn from that?</p>
-<!--more-->
-<p>Instead, let’s use my STM32 “black pill” board as a programmer, using the USB serial interface to control it. The STM32 is a 3.3v board with an on-die SPI controller - with only one hitch. My black pill no longer powers up. I’ve no idea why, it seems to be failing to get power through the USB C socket, but there’s nothing wrong by a visual inspection.</p>
-<p>Oh well.</p>
-<p>The idea works well enough for me that I don’t want to just leave it there. Instead, I’m replacing my black pill board with a Nucleo-64, specifically the NUCLEO-F411RE. This is a slightly improved IC compared to the black pill’s STM32F401CC, and the Nucleo board is likely to be a higher quality product than a $6 part from an anonymous manufacturer. The Nucleo-64 board format has enough pins for me to directly program the parallel ROM without using shift registers.</p>
-<h1 id="spi-flash-wiring">SPI Flash wiring</h1>
-<p>Pin selection for the SPI ROM is a little fiddly, as STM32CubeMX presents me with an image of the IC’s pins, but I care about the board’s layout. The ’F411 has five SPI peripherals, and each peripheral has a few options for pins; after not too much time I’d selected SPI3 using pins PC10, 11, and 12 for SCK, MISO, and MOSI respectively. These pins are all grouped together on a pair of pin headers on one side of the board, close enough to the power pins that a <a href="https://docs.wemos.cc/en/latest/d1_mini_shiled/protoboard.html">D1 protoshield board</a> with a 2x8 female header can cover GND, 3V3, the three SPI pins, and an arbitrary pin (PD2) for slave select.</p>
-<p>The circuit on the protoshield is trivial - a pull-up for /CS and a socket for the ROM - and you can see my handiwork in the image at the top of the post.</p>
-<p>I won’t go into detail on the code work involved. I wrote a simple <a href="https://github.com/codebje/romble/blob/master/Src/flashrom.c">interface</a> for the Flash ROM, and implemented a <a href="https://github.com/codebje/romble/blob/master/Src/ymodem.c">YModem</a> receiver so I could upload over the ST-LINK’s USB serial port.</p>
-<p>I burned on a simple image that just sets one LED to be always off, and binds the other to the 100MHz oscillator’s input via a 26-bit counter. This is around a 1.5Hz blink - if it works.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode verilog"><code class="sourceCode verilog"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="kw">module</span> poc<span class="op">(</span>CLK1<span class="op">,</span> LED1<span class="op">,</span> LED2<span class="op">);</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="dt">input</span> CLK1<span class="op">;</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>    <span class="dt">output</span>              LED1<span class="op">,</span> LED2<span class="op">;</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>    <span class="kw">assign</span> LED1 <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
-<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>    <span class="dt">reg</span> <span class="op">[</span><span class="dv">25</span><span class="op">:</span><span class="dv">0</span><span class="op">]</span>          counter<span class="op">;</span></span>
-<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>    <span class="dt">reg</span>                 toggle<span class="op">;</span></span>
-<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>    <span class="kw">always</span> <span class="op">@(</span><span class="kw">posedge</span> CLK1<span class="op">)</span></span>
-<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        counter <span class="op">&lt;=</span> counter <span class="op">+</span> <span class="bn">1&#39;b1</span><span class="op">;</span></span>
-<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>    <span class="kw">assign</span> LED2 <span class="op">=</span> counter<span class="op">[</span><span class="dv">25</span><span class="op">];</span></span>
-<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="kw">endmodule</span></span></code></pre></div>
-<p>While I was at it, I figured I may as well make two images like this, one with <code>assign LED1 = 0;</code> and the other with <code>assign LED1 = 1;</code>. <a href="http://bygone.clairexen.net/icestorm/">Project IceStorm</a> supports multi-image bitstreams, so I can exercise my boot selector jumpers as well.</p>
-<p>After straightening the ROM’s pins back out (use a removal tool: flat tweezers are excellent, fingers are not) and plugging it into the main board, well:</p>
-<video controls="true" autoplay="true" loop="true" style="width: 100%">
-<source type="video/mp4" src="/images/trs20/blinky-led.mp4">
-</video>
-<p>I stared at a blinking light for a somewhat absurd amount of time. The FPGA works. The oscillator works. The ROM works. The power works. Job more or less done!</p>
-<h1 id="the-parallel-rom">The parallel ROM</h1>
-<p>I thought about how I might want to do this. A neat job would be female headers on a board for the Nucleo to plug into, programming the ROM IC in a PLCC socket beside it. I could add a DIP8 socket and have a programmer for both ROMs in short order. But this is a lot of jumper wires to mess about with, and frankly I’m not really keen on it. So - pretty much every jumper lead I have is now in Frankenprogrammer.</p>
-<figure>
-<img src="/images/trs20/plcc-programmer.jpg" alt="So much better than a TL866II, right?" />
-<figcaption aria-hidden="true">So much better than a TL866II, right?</figcaption>
-</figure>
-<p>I hope to minimise my programming cycles - I need to work out how I can verify the whole CPU board is good, then work on producing enough of a ROM that I can boot up to something that’ll program other parts of the ROM over USB. PLCC sockets are only good for a few tens of insertions, so I want to be bootstrapped on-board ASAP.</p>
-<p>Next up: completing the CPU board assembly.</p>]]></summary>
 </entry>
 
 </feed>
