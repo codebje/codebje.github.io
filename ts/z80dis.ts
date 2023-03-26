@@ -135,6 +135,9 @@ export function syntaxify(i: Instruction | Invalid): string {
         console.log(i);
         return "??";
     } else {
+        if (i.undocumented) {
+             console.log("Undocumented instruction:", i);
+        }
         let operands = i.operands.map(op => {
             switch (op.kind) {
                 case "condition": return Condition[op.condition].toLowerCase();
@@ -362,13 +365,12 @@ const base_opcodes: OpcodeTable[] = [
     opcode(0xff, 0xd9, "exx", []),
     opcode(0xff, 0xdb, "in", [direct(Register.A), imm_n]),
     opcode(0xff, 0xdd, resolve_dd, []),
-    // 0xdd prefix: IX
     opcode(0xff, 0xde, "sbc", [direct(Register.A), n]),
     opcode(0xff, 0xe3, "ex", [indirect(Register.SP), direct(Register.HL)]),
     opcode(0xff, 0xe6, "and", [n]),
     opcode(0xff, 0xe9, "jp", [indirect(Register.HL)]),
     opcode(0xff, 0xeb, "ex", [direct(Register.DE), direct(Register.HL)]),
-    // 0xed prefix
+    opcode(0xff, 0xed, resolve_ed, []),
     opcode(0xff, 0xee, "xor", [n]),
     opcode(0xff, 0xf3, "di", []),
     opcode(0xff, 0xf6, "or", [n]),
@@ -409,6 +411,47 @@ const dd_opcodes: OpcodeTable[] = [
     opcode(0xff, 0xf9, "ld", [direct(Register.SP), direct(Register.IX)]),
 ];
 
+/* Z180 has extra opcodes in this table; TODO: undocumented opcodes */
+const ed_opcodes: OpcodeTable[] = [
+    opcode(0xff, 0x70, "in", [indirect(Register.C)], true), // IN (C) undocumented
+    opcode(0xc7, 0x40, "in", [r, indirect(Register.C)]),
+    opcode(0xff, 0x71, "out", [indirect(Register.C), immediate(0)], true), // OUT (C), 0 undocumented
+    opcode(0xc7, 0x41, "out", [indirect(Register.C), r]),
+    opcode(0xcf, 0x42, "sbc", [direct(Register.HL), rr]),
+    opcode(0xff, 0x63, "ld", [inn, rr], true),    // LD (NN), HL via ED prefix is undocumented
+    opcode(0xcf, 0x43, "ld", [inn, rr]),
+    opcode(0xff, 0x6b, "ld", [rr, inn], true),    // LD HL, (NN) via ED prefix is undocumented
+    opcode(0xcf, 0x4b, "ld", [rr, inn]),
+    opcode(0xff, 0x44, "neg", []),
+    opcode(0xff, 0x45, "retn", []),
+    opcode(0xff, 0x46, "im", [immediate(0)]),
+    opcode(0xff, 0x56, "im", [immediate(1)]),
+    opcode(0xff, 0x5e, "im", [immediate(2)]),
+    opcode(0xff, 0x47, "ld", [direct(Register.I), direct(Register.A)]),
+    opcode(0xff, 0x57, "ld", [direct(Register.A), direct(Register.I)]),
+    opcode(0xff, 0x4f, "ld", [direct(Register.R), direct(Register.A)]),
+    opcode(0xff, 0x5f, "ld", [direct(Register.A), direct(Register.R)]),
+    opcode(0xff, 0x67, "rrd", []),
+    opcode(0xff, 0x6f, "rld", []),
+    opcode(0xff, 0xa0, "ldi", []),
+    opcode(0xff, 0xa1, "cpi", []),
+    opcode(0xff, 0xa2, "ini", []),
+    opcode(0xff, 0xa3, "outi", []),
+    opcode(0xff, 0xa8, "ldd", []),
+    opcode(0xff, 0xa9, "cpd", []),
+    opcode(0xff, 0xaa, "ind", []),
+    opcode(0xff, 0xab, "outd", []),
+    opcode(0xff, 0xb0, "ldir", []),
+    opcode(0xff, 0xb1, "cpir", []),
+    opcode(0xff, 0xb2, "inir", []),
+    opcode(0xff, 0xb3, "otir", []),
+    opcode(0xff, 0xb8, "lddr", []),
+    opcode(0xff, 0xb9, "cpdr", []),
+    opcode(0xff, 0xba, "indr", []),
+    opcode(0xff, 0xbb, "otdr", []),
+    opcode(0xcf, 0x4a, "adc", [direct(Register.HL), rr]),
+];
+
 /* TODO: undocumented opcodes */
 const fd_opcodes: OpcodeTable[] = [
     opcode(0xff, 0x21, "ld", [direct(Register.IY), nn]),
@@ -442,6 +485,10 @@ const fd_opcodes: OpcodeTable[] = [
 
 function resolve_dd(buf: Buffer): Instruction | Invalid {
     return resolve(buf, dd_opcodes);
+}
+
+function resolve_ed(buf: Buffer): Instruction | Invalid {
+    return resolve(buf, ed_opcodes);
 }
 
 function resolve_fd(buf: Buffer): Instruction | Invalid {

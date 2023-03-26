@@ -180,6 +180,10 @@ class Runner implements Core {
 
         let ilen = instr.text().length;
 
+        if (Disasm.isInstruction(dis) && dis.undocumented) {
+            changed = '(undoc) ' + changed;
+        }
+
         let trace = $('<span>' + pc + ': ' + bytes + '</span>' + instr.html() + ' '.repeat(22 - ilen)
                       + '<span class="co">; ' + changed + '</span>'
                       + '<span>\n</span>');

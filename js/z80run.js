@@ -134,6 +134,9 @@ class Runner {
         let instr = $('<span>' + Disasm.syntaxify(dis) + '</span>');
         let changed = this.diff_state(last, this.z80.getState(), dis.bytes.length);
         let ilen = instr.text().length;
+        if (Disasm.isInstruction(dis) && dis.undocumented) {
+            changed = '(undoc) ' + changed;
+        }
         let trace = $('<span>' + pc + ': ' + bytes + '</span>' + instr.html() + ' '.repeat(22 - ilen)
             + '<span class="co">; ' + changed + '</span>'
             + '<span>\n</span>');

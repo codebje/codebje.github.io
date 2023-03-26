@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - Advent of Z80 - Day 6, 2022</title>
+    <link rel="stylesheet" type="text/css" href="../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../css/saucecodepro-nerd-font-mono.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300,600|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    <link rel="stylesheet" type="text/css" href="../css/literate.css">
+    
+    <script defer src="../js/Z80.js" type="text/javascript"></script>
+    <script type="module" src="../js/z80run.js" type="text/javascript"></script>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../about.html">About</a>
+            <a class="page-link" href="../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../images/trs80.jpg">
+  
+  <h1 class="post-title">Advent of Z80 - Day 6, 2022</h1>
+  <p class="post-meta">March 26, 2023 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../images/banners/Acoustic_Modem_TRS_80_2.jpeg">
+
+  <div class="post-hero-note">Image sourced from a <a href="https://cults3d.com/en/3d-model/gadget/1980-s-acoustic-modem">Cults 3D</a> design, origin unknown.</div>
+
+
+  <p>On day 6 the Z80 will need to process a string of input characters, seeking patterns.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY06</span></code></pre></div>
+<!--more-->
+<p>The challenge for day 6 is to detect <span class="math inline">\(n\)</span> unique characters in a sequence. A simple approach to the problem is to start at the first character in the input sequence and check if the following <span class="math inline">\(n\)</span> characters are unique: scan along comparing to the first character, then scan from the second character for <span class="math inline">\(n-1\)</span> characters, and so on up until the <span class="math inline">\(n^{th}\)</span> character is reached. If any character was not unique, move the starting position up to beyond the non-unique character, and try again. This is a relatively poor algorithm, being quadratic in <span class="math inline">\(n\)</span>.</p>
+<p>To keep the code simple, I will implement this naive version without any attempts to improve algorithmic performance. <span class="math inline">\(n\)</span> is always small, and the puzzle input is also only 4095 characters: around a million comparisons isn’t unreasonable for the z80.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   (HL)    the first character in the candidate sequence</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       C       the required unique sequence length</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  (HL)    the first character in a unique subsequence</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="co">;       ZF      set if a NUL byte is encountered</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="co">;       A       overwritten</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="fu">@UNIQ:</span>  <span class="bu">push</span>    <span class="at">de</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">bc</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="co">; set the high byte of BC to zero for counters</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="bn">0</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, <span class="at">b</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, <span class="at">c</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">dec</span>     <span class="at">e</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a><span class="fu">OUTER:</span>  <span class="bu">push</span>    <span class="at">de</span>      <span class="co">; save counter</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a><span class="fu">CHECK:</span>  <span class="bu">ld</span>      <span class="at">c</span>, <span class="at">e</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load the character to test, and check for NUL</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">hl</span>)</span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, EXIT</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="co">; compare BC characters to A</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cpir</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ZF is set on match</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, MATCH</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        <span class="co">; restore HL - CF clear from OR earlier</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">dec</span>     <span class="at">e</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, CHECK</span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        <span class="co">; made it here - found a subsequence</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">hl</span>      <span class="co">; point to last char</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span>       <span class="co">; clear ZF, CF</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      EXIT</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a><span class="co">; restart scanning from new (HL)</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a><span class="fu">MATCH:</span>  <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      OUTER</span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="fu">EXIT:</span>   <span class="bu">pop</span>     <span class="at">bc</span>      <span class="co">; discard saved DE</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">bc</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">de</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>I can verify this by running it against a handful of test inputs.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80 run ztrace"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, tests</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">TEST:</span>   <span class="bu">ld</span>      <span class="at">l</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">h</span>, (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="at">l</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">h</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      z, FIN</span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, <span class="at">h</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, <span class="at">l</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="bn">4</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    UNIQ</span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb3-18"><a href="#cb3-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb3-19"><a href="#cb3-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb3-20"><a href="#cb3-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRINT16</span>
+<span id="cb3-21"><a href="#cb3-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">'\n'</span></span>
+<span id="cb3-22"><a href="#cb3-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb3-23"><a href="#cb3-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb3-24"><a href="#cb3-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb3-25"><a href="#cb3-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      TEST</span>
+<span id="cb3-26"><a href="#cb3-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-27"><a href="#cb3-27" aria-hidden="true" tabindex="-1"></a><span class="fu">FIN:</span>    <span class="bu">halt</span></span>
+<span id="cb3-28"><a href="#cb3-28" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-29"><a href="#cb3-29" aria-hidden="true" tabindex="-1"></a><span class="fu">tests:</span>  dw      test1</span>
+<span id="cb3-30"><a href="#cb3-30" aria-hidden="true" tabindex="-1"></a>        dw      test2</span>
+<span id="cb3-31"><a href="#cb3-31" aria-hidden="true" tabindex="-1"></a>        dw      test3</span>
+<span id="cb3-32"><a href="#cb3-32" aria-hidden="true" tabindex="-1"></a>        dw      test4</span>
+<span id="cb3-33"><a href="#cb3-33" aria-hidden="true" tabindex="-1"></a>        dw      test5</span>
+<span id="cb3-34"><a href="#cb3-34" aria-hidden="true" tabindex="-1"></a>        dw      <span class="bn">0</span></span>
+<span id="cb3-35"><a href="#cb3-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-36"><a href="#cb3-36" aria-hidden="true" tabindex="-1"></a><span class="fu">test1:</span>  db      <span class="st">'mjqjpqmgbljsphdztnvjfqwrcgsmlb'</span>, <span class="bn">0</span></span>
+<span id="cb3-37"><a href="#cb3-37" aria-hidden="true" tabindex="-1"></a><span class="fu">test2:</span>  db      <span class="st">'bvwbjplbgvbhsrlpgdmjqwftvncz'</span>, <span class="bn">0</span></span>
+<span id="cb3-38"><a href="#cb3-38" aria-hidden="true" tabindex="-1"></a><span class="fu">test3:</span>  db      <span class="st">'nppdvjthqldpwncqszvftbrmjlhg'</span>, <span class="bn">0</span></span>
+<span id="cb3-39"><a href="#cb3-39" aria-hidden="true" tabindex="-1"></a><span class="fu">test4:</span>  db      <span class="st">'nznrnfrfntjfmvfwmzdfjlvtqnbhcprsg'</span>, <span class="bn">0</span></span>
+<span id="cb3-40"><a href="#cb3-40" aria-hidden="true" tabindex="-1"></a><span class="fu">test5:</span>  db      <span class="st">'zcfzfwzzqfrljwzlrfnpqdbhtmscgvjw'</span>, <span class="bn">0</span></span>
+<span id="cb3-41"><a href="#cb3-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-42"><a href="#cb3-42" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
+<p>This is now all that’s required to solve the day’s challenge:</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DAY06:</span>  <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">$8000</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, INPUT</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="bn">4</span></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    UNIQ</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, INPUT</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRINT16</span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">'\n'</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, INPUT</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, <span class="bn">14</span></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    UNIQ</span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">or</span>      <span class="at">a</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, INPUT</span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">sbc</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRINT16</span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">'\n'</span></span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">include</span> <span class="st">&quot;print16.z80&quot;</span></span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="fu">INPUT:</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">include</span> <span class="st">&quot;day06-input.z80&quot;</span></span></code></pre></div>
+<p>Look at that, just shy of a million cycles; two runs across an input of length 4095, the first time looking for a sequence of length 4 and the second for a sequence of length 14, for something approximating <span class="math inline">\(4^2\times4095 + 14^2\times4095 = 868,140\)</span> executions of <code class="sourceCode z80"><span class="bu">cpir</span></code> - and a bunch of supporting instructions around that executing in something more like linear time. One might think that <code class="sourceCode z80"><span class="bu">cpir</span></code> and friends aren’t all that great, since the CPU re-fetches the instruction every time it executes it, but avoiding the additional fetch and execute of looping constructs is not insignificant, not to mention the potential savings for machines with little ROM or RAM space to work with.</p>
+<p>Today’s solution isn’t optimised, neither algorithmically nor with any particular effort to make the assembly tight, but it’s remarkably simple. At this point in the Advent’s challenges algorithmically naive solutions still run in negligible timeframes, but for later puzzles it’s likely that the Z80 browser emulator will run out of time or space trying to solve puzzles naively. Until then, though, simple is good.</p>
+<h2 id="the-series">The series</h2>
+<blockquote>
+<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
+<strong>Day 6</strong> | Day 7 | Day 8 | Day 9 | Day 10 |
+Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
+Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
+Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
+</blockquote>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+        MathJax = {
+            chtml: {
+                matchFontHeight: false,
+            }
+        };
+    </script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+  </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
+</html>
