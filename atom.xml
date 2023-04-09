@@ -8,8 +8,305 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2023-03-26T00:00:00Z</updated>
+    <updated>2023-04-09T00:00:00Z</updated>
     <entry>
+    <title>Advent of Z80 - Day 7, 2022</title>
+    <link href="https://bje.id.au/blog/posts/2023-04-09-aoc-z80-day07.html" />
+    <id>https://bje.id.au/blog/posts/2023-04-09-aoc-z80-day07.html</id>
+    <published>2023-04-09T00:00:00Z</published>
+    <updated>2023-04-09T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Day 7 is a challenge primarily about parsing the input, with a little side-trip into a recursive algorithm and a dab of 32-bit arithmetic on an 8-bit processor.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY07</span></code></pre></div>
+<!--more-->
+<p>Regrettably, I contracted COVID this week. As a result the following is light on prose and heavy on code I originally wrote on the 8th of December 2022. You will also notice that the code style is rather different: I’ve settled on a particular style for this series, using lowercase mnemonics and code blocks; a large portion of the code below is a bit more shouty.</p>
+<p>The general approach I took was to produce a list of directory sizes. Star 1 requires summing all directory sizes below 100,000 while Star 2 requires finding the smallest directory greater than a number to be determined. The size of a directory is the size of all its files plus all its subdirectories, so the code below scans the lines in the input recursively determining directory sizes when <code>$ cd &lt;dir&gt;</code> is encountered, returning when <code>$ cd ..</code> is encountered, and summing up file sizes.</p>
+<p>Once the set of sizes is determined, star 1 is simply scanning the list for values under 100,000 and summing them up, while star 2 first requires determining the minimum size acceptable, then scanning for the smallest value larger than that.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80 run dump_MIN_4"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DAY07:</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">SP</span>, <span class="bn">8000</span>H</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IX</span>, INPUT</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IY</span>, SIZES</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    READDIR</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      FINISH</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="co">; in:   IX      input lines</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a><span class="co">;       IY      dest for size</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="co">; out:  DE:BC   dir size</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="co">;       IX      next input</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="co">;       IY      next size</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="fu">READDIR:</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">AF</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">HL</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">IY</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IY</span>, <span class="bn">0</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, <span class="bn">0</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">; begin by consuming up to a newline</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="co">; for the first invocation this consumes &#39;$ cd /&#39;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>        <span class="co">; for subsequent invocations it consumes the remainder of &#39;$ cd &lt;dir&gt;&#39;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NEWLINE</span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a><span class="fu">READLINE:</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (<span class="at">IX</span>+<span class="bn">0</span>)</span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OR</span>      <span class="at">A</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, LEAVEDIR</span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="st">&#39;$&#39;</span>             <span class="co">; if $ ... parse command</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, CMD</span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="st">&#39;d&#39;</span>             <span class="co">; if &#39;dir &lt;name&gt;&#39; ignore</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, NEWLINE</span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        <span class="co">; if &#39;&lt;size&gt; name&#39; add size, ignore name</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    READ32</span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">IY</span>, <span class="at">BC</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADC</span>     <span class="at">HL</span>, <span class="at">DE</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a><span class="co">; Keep consuming input until end of input reached or a newline is consumed</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a><span class="fu">NEWLINE:</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (<span class="at">IX</span> + <span class="bn">0</span>)</span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OR</span>      <span class="at">A</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, LEAVEDIR</span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IX</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="st">&#39;\n&#39;</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, READLINE</span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NEWLINE</span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a><span class="co">; Code flow reaches here on end of input or &#39;$ cd ..&#39;</span></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a><span class="co">; The directory&#39;s size is written into (IY) and READDIR returns</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a><span class="fu">LEAVEDIR:</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Move the size into DE:BC</span></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>        <span class="bu">EX</span>      <span class="at">DE</span>, <span class="at">HL</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">IY</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">BC</span></span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Store the size</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">IY</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IY</span>+<span class="bn">0</span>), <span class="at">C</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IY</span>+<span class="bn">1</span>), <span class="at">B</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IY</span>+<span class="bn">2</span>), <span class="at">E</span></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IY</span>+<span class="bn">3</span>), <span class="at">D</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IY</span></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IY</span></span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IY</span></span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IY</span></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Increment the count of dirs</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DIRS</span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">HL</span>)</span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>        <span class="co">; Return</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">HL</span></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">AF</span></span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a><span class="co">; Could be &#39;$ cd /&#39; or &#39;$ cd ..&#39; or &#39;$ cd &lt;name&gt;&#39; or &#39;$ ls&#39;</span></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a><span class="co">; By the time this code is reached &#39;$ cd /&#39; is already consumed</span></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a><span class="fu">CMD:</span></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (<span class="at">IX</span>+<span class="bn">2</span>)</span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="st">&#39;l&#39;</span>             <span class="co">; if &#39;$ ls&#39; ignore</span></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, NEWLINE</span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>        <span class="co">; must be $ cd &lt;path&gt;</span></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (<span class="at">IX</span>+<span class="bn">5</span>)</span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="st">&#39;.&#39;</span>             <span class="co">; if &#39;$ cd ..&#39; then return to caller</span></span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, LEAVEDIR</span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>        <span class="co">; it must be &#39;$ cd &lt;dir&gt;&#39;</span></span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>        <span class="bu">EX</span>      (<span class="at">SP</span>), <span class="at">IY</span>        <span class="co">; switch high word of count for sizes index</span></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    READDIR</span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>        <span class="bu">EX</span>      (<span class="at">SP</span>), <span class="at">IY</span>        <span class="co">; switch them back</span></span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">IY</span>, <span class="at">BC</span></span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADC</span>     <span class="at">HL</span>, <span class="at">DE</span></span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NEWLINE</span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a><span class="fu">SUM:</span>    <span class="kw">DEFB</span>    <span class="bn">0</span>, <span class="bn">0</span>, <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a><span class="fu">FINISH:</span></span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a>        <span class="co">; sum the directory sizes &lt;= 100000, 0x186a0</span></span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IX</span>, SIZES</span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (DIRS)</span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">B</span>, <span class="at">A</span></span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a><span class="fu">SUMSMALL:</span></span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a>        <span class="co">; the highest byte must be zero to match</span></span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (<span class="at">IX</span>+<span class="bn">3</span>)</span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OR</span>      <span class="at">A</span></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, SUMLOOP</span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a>        <span class="co">; if next byte also zero, it&#39;s small enough</span></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (<span class="at">IX</span>+<span class="bn">2</span>)</span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OR</span>      <span class="at">A</span></span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, SMALL</span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>        <span class="co">; else it must be exactly 1</span></span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="bn">1</span></span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, SUMLOOP</span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a>        <span class="co">; the low word must be &lt;= 86A0</span></span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">H</span>, (<span class="at">IX</span>+<span class="bn">1</span>)</span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">L</span>, (<span class="at">IX</span>+<span class="bn">0</span>)</span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">DE</span>, <span class="bn">086</span>A1H</span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OR</span>      <span class="at">A</span>               <span class="co">; clear carry</span></span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SBC</span>     <span class="at">HL</span>, <span class="at">DE</span></span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NC, SUMLOOP</span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a><span class="fu">SMALL:</span></span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, (SUM)</span>
+<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">D</span>, (<span class="at">IX</span>+<span class="bn">1</span>)</span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, (<span class="at">IX</span>+<span class="bn">0</span>)</span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OR</span>      <span class="at">A</span></span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADC</span>     <span class="at">HL</span>, <span class="at">DE</span>          <span class="co">; low word</span></span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (SUM), <span class="at">HL</span></span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, (SUM+<span class="bn">2</span>)</span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">D</span>, (<span class="at">IX</span>+<span class="bn">3</span>)</span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, (<span class="at">IX</span>+<span class="bn">2</span>)</span>
+<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADC</span>     <span class="at">HL</span>, <span class="at">DE</span>          <span class="co">; high word</span></span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (SUM+<span class="bn">2</span>), <span class="at">HL</span></span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a><span class="fu">SUMLOOP:</span></span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IX</span></span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IX</span></span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IX</span></span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IX</span></span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DJNZ</span>    SUMSMALL</span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IY</span>, (SUM)</span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, (SUM+<span class="bn">2</span>)</span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    PRINT32</span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="st">&#39;\n&#39;</span></span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OUT</span>     (<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a>        <span class="co">; 70,000,000 units of total space</span></span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a>        <span class="co">; 30,000,000 units must be free</span></span>
+<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a>        <span class="co">; used space is the last value in SIZES</span></span>
+<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a>        <span class="co">; so subtract 40,000,000 from that for the target size</span></span>
+<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (DIRS)</span>
+<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">l</span>, <span class="at">a</span></span>
+<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">h</span>, <span class="bn">0</span></span>
+<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">hl</span>          <span class="co">; * 2</span></span>
+<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">hl</span>          <span class="co">; * 4</span></span>
+<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">de</span>, SIZES - <span class="bn">4</span></span>
+<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a>        <span class="co">; more useful to have this in IX</span></span>
+<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a>        <span class="bu">push</span>    <span class="at">hl</span></span>
+<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a>        <span class="bu">pop</span>     <span class="at">ix</span></span>
+<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a>        <span class="co">; load low word into de</span></span>
+<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">e</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">d</span>, (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, -<span class="bn">40000000</span> &amp; <span class="bn">$ffff</span></span>
+<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a>        <span class="bu">add</span>     <span class="at">hl</span>, <span class="at">de</span></span>
+<span id="cb2-168"><a href="#cb2-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">ix</span>+<span class="bn">2</span>)</span>
+<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, (<span class="at">ix</span>+<span class="bn">3</span>)</span>
+<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ex</span>      <span class="at">de</span>, <span class="at">hl</span></span>
+<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, -<span class="bn">40000000</span> shr <span class="bn">16</span></span>
+<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a>        <span class="bu">adc</span>     <span class="at">hl</span>, <span class="at">bc</span></span>
+<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a>        <span class="co">; HL:DE contains the min size</span></span>
+<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">b</span>, <span class="at">a</span></span>
+<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, SIZES</span>
+<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a><span class="fu">TARGET:</span></span>
+<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a>        <span class="co">; compare msb down</span></span>
+<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">3</span>)</span>
+<span id="cb2-182"><a href="#cb2-182" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="at">h</span></span>
+<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, TOOSMALL</span>
+<span id="cb2-184"><a href="#cb2-184" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, CHECKMIN</span>
+<span id="cb2-185"><a href="#cb2-185" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">2</span>)</span>
+<span id="cb2-186"><a href="#cb2-186" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="at">l</span></span>
+<span id="cb2-187"><a href="#cb2-187" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, TOOSMALL</span>
+<span id="cb2-188"><a href="#cb2-188" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, CHECKMIN</span>
+<span id="cb2-189"><a href="#cb2-189" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb2-190"><a href="#cb2-190" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="at">d</span></span>
+<span id="cb2-191"><a href="#cb2-191" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, TOOSMALL</span>
+<span id="cb2-192"><a href="#cb2-192" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, CHECKMIN</span>
+<span id="cb2-193"><a href="#cb2-193" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb2-194"><a href="#cb2-194" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="at">e</span></span>
+<span id="cb2-195"><a href="#cb2-195" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, TOOSMALL</span>
+<span id="cb2-196"><a href="#cb2-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-197"><a href="#cb2-197" aria-hidden="true" tabindex="-1"></a><span class="fu">CHECKMIN:</span></span>
+<span id="cb2-198"><a href="#cb2-198" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">ix</span>+<span class="bn">3</span>)</span>
+<span id="cb2-199"><a href="#cb2-199" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (MIN+<span class="bn">3</span>)</span>
+<span id="cb2-200"><a href="#cb2-200" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="at">c</span></span>
+<span id="cb2-201"><a href="#cb2-201" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, TOOSMALL</span>
+<span id="cb2-202"><a href="#cb2-202" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, SMALLEST</span>
+<span id="cb2-203"><a href="#cb2-203" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">ix</span>+<span class="bn">2</span>)</span>
+<span id="cb2-204"><a href="#cb2-204" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (MIN+<span class="bn">2</span>)</span>
+<span id="cb2-205"><a href="#cb2-205" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="at">c</span></span>
+<span id="cb2-206"><a href="#cb2-206" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, TOOSMALL</span>
+<span id="cb2-207"><a href="#cb2-207" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, SMALLEST</span>
+<span id="cb2-208"><a href="#cb2-208" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb2-209"><a href="#cb2-209" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (MIN+<span class="bn">1</span>)</span>
+<span id="cb2-210"><a href="#cb2-210" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="at">c</span></span>
+<span id="cb2-211"><a href="#cb2-211" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, TOOSMALL</span>
+<span id="cb2-212"><a href="#cb2-212" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      nz, SMALLEST</span>
+<span id="cb2-213"><a href="#cb2-213" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">c</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb2-214"><a href="#cb2-214" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (MIN+<span class="bn">0</span>)</span>
+<span id="cb2-215"><a href="#cb2-215" aria-hidden="true" tabindex="-1"></a>        <span class="bu">cp</span>      <span class="at">c</span></span>
+<span id="cb2-216"><a href="#cb2-216" aria-hidden="true" tabindex="-1"></a>        <span class="bu">jr</span>      <span class="at">c</span>, TOOSMALL</span>
+<span id="cb2-217"><a href="#cb2-217" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-218"><a href="#cb2-218" aria-hidden="true" tabindex="-1"></a><span class="fu">SMALLEST:</span></span>
+<span id="cb2-219"><a href="#cb2-219" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">0</span>)</span>
+<span id="cb2-220"><a href="#cb2-220" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (MIN+<span class="bn">0</span>), <span class="at">a</span></span>
+<span id="cb2-221"><a href="#cb2-221" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">1</span>)</span>
+<span id="cb2-222"><a href="#cb2-222" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (MIN+<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb2-223"><a href="#cb2-223" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">2</span>)</span>
+<span id="cb2-224"><a href="#cb2-224" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (MIN+<span class="bn">2</span>), <span class="at">a</span></span>
+<span id="cb2-225"><a href="#cb2-225" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, (<span class="at">ix</span>+<span class="bn">3</span>)</span>
+<span id="cb2-226"><a href="#cb2-226" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      (MIN+<span class="bn">3</span>), <span class="at">a</span></span>
+<span id="cb2-227"><a href="#cb2-227" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-228"><a href="#cb2-228" aria-hidden="true" tabindex="-1"></a><span class="fu">TOOSMALL:</span></span>
+<span id="cb2-229"><a href="#cb2-229" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb2-230"><a href="#cb2-230" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb2-231"><a href="#cb2-231" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb2-232"><a href="#cb2-232" aria-hidden="true" tabindex="-1"></a>        <span class="bu">inc</span>     <span class="at">ix</span></span>
+<span id="cb2-233"><a href="#cb2-233" aria-hidden="true" tabindex="-1"></a>        <span class="bu">djnz</span>    TARGET</span>
+<span id="cb2-234"><a href="#cb2-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-235"><a href="#cb2-235" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">iy</span>, (MIN)</span>
+<span id="cb2-236"><a href="#cb2-236" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">hl</span>, (MIN+<span class="bn">2</span>)</span>
+<span id="cb2-237"><a href="#cb2-237" aria-hidden="true" tabindex="-1"></a>        <span class="bu">call</span>    PRINT32</span>
+<span id="cb2-238"><a href="#cb2-238" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">a</span>, <span class="st">&#39;\n&#39;</span></span>
+<span id="cb2-239"><a href="#cb2-239" aria-hidden="true" tabindex="-1"></a>        <span class="bu">out</span>     (<span class="bn">1</span>), <span class="at">a</span></span>
+<span id="cb2-240"><a href="#cb2-240" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-241"><a href="#cb2-241" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
+<span id="cb2-242"><a href="#cb2-242" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-243"><a href="#cb2-243" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">include</span> <span class="st">&quot;util32.z80&quot;</span></span>
+<span id="cb2-244"><a href="#cb2-244" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-245"><a href="#cb2-245" aria-hidden="true" tabindex="-1"></a><span class="fu">INPUT:</span></span>
+<span id="cb2-246"><a href="#cb2-246" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">include</span> <span class="st">&quot;day07-input.z80&quot;</span></span>
+<span id="cb2-247"><a href="#cb2-247" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-248"><a href="#cb2-248" aria-hidden="true" tabindex="-1"></a>        <span class="co">; sample input, ignored because above is zero terminated</span></span>
+<span id="cb2-249"><a href="#cb2-249" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;$ cd /\n&quot;</span></span>
+<span id="cb2-250"><a href="#cb2-250" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;$ ls\n&quot;</span></span>
+<span id="cb2-251"><a href="#cb2-251" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;dir a\n&quot;</span></span>
+<span id="cb2-252"><a href="#cb2-252" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;14848514 b.txt\n&quot;</span></span>
+<span id="cb2-253"><a href="#cb2-253" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;8504156 c.dat\n&quot;</span></span>
+<span id="cb2-254"><a href="#cb2-254" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;dir d\n&quot;</span></span>
+<span id="cb2-255"><a href="#cb2-255" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;$ cd a\n&quot;</span></span>
+<span id="cb2-256"><a href="#cb2-256" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;$ ls\n&quot;</span></span>
+<span id="cb2-257"><a href="#cb2-257" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;dir e\n&quot;</span></span>
+<span id="cb2-258"><a href="#cb2-258" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;29116 f\n&quot;</span></span>
+<span id="cb2-259"><a href="#cb2-259" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;2557 g\n&quot;</span></span>
+<span id="cb2-260"><a href="#cb2-260" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;62596 h.lst\n&quot;</span></span>
+<span id="cb2-261"><a href="#cb2-261" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;$ cd e\n&quot;</span></span>
+<span id="cb2-262"><a href="#cb2-262" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;$ ls\n&quot;</span></span>
+<span id="cb2-263"><a href="#cb2-263" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;584 i\n&quot;</span></span>
+<span id="cb2-264"><a href="#cb2-264" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;$ cd ..\n&quot;</span></span>
+<span id="cb2-265"><a href="#cb2-265" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;$ cd ..\n&quot;</span></span>
+<span id="cb2-266"><a href="#cb2-266" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;$ cd d\n&quot;</span></span>
+<span id="cb2-267"><a href="#cb2-267" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;$ ls\n&quot;</span></span>
+<span id="cb2-268"><a href="#cb2-268" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;4060174 j\n&quot;</span></span>
+<span id="cb2-269"><a href="#cb2-269" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;8033020 d.log\n&quot;</span></span>
+<span id="cb2-270"><a href="#cb2-270" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;5626152 d.ext\n&quot;</span></span>
+<span id="cb2-271"><a href="#cb2-271" aria-hidden="true" tabindex="-1"></a>        db      <span class="st">&quot;7214296 k\n&quot;</span></span>
+<span id="cb2-272"><a href="#cb2-272" aria-hidden="true" tabindex="-1"></a>        db      <span class="bn">0</span></span>
+<span id="cb2-273"><a href="#cb2-273" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-274"><a href="#cb2-274" aria-hidden="true" tabindex="-1"></a><span class="fu">MIN:</span>    db      <span class="bn">$ff</span>, <span class="bn">$ff</span>, <span class="bn">$ff</span>, <span class="bn">$ff</span></span>
+<span id="cb2-275"><a href="#cb2-275" aria-hidden="true" tabindex="-1"></a><span class="fu">DIRS:</span>   db      <span class="bn">0</span></span>
+<span id="cb2-276"><a href="#cb2-276" aria-hidden="true" tabindex="-1"></a><span class="fu">SIZES:</span></span></code></pre></div>
+<h2 id="the-series">The series</h2>
+<blockquote>
+<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <strong>Day 7</strong> | Day 8 | Day 9 | Day 10 |
+Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
+Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
+Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
+</blockquote>]]></summary>
+</entry>
+<entry>
     <title>Advent of Z80 - Day 6, 2022</title>
     <link href="https://bje.id.au/blog/posts/2023-03-26-aoc-z80-day06.html" />
     <id>https://bje.id.au/blog/posts/2023-03-26-aoc-z80-day06.html</id>
@@ -153,7 +450,7 @@
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<strong>Day 6</strong> | Day 7 | Day 8 | Day 9 | Day 10 |
+<strong>Day 6</strong> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -501,7 +798,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <strong>Day 5</strong> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | Day 7 | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -676,7 +973,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <strong>Day 4</strong> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | Day 7 | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -1165,7 +1462,7 @@ X = vJrwpWtwJgWr && hcsFMMfFFhFp
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <strong>Day 3</strong> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | Day 7 | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -1379,7 +1676,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <strong>Day 2</strong> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | Day 7 | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -1718,7 +2015,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><strong>Day 1</strong> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | Day 7 | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -1889,53 +2186,6 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <p>I wrote a <a href="https://github.com/codebje/scomm">simple program</a> to transmit a patch for <code>recv_packet</code>, then do a full Y-modem transfer of something bigger.</p>
 <p>The code for this, I called the <a href="https://github.com/codebje/isp-writer/blob/ymodem-patch/src/ispwriter.asm">in-system programming writer</a>.</p>
 <p>At ths point, I can patch the bad code to upload up to 52k of arbitrary code and run it. But it’s not too satisfying to just have a low effort boot monitor with a Y-modem upload for running new code, so rather than focusing on updating the Flash ROM itself the next task will be to upload an operating system.</p>]]></summary>
-</entry>
-<entry>
-    <title>The TRS-20 - Will it work?</title>
-    <link href="https://bje.id.au/blog/posts/trs20/015-testing-continues.html" />
-    <id>https://bje.id.au/blog/posts/trs20/015-testing-continues.html</id>
-    <published>2020-08-01T00:00:00Z</published>
-    <updated>2020-08-01T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>With the board fully assembled, and USB enumeration working well enough to see the device, it’s time to see if the design is valid. Do I have a working Z180-based computer, or an expensive paperweight?</p>
-<!--more-->
-<h1 id="first-blink-the-lights">First, blink the lights</h1>
-<p>My <a href="https://github.com/codebje/trs20-bootrom">initial bootrom</a> changes the CPU clock divider from EXTAL/2 to EXTAL/1 a few bytes into execution. With the FPGA reprogrammed to flash LED1 on a 24-bit divider, a 9.216MHz PHI will blink LED1 at 0.55Hz and an 18.432MHz PHI will blink it at 1.1Hz. With LED2 still on a 26-bit divider of the 100MHz oscillator, this provides an easy to observe visual guide to whether my boot ROM is executing at all.</p>
-<p>Which lead me to discover that my boot ROM was not executing at all. The CPU was putting out a clock signal just fine, but at 9.216MHz, not 18.432MHz.</p>
-<p>To verify the CPU was still okay after all my earlier fumbling about I put it back into the old debug board I built early on in the process, with an 18.432MHz can oscillator. My logic analyser showed it doing the expected signal dance - but I also recorded what happened as the CPU came out of /RESET, and saw that A19 stays high after /RESET has gone high. It stubbornly doesn’t fall until the address lines are being settled for the first machine cycle, which is up to 30ns after PHI rises for clock cycle T1. On top of that /M1 falls at most 35ns after PHI rises for T1. To the limits of accuracy of my very cheap 24MHz analyser, in practice /M1 falls at the same time as A19.</p>
-<p>This is a significant oversight in my board design - the datasheet shows, if you look properly, that /M1 could fall before the address lines have settled. An earlier revision of my design used /MREQ instead of /M1, which can be seen in <a href="011-motherboard.html#memory">the design post</a> diagram. Despite my excessively detailed blog posts I neglected to document why I changed to /M1, but I believe it’s because I only wanted execution accesses to ROM to trigger the flip-flop. If I’d stuck with /MREQ then A19 would be settled low before /MREQ goes low, and this would have gone a bit smoother.</p>
-<p>The consequence of all this is that the ROM overlay DFF is reset before the first memory read even happens, and ROM never gets read.</p>
-<p>The good news is that there’s a simple fix to get the ROM overlay active at boot: I’ve put a 10kΩ 0603 resistor between the A19 and GND pins of the CPU socket, underneath the board. This pulls A19 low during reset, and it’s still low when /M1 falls for the first opcode fetch. Thereafter, the CPU continues to hold A19 low for each access.</p>
-<p>With this fix in place, the LED starts to blink at twice the speed. I now have a computer that can run code!</p>
-<h1 id="communication">Communication?</h1>
-<p>After adjusting the clock speed the boot code’s next task is to set up ASCI0. As the ROM progresses from here it prints out the character sequence ‘1234567’, with each character indicating successful completion of another step of the boot-up.</p>
-<p>Perhaps predictably by now, my serial terminal remained stubbornly blank. No output at all - but due to another questionable design choice, I wasn’t sure this meant the boot code was failing to transmit a character or not. This time it was the fact that the /RESET line also resets the FT230X USB IC. This causes the serial port to disconnect and reconnect; the FT230X datasheet doesn’t specify a time range for this but it will read the internal memory to configure the USB descriptors, enumerate as a USB device, and negotiate a connection. That’s enough work to be a non-trivial amount of time.</p>
-<p>So - with no way to talk to the CPU to find out what’s going on, I resorted to the logic analyser. My analyser has eight lines, so it cannot monitor the entire bus at once, but it can watch some pins and check they’re behaving. I checked the ROM’s /CE and /OE pins, which were firing properly. I checked, rechecked, triple checked, and dispiritedly checked the ASCI0 lines to the FT230X. Without a reset button, I resorted to five second samples at a slow rate, before finally cluing in that I could pull /WAIT low through the bus header, and freeze the CPU to inspect what it was doing.</p>
-<p>Freezing the CPU after it had run for a little while showed it had gone out to lunch in the middle of memory where no predictable value could be expected. It also showed that the transceiver pin for A12 was poorly soldered, but while that needed fixing it wasn’t in a position to be causing any faults.</p>
-<p>Freezing the CPU before it finished the first opcode fetch showed the right values on address and data lines.</p>
-<p>So - somewhere in between the first byte read, and thousands of cycles later, the CPU goes a bit nuts.</p>
-<h1 id="debugging-a-cpu-board">Debugging a CPU board</h1>
-<p>It’s impractical to try and whip a jumper lead in and out of the /WAIT header and expect to see anything meaningful going on. However, my board has a powerful tool available on in the form of the FPGA. Most of the board’s signals are connected to an FPGA pin so it has broad insight into the workings of the CPU. It also has a view of the /WAIT signal.</p>
-<p>What it does need is a way to tell me what’s going on. Since the FPGA is expected to eventually run an I2C bus, I thought it’d be convenient to give it an I2C slave interface for a µC to drive. The FPGA can drive /WAIT low when /MREQ or /IORQ falls, capture address and data lines, and send all that information to the µC in a four byte burst.</p>
-<p>Rather than trying to greenfields my own I2C module, I read over a handful of existing implementations. In the end I used one by Daniel Beer that has <a href="https://dlbeer.co.nz/articles/i2c.html">a truly excellent explanation</a>. Since it’s unlicensed, my FPGA code for this single step debugger is unpublished, but it’s not rocket surgery. I did get to learn about crossing clock domains though, to have an effective signal between an I2C event indicating the CPU should proceed to the next instruction and the CPU’s <em>much faster</em> clock cycle.</p>
-<p>This work uncovered a bad solder job on A5 of the FPGA, which I also fixed. And amazingly, I had completely failed to solder one side of one of the I2C pull-up resistors. I hope that’s it for bad solder jobs, because the volume of them makes a mockery of the amount of connectivity testing I did.</p>
-<p>The FPGA sends /MREQ, /IORQ, /RD, /RW, and the high four bits of the address bus in the first byte. The next two bytes are the rest of the address bus, and the data bus follows. After all four bytes have been read, the CPU is permitted to proceed.</p>
-<p>On the µC side of things I just used an ESP8266 as a convenient 3v3 device, and programmed it using Arduino IDE. After a few iterations I wound up with something that could single step, run a number of steps, run to an address access, and set breakpoints. Its output looks something like this:</p>
-<pre><code>MiRw 0016D  ED (11101101)
-MiRw 0016E  39 (00111001)
-MiRw 0016F  38 (00111000)</code></pre>
-<p>… which is the CPU fetching and executing <code class="sourceCode z80"><span class="bu">out0</span> (CBR), <span class="at">a</span></code>.</p>
-<p>The debug tool showed that without a USB connection, the boot ROM pauses waiting for the transmit data register empty (TDRE) flag to be set for ASCI0. When that flag is set, the CPU writes ‘1’ - and the serial terminal receives it. This confirms my hunch that the USB IC is still resetting when the CPU starts writing to it. And confirms that the serial link works!</p>
-<p>I had mixed up my boot code somehow and tried to do the MMU work right in the middle of setting up the DMA registers. Once I fixed this, I could watch the DMA executing its copy loop, reading from ROM and writing to RAM byte by byte.</p>
-<p>I also discovered that the MMU base registers are added to the logical address: if Common Area 1 starts at <code class="sourceCode z80"><span class="bn">$F000</span></code> with a base register of <code class="sourceCode z80"><span class="bn">$80</span></code> the physical address is <code class="sourceCode z80"><span class="bn">$8F000</span></code>. This makes sense from an implementation perspective - it’s a single 8-bit adder involved - and was an easy fix to set CBAR to <code class="sourceCode z80"><span class="bn">$71</span></code> instead.</p>
-<p>The remaining consequences of my choice to use /M1 then became apparent. A memory access to ROM space would set A19 high, with /M1 also high, no problem so far. But the next machine cycle would lower /M1 at around the same time as A19, with enough overlap between them for my flip-flop to be reset. The safest action is to jump to ROM as soon as possible, without allowing any other access to ROM space to happen first.</p>
-<p>I re-ordered the boot code to set up the MMU first, jumped to ROM space, ran the DMA copy from there, then jumped back to, in theory, SRAM.</p>
-<p>A transmit test that modified code showed that yes, I had code running out of SRAM.</p>
-<h1 id="rough-consensus-and-running-code"><del>Rough consensus and</del> running code</h1>
-<p>Let’s take a moment to absorb this.</p>
-<p>I have a <em>working computer</em>. It has boot ROM, working memory, and enough peripherals for me to interact with it.</p>
-<p>There’s plenty more to do from here, the Y-modem upload doesn’t work, I have nothing useful to upload, the FPGA isn’t capable of self-programming yet, and there are other boards I expect to add on over time. There’s even a laundry list of things I’d do differently on a second revision of the CPU board.</p>
-<p>But none of that matters just as this exact moment: demonstrating running code on the board means this project is now a success.</p>
-<p><img src="/images/trs20/logo.svg" /></p>]]></summary>
 </entry>
 
 </feed>

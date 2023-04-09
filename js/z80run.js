@@ -40,6 +40,8 @@ class Execution {
     completed(z80, zmem) {
         this.print(regs(z80) + '\n');
         for (let dump of this.dumps) {
+            if (typeof (dump.from) !== 'number' || typeof (dump.count) !== 'number')
+                continue;
             this.print('\n');
             for (let i = 0; i < dump.count; i += 16) {
                 this.print(hex16(dump.from + i) + ': ');
@@ -237,29 +239,7 @@ class RunZ80 {
                     .map(s => s.split(/_/))
                     .flatMap(parts => {
                     let [_, start, end] = parts;
-                    let startN = compiler.scope.resolve_immediate({
-                        expression: start,
-                        vars: [start],
-                        location: { line: 0, column: 0, source: $(pre) }
-                    });
-                    let endN = Number(end);
-                    if (isNaN(endN)) {
-                        endN = compiler.scope.resolve_immediate({
-                            expression: end,
-                            vars: [end],
-                            location: { line: 0, column: 0, source: $(pre) }
-                        });
-                        if (typeof endN === "number" && typeof startN === "number") {
-                            endN = endN - startN;
-                        }
-                    }
-                    if (typeof startN === "number" && typeof endN === "number") {
-                        return [{ from: startN, count: endN }];
-                    }
-                    else {
-                        console.log('!!! Cannot dump memory: start/end are not resolvable\n');
-                        return [];
-                    }
+                    return [{ from: start, count: end }];
                 });
                 let exec = new Execution(compiler.org, $(pre), trace, dumps);
                 runs.push(exec);
@@ -285,6 +265,48 @@ class RunZ80 {
         compiler.finalise();
         for (let span of spans) {
             span.note.text(this.format_assemblies(span.assemblies));
+        }
+        // resolve variables in the executions
+        for (let run of runs) {
+            for (let dump of run.dumps) {
+                let from = Number(dump.from);
+                if (isNaN(from)) {
+                    let start = compiler.scope.resolve_immediate({
+                        expression: "" + dump.from,
+                        vars: ["" + dump.from],
+                        location: { line: 0, column: 0, source: 'run' }
+                    });
+                    if (typeof (start) === "number") {
+                        dump.from = start;
+                    }
+                    else {
+                        console.log('!!! Cannot dump memory: start is not resolvable', dump.from);
+                        dump.count = dump.from = 0;
+                        continue;
+                    }
+                }
+                else {
+                    dump.from = from;
+                }
+                let count = Number(dump.count);
+                if (isNaN(count)) {
+                    let end = compiler.scope.resolve_immediate({
+                        expression: "" + dump.count,
+                        vars: ["" + dump.count],
+                        location: { line: 0, column: 0, source: 'run' }
+                    });
+                    if (typeof (end) === "number") {
+                        dump.count = end - dump.from;
+                    }
+                    else {
+                        console.log('!!! Cannot dump memory: end is not resolvable', dump.count);
+                        dump.count = dump.from = 0;
+                    }
+                }
+                else {
+                    dump.count = count;
+                }
+            }
         }
         // execute each run block
         this.runs = runs;

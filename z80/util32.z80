@@ -1,0 +1,303 @@
+
+	.block
+; in:	HL IY	32-bit operand
+;	DE BC	32-bit operand
+; out:	IY HL <- IY HL + DE BC
+@ADD32:
+	ADD	IY, BC
+	ADC	HL, DE
+	RET
+	.endblock
+
+	.block
+; in:	HL:IY	32-bit operand
+;	DE:BC	32-bit operand
+; out:	CF set if DE:BC > HL:IY
+;	ZF set if DE:BC = HL:IY
+@CMP32:
+	PUSH	HL
+	OR	A		; reset CF
+	SBC	HL, DE		; compare high word
+	JR	C, CMP32DONE	; done if DE > HL
+	JR	NZ, CMP32DONE	; done if DE != HL
+	PUSH	IY
+	POP	HL
+	SBC	HL, BC		; compare low word
+CMP32DONE:
+	POP	HL
+	RET
+	.endblock
+
+	.block
+; in:	A	8-bit number
+; out:	number is printed to console
+@PRINT8:
+	PUSH	AF
+	PUSH	BC
+	LD	C, 100
+	CALL	DIGIT8
+
+	LD	C, 10
+	CALL	DIGIT8
+
+	LD	C, 1
+	CALL	DIGIT8
+
+	LD	A, '\n'
+	OUT	(1), A
+
+	POP	BC
+	POP	AF
+	RET
+
+DIGIT8:	LD	B, '0' - 1
+SUBS8:	INC	B
+	SUB	C
+	JR	NC, SUBS8	; C > A, go again
+	ADD	A, C
+	PUSH	AF
+	LD	A, B
+	OUT	(1), A
+	POP	AF
+	RET
+	.endblock
+
+	.block
+; in:	HL:IY	32-bit number
+; out:	number is printed to console
+@PRINT32:
+	PUSH	AF
+	PUSH	BC
+	PUSH	DE
+	PUSH	HL
+	PUSH	IX
+	PUSH	IY
+
+	LD	IX, '0'
+
+	LD	DE, $c465	; $c4653600 = -1000000000
+	LD	BC, $3600
+	CALL	DIGIT
+
+	LD	DE, $fa0a	; -100000000
+	LD	BC, $1f00
+	CALL	DIGIT
+
+	LD	DE, $ff67	; -10000000
+	LD	BC, $6980
+	CALL	DIGIT
+
+	LD	DE, $fff0	; -1000000
+	LD	BC, $bdc0
+	CALL	DIGIT
+
+	LD	DE, $fffe	; -100000
+	LD	BC, $7960
+	CALL	DIGIT
+
+	LD	DE, $ffff	; -10000
+	LD	BC, $d8f0
+	CALL	DIGIT
+
+	LD	DE, $ffff	; -1000
+	LD	BC, $fc18
+	CALL	DIGIT
+
+	LD	DE, $ffff	; -100
+	LD	BC, $ff9c
+	CALL	DIGIT
+
+	LD	DE, $ffff	; -10
+	LD	BC, $fff6
+	CALL	DIGIT
+
+	LD	IX, 1
+
+	LD	DE, $ffff	; -1
+	LD	BC, $ffff
+	CALL	DIGIT
+
+	POP	IY
+	POP	IX
+	POP	HL
+	POP	DE
+	POP	BC
+	POP	AF
+	RET
+
+DIGIT:	LD	A, '0' - 1
+SUBS:	INC	A
+	ADD	IY, BC		; low word
+	ADC	HL, DE		; high word
+	JR	C, SUBS		; next 10s spot still greater, go again
+	PUSH	HL
+	PUSH	IY
+	POP	HL
+	SBC	HL, BC		; low word
+	PUSH	HL
+	POP	IY
+	POP	HL
+	SBC	HL, DE		; high word
+
+	PUSH	IX
+	EX	(SP), HL
+	CP	L
+	JR	Z, NOPR
+	OUT	(1), A
+	LD	L, 1
+NOPR:	EX	(SP), HL
+	POP	IX
+	RET
+	.endblock
+
+	.block
+; in:	IX - decimal characters
+; out:	DE:BC - 32-bit number
+;       IX at first non-decimal character
+@READ32:
+	PUSH	AF
+	PUSH	HL
+	PUSH	IY
+
+	; accumulate in DE:BC
+	LD	BC, 0
+	LD	DE, 0
+
+RDL1:
+	; get the next byte of input
+	LD	A, (IX+0)
+	CP	'0'
+	JR	C, RDL2	; '0' > A
+	CP	'9'+1
+	JR	NC, RDL2	; '9'+1 <= A
+
+	INC	IX
+	SUB	'0'
+
+	; multiply DE:BC by 10 - *2 + *8
+	SLA	C
+	RL	B
+	RL	E
+	RL	D
+	PUSH	DE
+	POP	HL
+	PUSH	BC
+	POP	IY
+	SLA	C
+	RL	B
+	RL	E
+	RL	D
+	SLA	C
+	RL	B
+	RL	E
+	RL	D
+	ADD	IY, BC
+	ADC	HL, DE
+
+	; Add in the new digit
+	LD	C, A
+	LD	B, 0
+	LD	DE, 0
+	ADD	IY, BC
+	ADC	HL, DE
+
+	PUSH	IY
+	POP	BC
+	PUSH	HL
+	POP	DE
+
+	JR	RDL1
+
+RDL2:
+	; restore registers
+	POP	IY
+	POP	HL
+	POP	AF
+	RET
+	.endblock
+
+;	.block
+;; in:	B	operand
+;;	C	operand
+;; out:	BC	result
+;; shift-and-add multiply
+;@MUL8:
+;	PUSH	DE
+;	PUSH	HL
+;	LD	E, B
+;	LD	D, 0		; DE = multiplicand
+;	LD	B, 8		; 8 bits to multiply
+;	LD	HL, 0		; accumulate the result here
+;MUL8_1:
+;	ADD	HL, HL		; double the result so far
+;	SLA	C		; rotate top bit of C into CF
+;	JR	NC, MUL8_2	; if bit wasn't set, don't do anything
+;	ADD	HL, DE		; add multiplicand in
+;MUL8_2:
+;	DJNZ	MUL8_1		; repeat 8 times
+;
+;	LD	B, H
+;	LD	C, L
+;
+;	POP	HL
+;	POP	DE
+;	RET
+;	.endblock
+;
+;	.block
+;; in:	BC	multiplicand
+;;	DE	multiplier
+;; out:	DE:BC	result
+;@MUL16:
+;; 	BC*DE = (B*256+C)*(D*256+E) = (B*256*D*256) + (B*256*E) + (C*D*256) + (C*E)
+;	PUSH	AF
+;	PUSH	HL
+;	PUSH	IX
+;	LD	IX, 0		; set up IX as frame pointer
+;	ADD	IX, SP
+;	PUSH	BC		; reserve two words for working
+;	PUSH	DE
+;
+;	LD	H, B
+;	LD	L, C
+;	LD	B, E
+;	CALL	MUL8		; C * E
+;	LD	(IX+0), C
+;	LD	(IX+1), B
+;	LD	B, D
+;	LD	C, L
+;	CALL	MUL8		; C * D * 256
+;	LD	A, C
+;	ADD	A, (IX+1)
+;	LD	(IX+1), A
+;	LD	A, B
+;	ADC	A, 0
+;	LD	(IX+2), A
+;	LD	B, H
+;	LD	C, E
+;	CALL	MUL8		; B * E * 256
+;	LD	A, C
+;	ADD	A, (IX+1)
+;	LD	(IX+1), A
+;	LD	A, B
+;	ADC	A, (IX+2)
+;	LD	(IX+2), A
+;	LD	B, H
+;	LD	C, D
+;	CALL	MUL8		; B * D * 256 * 256
+;	LD	A, C
+;	ADD	A, (IX+2)
+;	LD	E, A
+;	LD	A, 0
+;	ADC	A, B
+;	LD	D, A
+;	LD	C, (IX+0)
+;	LD	B, (IX+1)
+;
+;	LD	SP, IX
+;	POP	IX
+;	POP	HL
+;	POP	AF
+;	RET
+;	.endblock
+;
