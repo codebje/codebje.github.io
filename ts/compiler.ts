@@ -1,5 +1,5 @@
 import { Align, Org, Phase, EndPhase, Block, EndBlock, Bytes, Expression, Relative, AnyResult, Label,
-         Defw, Defb, Defs, Include, MacroDef, MacroCall, parse }
+         Defw, Defb, Defs, Include, MacroDef, MacroCall, Equ, parse }
     from './z80/parser.js';
 import { Scope, Value, RefUpdater } from './scope.js';
 
@@ -58,6 +58,7 @@ export class Compiler {
             case "include": return this.compile_include(stmt);
             case "macrodef": return this.compile_macrodef(stmt);
             case "macrocall": return this.compile_macrocall(stmt);
+            case "equ": return this.compile_equ(stmt);
             default:
                 throw "unknown statement type " + stmt.type;
         }
@@ -420,6 +421,20 @@ export class Compiler {
         } else {
             throw("undefined macro: " + stmt.macrocall);
         }
+    }
+
+    private async compile_equ(stmt: Equ): Promise<Assembly[]> {
+        let val = this.scope.resolve_immediate(stmt.equ);
+        if (typeof val !== "number") {
+            throw "defs size must be resolvable in one pass";
+        }
+
+        if (this.scope.has(stmt.label)) {
+            throw "redefined label " + stmt.label;
+        }
+        this.scope.set(stmt.label, val);
+
+        return [];
     }
 
     /*

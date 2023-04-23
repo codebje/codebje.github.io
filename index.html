@@ -9,6 +9,7 @@
     <link rel="stylesheet" type="text/css" href="./css/animation.css">
     <link rel="stylesheet" type="text/css" href="./css/syntax.css">
     <link rel="stylesheet" type="text/css" href="./css/saucecodepro-nerd-font-mono.css">
+    <link rel="stylesheet" type="text/css" href="./css/tex-gyre-pagella.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300,600|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
@@ -45,6 +46,28 @@
     <div class="page-content">
       <div class="wrapper">
         
+  <section class="anim fadeinup">
+    <header class="post-header">
+      
+        <img class="post-logo" src="images/trs80.jpg">
+      
+      <h1 class="post-title"><a href="./posts/2023-04-23-aoc-z80-day08.html" class="plain">Advent of Z80 - Day 8, 2022</a></h1>
+      <p class="post-meta">April 23, 2023 • bje</p>
+    </header>
+
+    <article class="post-content">
+      <a href="./posts/2023-04-23-aoc-z80-day08.html"><img class="post-hero" src="./images/banners/treeline.png"></a>
+      
+        <div class="post-hero-note">Retrieved from <a href="https://openclipart.org/detail/315866/forest-treeline-silhouette-3">openclipart</a>, where its origin is unattributed.</div>
+      
+      
+        <p>Day 8 has a somewhat less obvious puzzle than the previous days, but as is typical with the Z80 solutions there’s still more time spent working against the low level nature of assembly than there is time spent figuring out how to solve the puzzle.</p>
+
+        <a href="./posts/2023-04-23-aoc-z80-day08.html">Read more…</a>
+      
+    </article>
+  </section>
+
   <section class="anim fadeinup">
     <header class="post-header">
       
@@ -91,29 +114,6 @@
     </article>
   </section>
 
-  <section class="anim fadeinup">
-    <header class="post-header">
-      
-        <img class="post-logo" src="images/trs80.jpg">
-      
-      <h1 class="post-title"><a href="./posts/2023-03-12-aoc-z80-day05.html" class="plain">Advent of Z80 - Day 5, 2022</a></h1>
-      <p class="post-meta">March 12, 2023 • bje</p>
-    </header>
-
-    <article class="post-content">
-      <a href="./posts/2023-03-12-aoc-z80-day05.html"><img class="post-hero" src="./images/banners/origami-cranes.jpg"></a>
-      
-        <div class="post-hero-note"><a href="https://commons.wikimedia.org/wiki/File:Origami_Cranes_in_a_row.jpg">Original image</a> by Riedsa, cropped. <a href="https://creativecommons.org/licenses/by-sa/4.0/deed.en"><img class="attribution" src="https://i1.wp.com/i.creativecommons.org/l/by-sa/4.0/80x15.png?zoom=2&w=700"></a></div>
-      
-      
-        <p>Today’s puzzle is about stacks. The text of the puzzle is about a giant cargo crane moving crates around, but the implementation is going to focus on stack behaviours.</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY05</span></code></pre></div>
-
-        <a href="./posts/2023-03-12-aoc-z80-day05.html">Read more…</a>
-      
-    </article>
-  </section>
-
 
 <a href="archive.html">Older posts</a>
 
@@ -146,7 +146,7 @@
             }
         };
     </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <!-- script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script -->
   </body>
   <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

@@ -1,0 +1,131 @@
+        .block
+; IN:   hl      pointer to the source data to load
+;       de      pointer to the 7-byte set to update
+;       c       the number of values to load
+; OUT:          7-byte set ORed with source data
+@SET_OR:
+        push    af
+        push    bc
+        push    de
+        push    hl
+
+        ; for DJNZ...
+        ld      b, c
+
+LOOP:   push    de      ; hang onto this
+        ld      a, (hl)
+        ld      c, a    ; keep it for later
+
+        ; divide by 8
+        srl     a
+        srl     a
+        srl     a
+
+        ; add to set address
+        add     a, e
+        ld      e, a
+
+        ; get the low 8 bits
+        ld      a, 7
+        and     a, c
+
+        ; compute $80 << a
+        inc     a
+        ld      c, a
+        ld      a, $80
+SHIFT:  dec     c
+        jr      z, DONE
+        rrca
+        jr      SHIFT
+
+        ; OR with (de)
+DONE:   ex      de, hl
+        or      a, (hl)
+        ld      (hl), a
+        ex      de, hl
+
+        inc     hl
+        pop     de
+        djnz    LOOP
+
+        pop     hl
+        pop     de
+        pop     bc
+        pop     af
+        ret
+        .endblock
+
+        .block
+; IN:   hl      pointer to the source data to load
+;       de      pointer to the 7-byte set to update
+;       b       the number of values to load
+; OUT:          7-byte set ANDed with source data
+@SET_AND:
+        ; save modified registers
+        push    af      ; ix+8,9
+        push    bc      ; ix+6,7
+        push    de      ; ix+4,5
+        push    hl      ; ix+2,3
+
+        ; set up stack frame, 8-16 bytes of local storage
+        push    ix      ; ix+0,1
+        ld      ix, 0
+        add     ix, sp
+        ex      de, hl  ; I want the value in HL
+        ld      hl, -16
+        add     hl, sp
+        ld      sp, hl
+
+        ; align HL to an 8-byte boundary
+        ; HL = (HL + 8) & ~7
+        ld      bc, 8
+        add     hl, bc
+        ld      a, 1111_1000b
+        and     l
+        ld      l, a
+
+        ; initialise the new buffer
+        push    de
+        push    hl
+        ld      d, h
+        ld      e, l
+        inc     de
+        xor     a
+        ld      (hl), a
+        ld      bc, 6
+        ldir
+
+        ; these POPs swap DE and HL
+        pop     de      ; = stack buffer
+        pop     hl      ; = source data
+
+        ; load the source data into the new buffer
+        ld      c, (ix+6)
+        call    SET_OR
+
+        ; AND data between the buffers
+        ld      l, (ix+4)
+        ld      h, (ix+5)
+        ld      bc, 07ffh
+LOOP:   ld      a, (hl)
+        ex      de, hl
+        and     (hl)
+        ex      de, hl
+        ld      (hl), a
+        inc     hl
+        inc     de
+        djnz    LOOP
+
+        ; restore stack frame
+        ld      hl, 16
+        add     hl, sp
+        ld      sp, hl
+        pop     ix
+
+        ; restore modified registers
+        pop     hl
+        pop     de
+        pop     bc
+        pop     af
+        ret
+        .endblock

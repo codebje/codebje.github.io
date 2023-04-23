@@ -9,6 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
     <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
     <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
+    <link rel="stylesheet" type="text/css" href="../../css/tex-gyre-pagella.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300,600|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
@@ -94,7 +95,7 @@
 <figcaption aria-hidden="true">Zoomed in on one opcode fetch machine cycle.</figcaption>
 </figure>
 <p>Since the CPU is only executing NOP instructions, all registers are at their RESET defaults. This includes the DMA/WAIT Control (DCNTL) register, which sets bits MWI0 and MWI1 at RESET, inserting three wait states to memory access cycles. The Refresh Control (RCR) register is also in its RESET state, which enables DRAM refresh, inserts one wait state in the refresh cycle to take it to three clocks, and requires one refresh cycle every 10 clock cycles. In practice, this means that there’s a memory refresh cycle between almost every opcode fetch cycle - every 7th fetch cycle skips a refresh cycle. In the image above, you can see a refresh cycle beginning. M1 and RD are high, MREQ is low.</p>
-<p>The Z8018x Family MPU User Manual (UM005004-0918) has a table on page 287 that indicates a memory refresh cycle has M1, IORQ, RD, WR, HALT, and BUSACK high, and has MREQ and RFSH low. No other operating modes have MREQ active without either RD or WR active, that is <span class="math inline">\(\overline{RFSH} = \overline{MREQ} \land \lnot(\overline{RD} \lor \overline{WR})\)</span>. I don’t need to expose the RFSH line to know when a refresh cycle is active, and my boot ROM will disable memory refresh very early on in any case, so there’s no need to expose this signal.</p>
+<p>The Z8018x Family MPU User Manual (UM005004-0918) has a table on page 287 that indicates a memory refresh cycle has M1, IORQ, RD, WR, HALT, and BUSACK high, and has MREQ and RFSH low. No other operating modes have MREQ active without either RD or WR active, that is <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mover><mrow><mi>R</mi><mi>F</mi><mi>S</mi><mi>H</mi></mrow><mo accent="true">¯</mo></mover><mo>=</mo><mover><mrow><mi>M</mi><mi>R</mi><mi>E</mi><mi>Q</mi></mrow><mo accent="true">¯</mo></mover><mo>∧</mo><mi>¬</mi><mrow><mo stretchy="true" form="prefix">(</mo><mover><mrow><mi>R</mi><mi>D</mi></mrow><mo accent="true">¯</mo></mover><mo>∨</mo><mover><mrow><mi>W</mi><mi>R</mi></mrow><mo accent="true">¯</mo></mover><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">\overline{RFSH} = \overline{MREQ} \land \lnot(\overline{RD} \lor \overline{WR})</annotation></semantics></math>. I don’t need to expose the RFSH line to know when a refresh cycle is active, and my boot ROM will disable memory refresh very early on in any case, so there’s no need to expose this signal.</p>
 <p>One oddity does stand out. The system clock on PHI is running at 1MHz, the same as the oscillator. However, the Z8018x User Manual claims that “[T]he frequency of this output is equal to one-half that of the crystal or input clock frequency.” (UM005004-0918, pp. 7) This same claim is repeated in the Z80180 MPU Product Specification (PS014005-0817, pp. 9) for the CLOCK signal. This isn’t a problem, exactly, save that I have an 18MHz oscillator on back order, and that’ll be far too fast for my 10MHz rated chip.</p>
 <p>Nevertheless, my chip starts up and looks on the surface to be behaving correctly. And perhaps more surprisingly, my soldering looks to have been done correctly!</p>
 <h2 id="spending-is-a-habit">Spending is a habit</h2>
@@ -230,7 +231,7 @@
             }
         };
     </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <!-- script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script -->
   </body>
   <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

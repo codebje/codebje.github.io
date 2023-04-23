@@ -379,13 +379,13 @@ class RunZ80 {
         let total_cycles = 0;
 
         let frame = () => {
-            if (++frame_count > 1000) {
+            if (++frame_count > 50000) {
                 let pc = runner.z80.getState().pc;
                 run.print('\n!!! Run limit elapsed, halting execution (PC=' + hex16(pc) + ')\n');
                 run.completed(runner.z80, runner.zmem);
                 this.run_more();
             } else {
-                let result = runner.cycle(10000);
+                let result = runner.cycle(25000);
                 total_cycles += result.cycles;
                 if (result.halted) {
                     let pc = runner.z80.getState().pc;

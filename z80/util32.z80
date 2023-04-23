@@ -216,88 +216,88 @@ RDL2:
 	RET
 	.endblock
 
-;	.block
-;; in:	B	operand
-;;	C	operand
-;; out:	BC	result
-;; shift-and-add multiply
-;@MUL8:
-;	PUSH	DE
-;	PUSH	HL
-;	LD	E, B
-;	LD	D, 0		; DE = multiplicand
-;	LD	B, 8		; 8 bits to multiply
-;	LD	HL, 0		; accumulate the result here
-;MUL8_1:
-;	ADD	HL, HL		; double the result so far
-;	SLA	C		; rotate top bit of C into CF
-;	JR	NC, MUL8_2	; if bit wasn't set, don't do anything
-;	ADD	HL, DE		; add multiplicand in
-;MUL8_2:
-;	DJNZ	MUL8_1		; repeat 8 times
-;
-;	LD	B, H
-;	LD	C, L
-;
-;	POP	HL
-;	POP	DE
-;	RET
-;	.endblock
-;
-;	.block
-;; in:	BC	multiplicand
-;;	DE	multiplier
-;; out:	DE:BC	result
-;@MUL16:
-;; 	BC*DE = (B*256+C)*(D*256+E) = (B*256*D*256) + (B*256*E) + (C*D*256) + (C*E)
-;	PUSH	AF
-;	PUSH	HL
-;	PUSH	IX
-;	LD	IX, 0		; set up IX as frame pointer
-;	ADD	IX, SP
-;	PUSH	BC		; reserve two words for working
-;	PUSH	DE
-;
-;	LD	H, B
-;	LD	L, C
-;	LD	B, E
-;	CALL	MUL8		; C * E
-;	LD	(IX+0), C
-;	LD	(IX+1), B
-;	LD	B, D
-;	LD	C, L
-;	CALL	MUL8		; C * D * 256
-;	LD	A, C
-;	ADD	A, (IX+1)
-;	LD	(IX+1), A
-;	LD	A, B
-;	ADC	A, 0
-;	LD	(IX+2), A
-;	LD	B, H
-;	LD	C, E
-;	CALL	MUL8		; B * E * 256
-;	LD	A, C
-;	ADD	A, (IX+1)
-;	LD	(IX+1), A
-;	LD	A, B
-;	ADC	A, (IX+2)
-;	LD	(IX+2), A
-;	LD	B, H
-;	LD	C, D
-;	CALL	MUL8		; B * D * 256 * 256
-;	LD	A, C
-;	ADD	A, (IX+2)
-;	LD	E, A
-;	LD	A, 0
-;	ADC	A, B
-;	LD	D, A
-;	LD	C, (IX+0)
-;	LD	B, (IX+1)
-;
-;	LD	SP, IX
-;	POP	IX
-;	POP	HL
-;	POP	AF
-;	RET
-;	.endblock
-;
+	.block
+; in:	B	operand
+;	C	operand
+; out:	BC	result
+; shift-and-add multiply
+@MUL8:
+	PUSH	DE
+	PUSH	HL
+	LD	E, B
+	LD	D, 0		; DE = multiplicand
+	LD	B, 8		; 8 bits to multiply
+	LD	HL, 0		; accumulate the result here
+MUL8_1:
+	ADD	HL, HL		; double the result so far
+	SLA	C		; rotate top bit of C into CF
+	JR	NC, MUL8_2	; if bit wasn't set, don't do anything
+	ADD	HL, DE		; add multiplicand in
+MUL8_2:
+	DJNZ	MUL8_1		; repeat 8 times
+
+	LD	B, H
+	LD	C, L
+
+	POP	HL
+	POP	DE
+	RET
+	.endblock
+
+	.block
+; in:	BC	multiplicand
+;	DE	multiplier
+; out:	DE:BC	result
+@MUL16:
+; 	BC*DE = (B*256+C)*(D*256+E) = (B*256*D*256) + (B*256*E) + (C*D*256) + (C*E)
+	PUSH	AF
+	PUSH	HL
+	PUSH	IX
+	LD	IX, 0		; set up IX as frame pointer
+	ADD	IX, SP
+	PUSH	BC		; reserve two words for working
+	PUSH	DE
+
+	LD	H, B
+	LD	L, C
+	LD	B, E
+	CALL	MUL8		; C * E
+	LD	(IX+0), C
+	LD	(IX+1), B
+	LD	B, D
+	LD	C, L
+	CALL	MUL8		; C * D * 256
+	LD	A, C
+	ADD	A, (IX+1)
+	LD	(IX+1), A
+	LD	A, B
+	ADC	A, 0
+	LD	(IX+2), A
+	LD	B, H
+	LD	C, E
+	CALL	MUL8		; B * E * 256
+	LD	A, C
+	ADD	A, (IX+1)
+	LD	(IX+1), A
+	LD	A, B
+	ADC	A, (IX+2)
+	LD	(IX+2), A
+	LD	B, H
+	LD	C, D
+	CALL	MUL8		; B * D * 256 * 256
+	LD	A, C
+	ADD	A, (IX+2)
+	LD	E, A
+	LD	A, 0
+	ADC	A, B
+	LD	D, A
+	LD	C, (IX+0)
+	LD	B, (IX+1)
+
+	LD	SP, IX
+	POP	IX
+	POP	HL
+	POP	AF
+	RET
+	.endblock
+

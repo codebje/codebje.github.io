@@ -47,6 +47,11 @@ body
   background-color : #ffffff;
 }
 
+math
+{
+  font-family : "TeXGyrePagella-Bold","math";
+}
+
 img
 {
   max-width      : 100%;

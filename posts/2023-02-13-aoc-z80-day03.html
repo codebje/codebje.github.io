@@ -9,6 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../css/animation.css">
     <link rel="stylesheet" type="text/css" href="../css/syntax.css">
     <link rel="stylesheet" type="text/css" href="../css/saucecodepro-nerd-font-mono.css">
+    <link rel="stylesheet" type="text/css" href="../css/tex-gyre-pagella.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300,600|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
@@ -152,7 +153,7 @@
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
 <p>If all went well <code class="sourceCode z80"><span class="at">A</span></code> will contain the midpoint of <code>vJrwpWtwJgWrhcsFMMfFFhFp</code>, which is 12 or <code class="sourceCode z80"><span class="bn">$0c</span></code>.</p>
 <p>The next step is to find the letter in common. Rather than naively doing a quadratic comparison approach I will implement a basic bit-based set for numbers 0 to 52, taking up 7 bytes of space . I will need a function to OR a sequence of numbers into a set, for loading the first set of numbers, and a function to AND another sequence in, for mixing the second set of numbers in.</p>
-<p>I will require that sets are aligned such that adding up to 6 to the set address doesn’t overflow 8 bits. Finding a bit address can be done cheaply by dividing by 8 then shifting <code class="sourceCode z80"><span class="bn">1000_0000b</span></code> right by the remainder. I shift right rather than left such that value <span class="math inline">\(n\)</span> sets bit <span class="math inline">\(n\)</span> in the set: if I shifted left everything would still work correctly but the bits within each byte would be reversed.</p>
+<p>I will require that sets are aligned such that adding up to 6 to the set address doesn’t overflow 8 bits. Finding a bit address can be done cheaply by dividing by 8 then shifting <code class="sourceCode z80"><span class="bn">1000_0000b</span></code> right by the remainder. I shift right rather than left such that value <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> sets bit <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> in the set: if I shifted left everything would still work correctly but the bits within each byte would be reversed.</p>
 <p>Here’s some space carved out for a set, aligned to not overflow in 8 bits:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.align</span> <span class="bn">256</span>, <span class="bn">0</span>, <span class="bn">7</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">SEEN:</span>   <span class="kw">defs</span>    <span class="bn">7</span></span></code></pre></div>
@@ -535,7 +536,7 @@ X = vJrwpWtwJgWr && hcsFMMfFFhFp
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <strong>Day 3</strong> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | <a href="2023-04-23-aoc-z80-day08.html">Day 8</a> | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -572,7 +573,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
             }
         };
     </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <!-- script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script -->
   </body>
   <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

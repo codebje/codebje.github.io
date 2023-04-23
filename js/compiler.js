@@ -39,6 +39,7 @@ export class Compiler {
             case "include": return this.compile_include(stmt);
             case "macrodef": return this.compile_macrodef(stmt);
             case "macrocall": return this.compile_macrocall(stmt);
+            case "equ": return this.compile_equ(stmt);
             default:
                 throw "unknown statement type " + stmt.type;
         }
@@ -359,6 +360,17 @@ export class Compiler {
         else {
             throw ("undefined macro: " + stmt.macrocall);
         }
+    }
+    async compile_equ(stmt) {
+        let val = this.scope.resolve_immediate(stmt.equ);
+        if (typeof val !== "number") {
+            throw "defs size must be resolvable in one pass";
+        }
+        if (this.scope.has(stmt.label)) {
+            throw "redefined label " + stmt.label;
+        }
+        this.scope.set(stmt.label, val);
+        return [];
     }
 }
 //# sourceMappingURL=compiler.js.map

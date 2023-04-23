@@ -8,8 +8,336 @@
         <name>Byron Ellacott</name>
         <email></email>
     </author>
-    <updated>2023-04-09T00:00:00Z</updated>
+    <updated>2023-04-23T00:00:00Z</updated>
     <entry>
+    <title>Advent of Z80 - Day 8, 2022</title>
+    <link href="https://bje.id.au/blog/posts/2023-04-23-aoc-z80-day08.html" />
+    <id>https://bje.id.au/blog/posts/2023-04-23-aoc-z80-day08.html</id>
+    <published>2023-04-23T00:00:00Z</published>
+    <updated>2023-04-23T00:00:00Z</updated>
+    <summary type="html"><![CDATA[<p>Day 8 has a somewhat less obvious puzzle than the previous days, but as is typical with the Z80 solutions there’s still more time spent working against the low level nature of assembly than there is time spent figuring out how to solve the puzzle.</p>
+<!--more-->
+<p>As with the last post, this one is relatively light on prose as I catch up on backlog from COVID. Fortunately, once again this is code I wrote last year during the AoC, so it’s ready to roll but in a bit of a different style.</p>
+<p>The first star requires determining how many trees in a grid are visible from outside the grid. A tree is visible if no taller trees block line of sight to it from one of the four cardinal directions. I solved this problem by scanning over the input left to right, top to bottom, tracking the height of trees in each column and in the current row as I went, then reversing direction and scanning right to left, bottom to top. If a tree is taller than the tallest tree seen so far in its row or column, it’s visible from the edge. To avoid double counting trees I re-use bit 7 of the height of each tree to mark visibility.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">START:</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">SP</span>, <span class="bn">08000</span>H</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">; clear out all the column heights ahead of scanning down</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">XOR</span>     <span class="at">A</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, HEIGHTS</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">DE</span>, HEIGHTS+<span class="bn">1</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, MAPSIZE-<span class="bn">1</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">HL</span>), <span class="at">A</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LDIR</span>    <span class="co">; copy MAPSIZE-1 bytes from (HL) to (DE), incrementing both each time</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="co">; scan each row and column from each direction, marking visible trees in bit 7</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">; then count how many trees are marked</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">C</span>, MAPSIZE      <span class="co">; row counter</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DATA</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">; for each row...</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a><span class="fu">DOWN:</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="bn">0</span>            <span class="co">; max tree height in row</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">B</span>, MAPSIZE      <span class="co">; column counter</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IX</span>, HEIGHTS</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a><span class="fu">RIGHT:</span>  <span class="bu">LD</span>      <span class="at">D</span>, (<span class="at">HL</span>)         <span class="co">; load next tree height</span></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RES</span>     <span class="bn">7</span>, <span class="at">D</span>            <span class="co">; reset the visible flag before comparing</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">D</span>               <span class="co">; use 1-10 instead of 0-9 so edges always match</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="at">E</span>            <span class="co">; using max height...</span></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="at">D</span>               <span class="co">; compare max height to next tree height</span></span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NC, RSKIP       <span class="co">; CF set if this tree &gt; max seen</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="at">D</span>            <span class="co">; store new max height</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SET</span>     <span class="bn">7</span>, (<span class="at">HL</span>)         <span class="co">; mark tree as visible</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a><span class="fu">RSKIP:</span>  <span class="bu">LD</span>      <span class="at">A</span>, (<span class="at">IX</span>+<span class="bn">0</span>)       <span class="co">; load max column height</span></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="at">D</span>               <span class="co">; compare to next tree height</span></span>
+<span id="cb1-32"><a href="#cb1-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NC, DSKIP       <span class="co">; alas, not visible from above</span></span>
+<span id="cb1-33"><a href="#cb1-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>+<span class="bn">0</span>), <span class="at">D</span>       <span class="co">; update max height</span></span>
+<span id="cb1-34"><a href="#cb1-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SET</span>     <span class="bn">7</span>, (<span class="at">HL</span>)         <span class="co">; mark tree as visible</span></span>
+<span id="cb1-35"><a href="#cb1-35" aria-hidden="true" tabindex="-1"></a><span class="fu">DSKIP:</span>  <span class="bu">INC</span>     <span class="at">IX</span>              <span class="co">; move along</span></span>
+<span id="cb1-36"><a href="#cb1-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span>              <span class="co">; move along</span></span>
+<span id="cb1-37"><a href="#cb1-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DJNZ</span>    RIGHT           <span class="co">; and loop over remaining trees</span></span>
+<span id="cb1-38"><a href="#cb1-38" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-39"><a href="#cb1-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">C</span>               <span class="co">; row counter</span></span>
+<span id="cb1-40"><a href="#cb1-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, DOWN</span>
+<span id="cb1-41"><a href="#cb1-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-42"><a href="#cb1-42" aria-hidden="true" tabindex="-1"></a>        <span class="co">; then do it all again, going backwards</span></span>
+<span id="cb1-43"><a href="#cb1-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">XOR</span>     <span class="at">A</span></span>
+<span id="cb1-44"><a href="#cb1-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, HEIGHTS</span>
+<span id="cb1-45"><a href="#cb1-45" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">DE</span>, HEIGHTS+<span class="bn">1</span></span>
+<span id="cb1-46"><a href="#cb1-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, MAPSIZE-<span class="bn">1</span></span>
+<span id="cb1-47"><a href="#cb1-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">HL</span>), <span class="at">A</span></span>
+<span id="cb1-48"><a href="#cb1-48" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LDIR</span>    <span class="co">; copy MAPSIZE-1 bytes from (HL) to (DE), incrementing both each time</span></span>
+<span id="cb1-49"><a href="#cb1-49" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">C</span>, MAPSIZE      <span class="co">; row counter</span></span>
+<span id="cb1-50"><a href="#cb1-50" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DATA + MAPSIZE * MAPSIZE - <span class="bn">1</span></span>
+<span id="cb1-51"><a href="#cb1-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-52"><a href="#cb1-52" aria-hidden="true" tabindex="-1"></a><span class="fu">UP:</span>     <span class="bu">LD</span>      <span class="at">E</span>, <span class="bn">0</span>            <span class="co">; max tree height in row</span></span>
+<span id="cb1-53"><a href="#cb1-53" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">B</span>, MAPSIZE      <span class="co">; column counter</span></span>
+<span id="cb1-54"><a href="#cb1-54" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IX</span>, HEIGHTS</span>
+<span id="cb1-55"><a href="#cb1-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-56"><a href="#cb1-56" aria-hidden="true" tabindex="-1"></a><span class="fu">LEFT:</span>   <span class="bu">LD</span>      <span class="at">D</span>, (<span class="at">HL</span>)         <span class="co">; load next tree height</span></span>
+<span id="cb1-57"><a href="#cb1-57" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RES</span>     <span class="bn">7</span>, <span class="at">D</span>            <span class="co">; reset the visible flag before comparing</span></span>
+<span id="cb1-58"><a href="#cb1-58" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">D</span>               <span class="co">; use 1-10 instead of 0-9 so edges always match</span></span>
+<span id="cb1-59"><a href="#cb1-59" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="at">E</span>            <span class="co">; using max height...</span></span>
+<span id="cb1-60"><a href="#cb1-60" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="at">D</span>               <span class="co">; compare max height to next tree height</span></span>
+<span id="cb1-61"><a href="#cb1-61" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NC, LSKIP       <span class="co">; CF set if this tree &gt; max seen</span></span>
+<span id="cb1-62"><a href="#cb1-62" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="at">D</span>            <span class="co">; store new max height</span></span>
+<span id="cb1-63"><a href="#cb1-63" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SET</span>     <span class="bn">7</span>, (<span class="at">HL</span>)         <span class="co">; mark tree as visible</span></span>
+<span id="cb1-64"><a href="#cb1-64" aria-hidden="true" tabindex="-1"></a><span class="fu">LSKIP:</span>  <span class="bu">LD</span>      <span class="at">A</span>, (<span class="at">IX</span>+<span class="bn">0</span>)       <span class="co">; load max column height</span></span>
+<span id="cb1-65"><a href="#cb1-65" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="at">D</span>               <span class="co">; compare to next tree height</span></span>
+<span id="cb1-66"><a href="#cb1-66" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NC, USKIP       <span class="co">; alas, not visible from above</span></span>
+<span id="cb1-67"><a href="#cb1-67" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>+<span class="bn">0</span>), <span class="at">D</span>       <span class="co">; update max height</span></span>
+<span id="cb1-68"><a href="#cb1-68" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SET</span>     <span class="bn">7</span>, (<span class="at">HL</span>)         <span class="co">; mark tree as visible</span></span>
+<span id="cb1-69"><a href="#cb1-69" aria-hidden="true" tabindex="-1"></a><span class="fu">USKIP:</span>  <span class="bu">INC</span>     <span class="at">IX</span>              <span class="co">; move along</span></span>
+<span id="cb1-70"><a href="#cb1-70" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">HL</span>              <span class="co">; move along - backwards</span></span>
+<span id="cb1-71"><a href="#cb1-71" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DJNZ</span>    LEFT            <span class="co">; and loop over remaining trees</span></span>
+<span id="cb1-72"><a href="#cb1-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-73"><a href="#cb1-73" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">C</span>               <span class="co">; row counter</span></span>
+<span id="cb1-74"><a href="#cb1-74" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, UP</span>
+<span id="cb1-75"><a href="#cb1-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-76"><a href="#cb1-76" aria-hidden="true" tabindex="-1"></a>        <span class="co">; now count how many have bit 7 set</span></span>
+<span id="cb1-77"><a href="#cb1-77" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DATA</span>
+<span id="cb1-78"><a href="#cb1-78" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">DE</span>, <span class="bn">0</span></span>
+<span id="cb1-79"><a href="#cb1-79" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">C</span>, MAPSIZE</span>
+<span id="cb1-80"><a href="#cb1-80" aria-hidden="true" tabindex="-1"></a><span class="fu">VISROW:</span> <span class="bu">LD</span>      <span class="at">B</span>, MAPSIZE</span>
+<span id="cb1-81"><a href="#cb1-81" aria-hidden="true" tabindex="-1"></a><span class="fu">VISCOL:</span> <span class="bu">BIT</span>     <span class="bn">7</span>, (<span class="at">HL</span>)</span>
+<span id="cb1-82"><a href="#cb1-82" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, VSKIP</span>
+<span id="cb1-83"><a href="#cb1-83" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">DE</span></span>
+<span id="cb1-84"><a href="#cb1-84" aria-hidden="true" tabindex="-1"></a><span class="fu">VSKIP:</span>  <span class="bu">RES</span>     <span class="bn">7</span>, (<span class="at">HL</span>)         <span class="co">; clear for later processing ease</span></span>
+<span id="cb1-85"><a href="#cb1-85" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span></span>
+<span id="cb1-86"><a href="#cb1-86" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DJNZ</span>    VISCOL</span>
+<span id="cb1-87"><a href="#cb1-87" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">C</span></span>
+<span id="cb1-88"><a href="#cb1-88" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, VISROW</span>
+<span id="cb1-89"><a href="#cb1-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-90"><a href="#cb1-90" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IY</span>, <span class="bn">0</span></span>
+<span id="cb1-91"><a href="#cb1-91" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">IY</span>, <span class="at">DE</span></span>
+<span id="cb1-92"><a href="#cb1-92" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, <span class="bn">0</span></span>
+<span id="cb1-93"><a href="#cb1-93" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    PRINT32</span>
+<span id="cb1-94"><a href="#cb1-94" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="st">&#39;\n&#39;</span></span>
+<span id="cb1-95"><a href="#cb1-95" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OUT</span>     (<span class="bn">1</span>), <span class="at">A</span></span></code></pre></div>
+<p>Star 2 involves finding a ‘scenic score’, which is the product of the distance in each direction to the highest tree. The naive approach will traverse <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>n</mi><mn>2</mn></msup><annotation encoding="application/x-tex">n^2</annotation></semantics></math> trees, and at each tree move <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mi>/</mi><mn>2</mn></mrow><annotation encoding="application/x-tex">n/2</annotation></semantics></math> steps in each direction. This is $O(n^3), or around a million steps for a grid size of 99 - not exactly a great solution, but using a desktop emulator it’s still only a fraction of a second.</p>
+<p>The code below once again sweeps over the input data from the top left. This time, it tracks the maximum distance visible from a tree of each height, stored in two 10-number arrays. The top and left distances are known as soon as each tree is reached, so those two values are multiplied together and stored in an array of 16-bit numbers, one per tree. As with star 1, when the bottom right corner is reached the code then reverses direction and scans back up to the top left, repeating the computation. At each tree, the 16-bit multiplication result is itself multiplied by the stored 16-bit value, and a running maximum is tracked.</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>        <span class="co">; begin by zeroing all distances</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">XOR</span>     <span class="at">A</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DISTANCES</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">DE</span>, DISTANCES + <span class="bn">1</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">10</span> * (MAPSIZE + <span class="bn">1</span>) - <span class="bn">1</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">HL</span>), <span class="at">A</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LDIR</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">C</span>, MAPSIZE      <span class="co">; row counter</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DATA</span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IY</span>, SCENICS</span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">D</span>, <span class="bn">0</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="fu">DOWN_2:</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">B</span>, MAPSIZE      <span class="co">; column counter</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IX</span>, DISTANCES + <span class="bn">10</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="bn">0</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES), <span class="at">DE</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">2</span>), <span class="at">DE</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">4</span>), <span class="at">DE</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">6</span>), <span class="at">DE</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">8</span>), <span class="at">DE</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a><span class="fu">RIGHT_2:</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">BC</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, (<span class="at">HL</span>)         <span class="co">; load next tree height</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">IX</span>, <span class="at">DE</span>          <span class="co">; IX[DE]</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">C</span>, (<span class="at">IX</span>+<span class="bn">0</span>)</span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">IX</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IX</span>, DISTANCES</span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">IX</span>, <span class="at">DE</span>          <span class="co">; DISTANCES[DE]</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">B</span>, (<span class="at">IX</span>+<span class="bn">0</span>)</span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">IX</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    MUL8</span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IY</span>+<span class="bn">0</span>), <span class="at">C</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IY</span>+<span class="bn">1</span>), <span class="at">B</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IY</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">IY</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="bn">10</span>           <span class="co">; finish adding 10 to IX</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SUB</span>     <span class="at">E</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="at">A</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">IX</span>, <span class="at">DE</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">BC</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    DISTUPD</span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span>              <span class="co">; move along</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DJNZ</span>    RIGHT<span class="bn">_2</span>         <span class="co">; and loop over remaining trees</span></span>
+<span id="cb2-48"><a href="#cb2-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-49"><a href="#cb2-49" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">C</span>               <span class="co">; row counter</span></span>
+<span id="cb2-50"><a href="#cb2-50" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, DOWN<span class="bn">_2</span></span>
+<span id="cb2-51"><a href="#cb2-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-52"><a href="#cb2-52" aria-hidden="true" tabindex="-1"></a>        <span class="co">; todo: up and to the left, finding maximum</span></span>
+<span id="cb2-53"><a href="#cb2-53" aria-hidden="true" tabindex="-1"></a>        <span class="bu">XOR</span>     <span class="at">A</span></span>
+<span id="cb2-54"><a href="#cb2-54" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DISTANCES</span>
+<span id="cb2-55"><a href="#cb2-55" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">DE</span>, DISTANCES + <span class="bn">1</span></span>
+<span id="cb2-56"><a href="#cb2-56" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">10</span> * (MAPSIZE + <span class="bn">1</span>) - <span class="bn">1</span></span>
+<span id="cb2-57"><a href="#cb2-57" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">HL</span>), <span class="at">A</span></span>
+<span id="cb2-58"><a href="#cb2-58" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LDIR</span></span>
+<span id="cb2-59"><a href="#cb2-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-60"><a href="#cb2-60" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">C</span>, MAPSIZE      <span class="co">; row counter</span></span>
+<span id="cb2-61"><a href="#cb2-61" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DATA + MAPSIZE * MAPSIZE - <span class="bn">1</span></span>
+<span id="cb2-62"><a href="#cb2-62" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">D</span>, <span class="bn">0</span></span>
+<span id="cb2-63"><a href="#cb2-63" aria-hidden="true" tabindex="-1"></a><span class="fu">UP_2:</span></span>
+<span id="cb2-64"><a href="#cb2-64" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">B</span>, MAPSIZE      <span class="co">; column counter</span></span>
+<span id="cb2-65"><a href="#cb2-65" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IX</span>, DISTANCES + <span class="bn">10</span></span>
+<span id="cb2-66"><a href="#cb2-66" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="bn">0</span></span>
+<span id="cb2-67"><a href="#cb2-67" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES), <span class="at">DE</span></span>
+<span id="cb2-68"><a href="#cb2-68" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">2</span>), <span class="at">DE</span></span>
+<span id="cb2-69"><a href="#cb2-69" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">4</span>), <span class="at">DE</span></span>
+<span id="cb2-70"><a href="#cb2-70" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">6</span>), <span class="at">DE</span></span>
+<span id="cb2-71"><a href="#cb2-71" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">8</span>), <span class="at">DE</span></span>
+<span id="cb2-72"><a href="#cb2-72" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-73"><a href="#cb2-73" aria-hidden="true" tabindex="-1"></a><span class="fu">LEFT_2:</span></span>
+<span id="cb2-74"><a href="#cb2-74" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">BC</span></span>
+<span id="cb2-75"><a href="#cb2-75" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">HL</span></span>
+<span id="cb2-76"><a href="#cb2-76" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, (<span class="at">HL</span>)         <span class="co">; load next tree height</span></span>
+<span id="cb2-77"><a href="#cb2-77" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">IX</span>, <span class="at">DE</span>          <span class="co">; IX[DE]</span></span>
+<span id="cb2-78"><a href="#cb2-78" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">C</span>, (<span class="at">IX</span>+<span class="bn">0</span>)</span>
+<span id="cb2-79"><a href="#cb2-79" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">IX</span></span>
+<span id="cb2-80"><a href="#cb2-80" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">DE</span></span>
+<span id="cb2-81"><a href="#cb2-81" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IX</span>, DISTANCES</span>
+<span id="cb2-82"><a href="#cb2-82" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">IX</span>, <span class="at">DE</span>          <span class="co">; DISTANCES[DE]</span></span>
+<span id="cb2-83"><a href="#cb2-83" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">B</span>, (<span class="at">IX</span>+<span class="bn">0</span>)</span>
+<span id="cb2-84"><a href="#cb2-84" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    MUL8            <span class="co">; BC = dist * dist</span></span>
+<span id="cb2-85"><a href="#cb2-85" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">IY</span></span>
+<span id="cb2-86"><a href="#cb2-86" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">IY</span></span>
+<span id="cb2-87"><a href="#cb2-87" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, (<span class="at">IY</span>+<span class="bn">0</span>)       <span class="co">; DE = dist * dist from down/right</span></span>
+<span id="cb2-88"><a href="#cb2-88" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">D</span>, (<span class="at">IY</span>+<span class="bn">1</span>)</span>
+<span id="cb2-89"><a href="#cb2-89" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    MUL16           <span class="co">; DE:BC = dist*dist*dist*dist</span></span>
+<span id="cb2-90"><a href="#cb2-90" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">IY</span></span>
+<span id="cb2-91"><a href="#cb2-91" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IY</span>, (MAX)</span>
+<span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, (MAX+<span class="bn">2</span>)</span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    CMP32</span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">IY</span></span>
+<span id="cb2-95"><a href="#cb2-95" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NC, NOTMAX</span>
+<span id="cb2-96"><a href="#cb2-96" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (MAX), <span class="at">BC</span></span>
+<span id="cb2-97"><a href="#cb2-97" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (MAX+<span class="bn">2</span>), <span class="at">DE</span></span>
+<span id="cb2-98"><a href="#cb2-98" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-99"><a href="#cb2-99" aria-hidden="true" tabindex="-1"></a><span class="fu">NOTMAX:</span></span>
+<span id="cb2-100"><a href="#cb2-100" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">DE</span></span>
+<span id="cb2-101"><a href="#cb2-101" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">IX</span></span>
+<span id="cb2-102"><a href="#cb2-102" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-103"><a href="#cb2-103" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="bn">10</span>           <span class="co">; finish adding 10 to IX</span></span>
+<span id="cb2-104"><a href="#cb2-104" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SUB</span>     <span class="at">E</span></span>
+<span id="cb2-105"><a href="#cb2-105" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="at">A</span></span>
+<span id="cb2-106"><a href="#cb2-106" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">IX</span>, <span class="at">DE</span></span>
+<span id="cb2-107"><a href="#cb2-107" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-108"><a href="#cb2-108" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">HL</span></span>
+<span id="cb2-109"><a href="#cb2-109" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">BC</span></span>
+<span id="cb2-110"><a href="#cb2-110" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-111"><a href="#cb2-111" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    DISTUPD</span>
+<span id="cb2-112"><a href="#cb2-112" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-113"><a href="#cb2-113" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">HL</span>              <span class="co">; move along</span></span>
+<span id="cb2-114"><a href="#cb2-114" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DJNZ</span>    LEFT<span class="bn">_2</span>          <span class="co">; and loop over remaining trees</span></span>
+<span id="cb2-115"><a href="#cb2-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">C</span>               <span class="co">; row counter</span></span>
+<span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, UP<span class="bn">_2</span></span>
+<span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    PRINT32</span>
+<span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, (MAX+<span class="bn">2</span>)</span>
+<span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    PRINT32</span>
+<span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="st">&#39;\n&#39;</span></span>
+<span id="cb2-123"><a href="#cb2-123" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OUT</span>     (<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb2-124"><a href="#cb2-124" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-125"><a href="#cb2-125" aria-hidden="true" tabindex="-1"></a><span class="fu">FINISH:</span></span>
+<span id="cb2-126"><a href="#cb2-126" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span>
+<span id="cb2-127"><a href="#cb2-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-128"><a href="#cb2-128" aria-hidden="true" tabindex="-1"></a><span class="co">; Update distances in IX-10 to IX-1 and DISTANCES to DISTANCES+9</span></span>
+<span id="cb2-129"><a href="#cb2-129" aria-hidden="true" tabindex="-1"></a><span class="co">; in:   A       10 - height</span></span>
+<span id="cb2-130"><a href="#cb2-130" aria-hidden="true" tabindex="-1"></a><span class="co">; out:  A       destroyed</span></span>
+<span id="cb2-131"><a href="#cb2-131" aria-hidden="true" tabindex="-1"></a><span class="co">;       E       destroyed</span></span>
+<span id="cb2-132"><a href="#cb2-132" aria-hidden="true" tabindex="-1"></a><span class="fu">DISTUPD:</span></span>
+<span id="cb2-133"><a href="#cb2-133" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">HL</span></span>
+<span id="cb2-134"><a href="#cb2-134" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">IY</span></span>
+<span id="cb2-135"><a href="#cb2-135" aria-hidden="true" tabindex="-1"></a>        <span class="co">; zero out distances this tree height or below</span></span>
+<span id="cb2-136"><a href="#cb2-136" aria-hidden="true" tabindex="-1"></a>        <span class="co">; multiply A by 6</span></span>
+<span id="cb2-137"><a href="#cb2-137" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RLCA</span>            <span class="co">; bit 7 is definitely clear here</span></span>
+<span id="cb2-138"><a href="#cb2-138" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="at">A</span>    <span class="co">; save height*2</span></span>
+<span id="cb2-139"><a href="#cb2-139" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RLCA</span>            <span class="co">; also here</span></span>
+<span id="cb2-140"><a href="#cb2-140" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">A</span>, <span class="at">E</span>    <span class="co">; A = height * 6, max. 54</span></span>
+<span id="cb2-141"><a href="#cb2-141" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="at">A</span></span>
+<span id="cb2-142"><a href="#cb2-142" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DZEROS - <span class="bn">6</span></span>
+<span id="cb2-143"><a href="#cb2-143" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">HL</span>, <span class="at">DE</span>  <span class="co">; skip over (10-height) loads</span></span>
+<span id="cb2-144"><a href="#cb2-144" aria-hidden="true" tabindex="-1"></a>        <span class="bu">XOR</span>     <span class="at">A</span></span>
+<span id="cb2-145"><a href="#cb2-145" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      (<span class="at">HL</span>)</span>
+<span id="cb2-146"><a href="#cb2-146" aria-hidden="true" tabindex="-1"></a><span class="fu">DZEROS:</span></span>
+<span id="cb2-147"><a href="#cb2-147" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">9</span>), <span class="at">A</span></span>
+<span id="cb2-148"><a href="#cb2-148" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>-<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb2-149"><a href="#cb2-149" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">8</span>), <span class="at">A</span></span>
+<span id="cb2-150"><a href="#cb2-150" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>-<span class="bn">2</span>), <span class="at">A</span></span>
+<span id="cb2-151"><a href="#cb2-151" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">7</span>), <span class="at">A</span></span>
+<span id="cb2-152"><a href="#cb2-152" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>-<span class="bn">3</span>), <span class="at">A</span></span>
+<span id="cb2-153"><a href="#cb2-153" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">6</span>), <span class="at">A</span></span>
+<span id="cb2-154"><a href="#cb2-154" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>-<span class="bn">4</span>), <span class="at">A</span></span>
+<span id="cb2-155"><a href="#cb2-155" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">5</span>), <span class="at">A</span></span>
+<span id="cb2-156"><a href="#cb2-156" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>-<span class="bn">5</span>), <span class="at">A</span></span>
+<span id="cb2-157"><a href="#cb2-157" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">4</span>), <span class="at">A</span></span>
+<span id="cb2-158"><a href="#cb2-158" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>-<span class="bn">6</span>), <span class="at">A</span></span>
+<span id="cb2-159"><a href="#cb2-159" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">3</span>), <span class="at">A</span></span>
+<span id="cb2-160"><a href="#cb2-160" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>-<span class="bn">7</span>), <span class="at">A</span></span>
+<span id="cb2-161"><a href="#cb2-161" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">2</span>), <span class="at">A</span></span>
+<span id="cb2-162"><a href="#cb2-162" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>-<span class="bn">8</span>), <span class="at">A</span></span>
+<span id="cb2-163"><a href="#cb2-163" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb2-164"><a href="#cb2-164" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>-<span class="bn">9</span>), <span class="at">A</span></span>
+<span id="cb2-165"><a href="#cb2-165" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (DISTANCES+<span class="bn">0</span>), <span class="at">A</span></span>
+<span id="cb2-166"><a href="#cb2-166" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">IX</span>-<span class="bn">10</span>), <span class="at">A</span></span>
+<span id="cb2-167"><a href="#cb2-167" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-168"><a href="#cb2-168" aria-hidden="true" tabindex="-1"></a>        <span class="co">; increment all distances</span></span>
+<span id="cb2-169"><a href="#cb2-169" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IY</span>, DISTANCES</span>
+<span id="cb2-170"><a href="#cb2-170" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IY</span>+<span class="bn">0</span>)</span>
+<span id="cb2-171"><a href="#cb2-171" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IX</span>-<span class="bn">10</span>)</span>
+<span id="cb2-172"><a href="#cb2-172" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IY</span>+<span class="bn">1</span>)</span>
+<span id="cb2-173"><a href="#cb2-173" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IX</span>-<span class="bn">9</span>)</span>
+<span id="cb2-174"><a href="#cb2-174" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IY</span>+<span class="bn">2</span>)</span>
+<span id="cb2-175"><a href="#cb2-175" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IX</span>-<span class="bn">8</span>)</span>
+<span id="cb2-176"><a href="#cb2-176" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IY</span>+<span class="bn">3</span>)</span>
+<span id="cb2-177"><a href="#cb2-177" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IX</span>-<span class="bn">7</span>)</span>
+<span id="cb2-178"><a href="#cb2-178" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IY</span>+<span class="bn">4</span>)</span>
+<span id="cb2-179"><a href="#cb2-179" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IX</span>-<span class="bn">6</span>)</span>
+<span id="cb2-180"><a href="#cb2-180" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IY</span>+<span class="bn">5</span>)</span>
+<span id="cb2-181"><a href="#cb2-181" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IX</span>-<span class="bn">5</span>)</span>
+<span id="cb2-182"><a href="#cb2-182" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IY</span>+<span class="bn">6</span>)</span>
+<span id="cb2-183"><a href="#cb2-183" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IX</span>-<span class="bn">4</span>)</span>
+<span id="cb2-184"><a href="#cb2-184" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IY</span>+<span class="bn">7</span>)</span>
+<span id="cb2-185"><a href="#cb2-185" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IX</span>-<span class="bn">3</span>)</span>
+<span id="cb2-186"><a href="#cb2-186" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IY</span>+<span class="bn">8</span>)</span>
+<span id="cb2-187"><a href="#cb2-187" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IX</span>-<span class="bn">2</span>)</span>
+<span id="cb2-188"><a href="#cb2-188" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IY</span>+<span class="bn">9</span>)</span>
+<span id="cb2-189"><a href="#cb2-189" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     (<span class="at">IX</span>-<span class="bn">1</span>)</span>
+<span id="cb2-190"><a href="#cb2-190" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-191"><a href="#cb2-191" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">IY</span></span>
+<span id="cb2-192"><a href="#cb2-192" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">HL</span></span>
+<span id="cb2-193"><a href="#cb2-193" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span>
+<span id="cb2-194"><a href="#cb2-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-195"><a href="#cb2-195" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-196"><a href="#cb2-196" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">include</span> <span class="st">&quot;util32.z80&quot;</span></span></code></pre></div>
+<p>The static data definitions follow.</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">MAX:</span>    <span class="kw">DEFB</span>    <span class="bn">0</span>, <span class="bn">0</span>, <span class="bn">0</span>, <span class="bn">0</span>              <span class="co">; maximum scenic distance</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">DATA:</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">include</span> <span class="st">&quot;day08-input.z80&quot;</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">HEIGHTS:</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFS</span>    MAPSIZE</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="fu">DISTANCES:</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFS</span>    (MAPSIZE + <span class="bn">1</span>) * <span class="bn">10</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a><span class="fu">SCENICS:</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFS</span>    MAPSIZE * MAPSIZE * <span class="bn">2</span></span></code></pre></div>
+<p>Now, you’ll need a bit of patience for this. It’ll take around 56 million CPU cycles to compute both stars. Perhaps it’s time to implement the core emulator in web assembly…</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      START</span></code></pre></div>
+<h2 id="the-series">The series</h2>
+<blockquote>
+<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | <strong>Day \8</strong> | Day 9 | Day 10 |
+Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
+Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
+Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
+</blockquote>]]></summary>
+</entry>
+<entry>
     <title>Advent of Z80 - Day 7, 2022</title>
     <link href="https://bje.id.au/blog/posts/2023-04-09-aoc-z80-day07.html" />
     <id>https://bje.id.au/blog/posts/2023-04-09-aoc-z80-day07.html</id>
@@ -300,7 +628,7 @@
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <strong>Day 7</strong> | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <strong>Day 7</strong> | <a href="2023-04-23-aoc-z80-day08.html">Day 8</a> | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -315,8 +643,8 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
     <summary type="html"><![CDATA[<p>On day 6 the Z80 will need to process a string of input characters, seeking patterns.</p>
 <div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      DAY06</span></code></pre></div>
 <!--more-->
-<p>The challenge for day 6 is to detect <span class="math inline">\(n\)</span> unique characters in a sequence. A simple approach to the problem is to start at the first character in the input sequence and check if the following <span class="math inline">\(n\)</span> characters are unique: scan along comparing to the first character, then scan from the second character for <span class="math inline">\(n-1\)</span> characters, and so on up until the <span class="math inline">\(n^{th}\)</span> character is reached. If any character was not unique, move the starting position up to beyond the non-unique character, and try again. This is a relatively poor algorithm, being quadratic in <span class="math inline">\(n\)</span>.</p>
-<p>To keep the code simple, I will implement this naive version without any attempts to improve algorithmic performance. <span class="math inline">\(n\)</span> is always small, and the puzzle input is also only 4095 characters: around a million comparisons isn’t unreasonable for the z80.</p>
+<p>The challenge for day 6 is to detect <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> unique characters in a sequence. A simple approach to the problem is to start at the first character in the input sequence and check if the following <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> characters are unique: scan along comparing to the first character, then scan from the second character for <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>n</mi><mo>−</mo><mn>1</mn></mrow><annotation encoding="application/x-tex">n-1</annotation></semantics></math> characters, and so on up until the <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msup><mi>n</mi><mrow><mi>t</mi><mi>h</mi></mrow></msup><annotation encoding="application/x-tex">n^{th}</annotation></semantics></math> character is reached. If any character was not unique, move the starting position up to beyond the non-unique character, and try again. This is a relatively poor algorithm, being quadratic in <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math>.</p>
+<p>To keep the code simple, I will implement this naive version without any attempts to improve algorithmic performance. <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> is always small, and the puzzle input is also only 4095 characters: around a million comparisons isn’t unreasonable for the z80.</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.block</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   (HL)    the first character in the candidate sequence</span></span>
 <span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       C       the required unique sequence length</span></span>
@@ -445,12 +773,12 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">include</span> <span class="st">&quot;print16.z80&quot;</span></span>
 <span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a><span class="fu">INPUT:</span></span>
 <span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a>        .<span class="dt">include</span> <span class="st">&quot;day06-input.z80&quot;</span></span></code></pre></div>
-<p>Look at that, just shy of a million cycles; two runs across an input of length 4095, the first time looking for a sequence of length 4 and the second for a sequence of length 14, for something approximating <span class="math inline">\(4^2\times4095 + 14^2\times4095 = 868,140\)</span> executions of <code class="sourceCode z80"><span class="bu">cpir</span></code> - and a bunch of supporting instructions around that executing in something more like linear time. One might think that <code class="sourceCode z80"><span class="bu">cpir</span></code> and friends aren’t all that great, since the CPU re-fetches the instruction every time it executes it, but avoiding the additional fetch and execute of looping constructs is not insignificant, not to mention the potential savings for machines with little ROM or RAM space to work with.</p>
+<p>Look at that, just shy of a million cycles; two runs across an input of length 4095, the first time looking for a sequence of length 4 and the second for a sequence of length 14, for something approximating <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msup><mn>4</mn><mn>2</mn></msup><mo>×</mo><mn>4095</mn><mo>+</mo><msup><mn>14</mn><mn>2</mn></msup><mo>×</mo><mn>4095</mn><mo>=</mo><mn>868</mn><mo>,</mo><mn>140</mn></mrow><annotation encoding="application/x-tex">4^2\times4095 + 14^2\times4095 = 868,140</annotation></semantics></math> executions of <code class="sourceCode z80"><span class="bu">cpir</span></code> - and a bunch of supporting instructions around that executing in something more like linear time. One might think that <code class="sourceCode z80"><span class="bu">cpir</span></code> and friends aren’t all that great, since the CPU re-fetches the instruction every time it executes it, but avoiding the additional fetch and execute of looping constructs is not insignificant, not to mention the potential savings for machines with little ROM or RAM space to work with.</p>
 <p>Today’s solution isn’t optimised, neither algorithmically nor with any particular effort to make the assembly tight, but it’s remarkably simple. At this point in the Advent’s challenges algorithmically naive solutions still run in negligible timeframes, but for later puzzles it’s likely that the Z80 browser emulator will run out of time or space trying to solve puzzles naively. Until then, though, simple is good.</p>
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<strong>Day 6</strong> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
+<strong>Day 6</strong> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | <a href="2023-04-23-aoc-z80-day08.html">Day 8</a> | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -798,7 +1126,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <strong>Day 5</strong> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | <a href="2023-04-23-aoc-z80-day08.html">Day 8</a> | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -896,7 +1224,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span>
 <span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="fu">DATA:</span>   db      <span class="bn">2</span>, <span class="bn">4</span>, <span class="bn">6</span>, <span class="bn">8</span></span>
 <span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.endblock</span></span></code></pre></div>
-<p>The trace shows the first comparison (<span class="math inline">\(2 - 6\)</span>) resets ZF and sets CF, because <span class="math inline">\(6 &gt; 2\)</span>. The <code class="sourceCode z80"><span class="bu">RET</span> Z</code> shortcut does not apply, and the set carry flag indicates <code>A.start &lt; B.start</code>. The code jumps to <code class="sourceCode label"><span class="fu">TEST_B</span></code> which computes the flags for <code>A.end - B.end</code> (in this case, <span class="math inline">\(4 - 8\)</span>). The carry flag is set because <code>B.end</code> is greater than <code>A.end</code>, and the code jumps to inverting the carry flag into the zero flag with a rotate. The zero flag is cleared, and the subroutine returns with the right answer delivered.</p>
+<p>The trace shows the first comparison (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>2</mn><mo>−</mo><mn>6</mn></mrow><annotation encoding="application/x-tex">2 - 6</annotation></semantics></math>) resets ZF and sets CF, because <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>6</mn><mo>&gt;</mo><mn>2</mn></mrow><annotation encoding="application/x-tex">6 &gt; 2</annotation></semantics></math>. The <code class="sourceCode z80"><span class="bu">RET</span> Z</code> shortcut does not apply, and the set carry flag indicates <code>A.start &lt; B.start</code>. The code jumps to <code class="sourceCode label"><span class="fu">TEST_B</span></code> which computes the flags for <code>A.end - B.end</code> (in this case, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>4</mn><mo>−</mo><mn>8</mn></mrow><annotation encoding="application/x-tex">4 - 8</annotation></semantics></math>). The carry flag is set because <code>B.end</code> is greater than <code>A.end</code>, and the code jumps to inverting the carry flag into the zero flag with a rotate. The zero flag is cleared, and the subroutine returns with the right answer delivered.</p>
 <p>With that looking good, I can produce the answer for star 1:</p>
 <div class="sourceCode" id="cb12"><pre class="sourceCode z80 run"><code class="sourceCode z80"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">STAR1:</span>  <span class="bu">ld</span>      <span class="at">sp</span>, <span class="bn">8000h</span></span>
 <span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ld</span>      <span class="at">ix</span>, SAMPLE</span>
@@ -973,7 +1301,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <strong>Day 4</strong> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | <a href="2023-04-23-aoc-z80-day08.html">Day 8</a> | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -1079,7 +1407,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">halt</span></span></code></pre></div>
 <p>If all went well <code class="sourceCode z80"><span class="at">A</span></code> will contain the midpoint of <code>vJrwpWtwJgWrhcsFMMfFFhFp</code>, which is 12 or <code class="sourceCode z80"><span class="bn">$0c</span></code>.</p>
 <p>The next step is to find the letter in common. Rather than naively doing a quadratic comparison approach I will implement a basic bit-based set for numbers 0 to 52, taking up 7 bytes of space . I will need a function to OR a sequence of numbers into a set, for loading the first set of numbers, and a function to AND another sequence in, for mixing the second set of numbers in.</p>
-<p>I will require that sets are aligned such that adding up to 6 to the set address doesn’t overflow 8 bits. Finding a bit address can be done cheaply by dividing by 8 then shifting <code class="sourceCode z80"><span class="bn">1000_0000b</span></code> right by the remainder. I shift right rather than left such that value <span class="math inline">\(n\)</span> sets bit <span class="math inline">\(n\)</span> in the set: if I shifted left everything would still work correctly but the bits within each byte would be reversed.</p>
+<p>I will require that sets are aligned such that adding up to 6 to the set address doesn’t overflow 8 bits. Finding a bit address can be done cheaply by dividing by 8 then shifting <code class="sourceCode z80"><span class="bn">1000_0000b</span></code> right by the remainder. I shift right rather than left such that value <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> sets bit <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> in the set: if I shifted left everything would still work correctly but the bits within each byte would be reversed.</p>
 <p>Here’s some space carved out for a set, aligned to not overflow in 8 bits:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>        <span class="dt">.align</span> <span class="bn">256</span>, <span class="bn">0</span>, <span class="bn">7</span></span>
 <span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">SEEN:</span>   <span class="kw">defs</span>    <span class="bn">7</span></span></code></pre></div>
@@ -1462,7 +1790,7 @@ X = vJrwpWtwJgWr && hcsFMMfFFhFp
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <strong>Day 3</strong> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | <a href="2023-04-23-aoc-z80-day08.html">Day 8</a> | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -1676,7 +2004,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <strong>Day 2</strong> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | <a href="2023-04-23-aoc-z80-day08.html">Day 8</a> | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -1712,7 +2040,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ret</span></span></code></pre></div>
 <p>Some of the flags are a bit nonsensical. The half-carry bit is the result of the penultimate 4-bit ALU operation, so for an 8-bit addition it’s the carry out of bit 3. For a 16-bit operation it’s the carry out of bit 3 in the top 8 bits, or the carry out of bit 11. The zero flag will be set by the <code class="sourceCode z80"><span class="bu">adc</span></code> discarding any information from the <code class="sourceCode z80"><span class="bu">add</span></code>. The other flags will all make sense, however, as they’re based only on the most significant bits.</p>
 <p>With a 32-bit addition in hand I’ll also want a comparison of unsigned 32-bit numbers. This will happen using subtraction, because comparison on the Z80 is a subtraction that discards the result and there’s no 16-bit comparison instruction. The routine compares the high words first, only comparing the low words if the high words are equal.</p>
-<p>There is no <code class="sourceCode z80"><span class="bu">SUB</span></code> instruction for 16-bit registers. There is, however, <code class="sourceCode z80"><span class="bu">SBC</span></code> for the <code class="sourceCode z80"><span class="at">HL</span></code> register, which is “subtract with carry”. On the Z80, as with many other processors, this is implemented as “subtract with borrow” - the carry flag becomes a borrow flag. <code class="sourceCode z80"><span class="bu">SBC</span> <span class="at">HL</span>, <span class="at">DE</span></code> is computed as <span class="math inline">\(HL - DE - C\)</span>. Before using this instruction the carry flag must be put into a known state. This can be done using the <code class="sourceCode z80"><span class="bu">SCF</span></code> instruction to set the carry flag, but there is no dedicated instruction to clear the carry flag. Fortunately, <code class="sourceCode z80"><span class="bu">OR</span> <span class="at">A</span>, <span class="at">A</span></code> will clear the carry flag in the same number of cycles as <code class="sourceCode z80"><span class="bu">SCF</span></code> sets it, and with a similar set of side effects on flags.</p>
+<p>There is no <code class="sourceCode z80"><span class="bu">SUB</span></code> instruction for 16-bit registers. There is, however, <code class="sourceCode z80"><span class="bu">SBC</span></code> for the <code class="sourceCode z80"><span class="at">HL</span></code> register, which is “subtract with carry”. On the Z80, as with many other processors, this is implemented as “subtract with borrow” - the carry flag becomes a borrow flag. <code class="sourceCode z80"><span class="bu">SBC</span> <span class="at">HL</span>, <span class="at">DE</span></code> is computed as <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>H</mi><mi>L</mi><mo>−</mo><mi>D</mi><mi>E</mi><mo>−</mo><mi>C</mi></mrow><annotation encoding="application/x-tex">HL - DE - C</annotation></semantics></math>. Before using this instruction the carry flag must be put into a known state. This can be done using the <code class="sourceCode z80"><span class="bu">SCF</span></code> instruction to set the carry flag, but there is no dedicated instruction to clear the carry flag. Fortunately, <code class="sourceCode z80"><span class="bu">OR</span> <span class="at">A</span>, <span class="at">A</span></code> will clear the carry flag in the same number of cycles as <code class="sourceCode z80"><span class="bu">SCF</span></code> sets it, and with a similar set of side effects on flags.</p>
 <p>After the subtraction the carry flag will be set if there was a borrow required for the final bit of the operation. This happens only when the minuend is less than the subtrahend. The carry flag distinguishes between <code>a &lt; b</code> when set and <code>a &gt;= b</code> when reset. The zero flag is set only if the two operands are equal.</p>
 <p>The 32-bit comparison works by comparing the high words and checking the zero flag. If it’s not set then the carry flag will already show which is greater, and the routine is done. If the zero flag is set then the carry flag must be clear, another subtraction is done, and the flags from that indicate the overall comparison result.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    HL:IY   the 32-bit minuend</span></span>
@@ -1768,7 +2096,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <li>Print out the result</li>
 </ol>
 <p>Translating this to Z80 assembly means figuring out what variables I need and where I’ll store them. I’ll use four bytes of memory to hold the maximum, because I will only need that once per outer loop. I’ll keep the current sum in <code class="sourceCode z80"><span class="at">HL</span>:<span class="at">IY</span></code> where it’s ready to use in my addition and comparison subroutines. <code class="sourceCode z80"><span class="at">BC</span></code> and <code class="sourceCode z80"><span class="at">DE</span></code> will be used for addends and subtrahends as needed, and that leaves <code class="sourceCode z80"><span class="at">A</span></code> for general purpose arithmetic and <code class="sourceCode z80"><span class="at">IX</span></code> to point to my input.</p>
-<p>I will want to load <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>)</code> multiple times, so I’ll pop that in its own routine. It’s important to remember that the Z80 is little endian: when loading or storing a multi-byte value the least significant byte is at the first address. The <code class="sourceCode z80"><span class="kw">DEFW</span> <span class="bn">10000</span>, <span class="bn">0</span></code> above assembles to the hex bytes <code class="sourceCode z80"><span class="bn">$10</span> <span class="bn">$27</span> <span class="bn">$00</span> <span class="bn">$00</span></code>, or <code class="sourceCode z80"><span class="bn">16</span>, <span class="bn">39</span>, <span class="bn">0</span>, <span class="bn">0</span></code> in decimal. <span class="math inline">\(39\times256 = 9984 + 16 = 10000\)</span>. This means I want to load <code class="sourceCode z80"><span class="at">C</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>+<span class="bn">0</span>)</code> up to <code class="sourceCode z80"><span class="at">D</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>+<span class="bn">3</span>)</code>. Every time I load the value I also need to test whether it’s zero, so I’ll set the zero flag appropriately as I load.</p>
+<p>I will want to load <code class="sourceCode z80"><span class="at">DE</span>:<span class="at">BC</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>)</code> multiple times, so I’ll pop that in its own routine. It’s important to remember that the Z80 is little endian: when loading or storing a multi-byte value the least significant byte is at the first address. The <code class="sourceCode z80"><span class="kw">DEFW</span> <span class="bn">10000</span>, <span class="bn">0</span></code> above assembles to the hex bytes <code class="sourceCode z80"><span class="bn">$10</span> <span class="bn">$27</span> <span class="bn">$00</span> <span class="bn">$00</span></code>, or <code class="sourceCode z80"><span class="bn">16</span>, <span class="bn">39</span>, <span class="bn">0</span>, <span class="bn">0</span></code> in decimal. <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mn>39</mn><mo>×</mo><mn>256</mn><mo>=</mo><mn>9984</mn><mo>+</mo><mn>16</mn><mo>=</mo><mn>10000</mn></mrow><annotation encoding="application/x-tex">39\times256 = 9984 + 16 = 10000</annotation></semantics></math>. This means I want to load <code class="sourceCode z80"><span class="at">C</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>+<span class="bn">0</span>)</code> up to <code class="sourceCode z80"><span class="at">D</span></code> from <code class="sourceCode z80">(<span class="at">IX</span>+<span class="bn">3</span>)</code>. Every time I load the value I also need to test whether it’s zero, so I’ll set the zero flag appropriately as I load.</p>
 <div class="sourceCode" id="cb5"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN    IX      address of next input to read</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT   DE:BC   32-bit value loaded from (IX)</span></span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co">;       IX      incremented past read input</span></span>
@@ -2015,7 +2343,7 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <h2 id="the-series">The series</h2>
 <blockquote>
 <p><strong>Day 1</strong> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
-<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | Day 8 | Day 9 | Day 10 |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | <a href="2023-04-23-aoc-z80-day08.html">Day 8</a> | Day 9 | Day 10 |
 Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
 Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
 Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
@@ -2114,78 +2442,6 @@ Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
 <p>The VTRS-20 now supports running a CP/M command file directly from the command line, or booting into a CP/M shell with a set of files pre-loaded into the RAM drive.</p>
 <p>The last few posts have been a bit of a catch-up exercise in documenting what I’ve done. From the blog alone, it may appear that after I first got some life out of the CPU board everything more or less stopped - but in truth I’ve been playing around with one aspect or another of the board since then, so much that I’ve fallen far behind on writing up what I’ve done. One consequence of that is that these last couple of posts have been written more out of a desire to just get some words committed to files than with any particular attention to editing. I’ve also been working on a LISP interpreter (because it seems like a fun thing to write) and being able to program the FPGA in-system - so perhaps my next few posts will be a bit less dry. I also still owe myself a final reckoning for how much I’ve spent on this project so far, and how much it would cost to build a CPU board given what I know now, so there’s at least one more rather dull post coming.</p>
 <p>The TRS-20 is currently running 24/7, with its USB UART connected to a Raspberry Pi. I got heartily sick of fussing with two USB cables to both power and communicate with the device, and took a brief look into possible Bluetooth UART modules, before realising I could just SSH to the Pi and leave the thing plugged in permanently so I can play with it any time. Which works fine, until I lock it up with some shonky code and have to yank power to reset it. Eventually that might irritate me enough to make a remote reboot facility. Or at least try to sort out a reset button somehow.</p>]]></summary>
-</entry>
-<entry>
-    <title>Running code on the TRS-20</title>
-    <link href="https://bje.id.au/blog/posts/trs20/016-running-code.html" />
-    <id>https://bje.id.au/blog/posts/trs20/016-running-code.html</id>
-    <published>2020-10-11T00:00:00Z</published>
-    <updated>2020-10-11T00:00:00Z</updated>
-    <summary type="html"><![CDATA[<p>After proving that my computer board actually works, it’s time to switch over to software design. This is my core competency, where I’ve spent years professionally, and something I’ve done as a hobby since before I even had a computer. You’d think this part would be easy…</p>
-<!--more-->
-<p>On the <a href="https://github.com/codebje/vtrs20">Virtual TRS-20</a>, the boot rom starts up, accepts a Y-modem upload, and then jumps to it, happy as Larry. On the real TRS-20, the Y-modem upload fails on the first packet, with nothing more than metadata sent.</p>
-<p>The emulator is reasonably faithful to the behaviour of the TRS-20 as I discover its nuances. Memory reads now carry an /M1 flag to allow the ROM masking to more accurately replicate the board, though I didn’t go as far as emulating the timing issue. It’s useful when debugging the boot ROM code as I can stop it, inspect memory and registers, single-step it with ease, and <em>in theory</em> get code working before it hits the real device where debugging is much harder.</p>
-<p>In the case of the Y-modem upload, this isn’t the case.</p>
-<h1 id="on-with-the-debug">On with the debug</h1>
-<p>During the serial debug described in the <a href="015-testing-continues.html">last post</a> I found one possibly significant difference between what I expected to happen and what really happens. The <code>/RTS0</code> signal is not asserted automatically by the Z180 when its own ASCI0 receive buffer is full. The signal is entirely up to software - so I cannot rely on it to prevent overruns when uploading bytes. It may be that I’m dropping bits by blasting Y-modem packets at the CPU as fast as the UART can handle them.</p>
-<p>The heart of my Y-modem code is the <code>recv_packet</code> function. The general idea is that it waits for a packet command byte for up to five seconds, then (re)transmits the ACK code assuming the sender didn’t receive it. After that, if it’s a data packet it receives the packet index then the data, with a timeout of one second for each byte. On completion it checks that the CRC matches.</p>
-<p>I can work out a lot about what’s going on using some black-box probing of the behaviour. Not transmitting anything gets ‘C’ repeated every five seconds until it gives up after ten failures (‘C’ is used for the first packet to indicate CRC-mode, rather than an ACK). Sending an invalid command byte does the same, but faster. Sending a valid data packet byte <em>appears</em> to work - but then fails. After that, both the number of retry attempts and the ACK byte are corrupted.</p>
-<p>This suggests the CRC function isn’t working.</p>
-<p>It also suggests I have a way to keep going without removing the IC and flashing new code. The metadata packet is received before the CRC error kicks in, after which the transfer can be aborted with 2x<code>CAN</code>. The metadata packet, however, is stored right where the first data packet should subsequently get written to - and where the boot monitor will jump when executing uploaded code. Using the 1024-byte packet command this gives me a full 1026 bytes of data (packet plus two CRC bytes) that I can upload and execute.</p>
-<p>Using a combination of uploading bits of code to run and replacement editions of <code>recv_packet</code> to patch in place of the boot code version, I tracked down my <em>multiple</em> errors. I present them here in source file order, but this is not the order I discovered them.</p>
-<h1 id="timeouts-dont-stop-the-transfer">Timeouts don’t stop the transfer</h1>
-<p>Failing ten times should abort the transfer. But it doesn’t - the code just keeps on spitting out retry bytes. Eventually I tracked this down to the following few lines of code:</p>
-<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">retry:</span>		<span class="bu">djnz</span>	metadata</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">done:</span>		<span class="bu">pop</span>	<span class="at">hl</span></span>
-<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>		<span class="bu">pop</span>	<span class="at">de</span></span>
-<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ret</span></span></code></pre></div>
-<p>A successful run through the code jumps to <code>done</code> with the zero flag reset. An unsuccessful run jumps to <code>done</code> with the zero flag set. I thought that <code class="sourceCode z80"><span class="bu">djnz</span></code> would set the zero flag - but instead it doesn’t affect flags at all. Whatever the zero flag was on entry to <code>retry</code> is what it will be after the <code class="sourceCode z80"><span class="bu">djnz</span></code> has decremented <code class="sourceCode z80"><span class="at">b</span></code> to zero. Just adding <code class="sourceCode z80"><span class="bu">xor</span> <span class="at">a</span></code> will set the zero flag.</p>
-<h1 id="the-retry-byte-gets-corrupted">The retry byte gets corrupted</h1>
-<p>After attempting to send a valid (meta)data packet the retry byte becomes corrupted. After a failed packet transfer instead of getting a ‘C’ back I start getting NULs. I tracked this down to the code invoked after a data packet command is received.</p>
-<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">recv_body:</span>	<span class="bu">ld</span>	(cmd), <span class="at">a</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv<span class="bn">_b</span>yte</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">c</span>, <span class="at">a</span></span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv<span class="bn">_b</span>yte</span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cpl</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cp</span>	<span class="at">a</span>, <span class="at">c</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	nz, retry</span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	(seq), <span class="at">a</span></span></code></pre></div>
-<p>The problem, of course, is that I assumed early on that <code class="sourceCode z80"><span class="at">c</span></code> would be preserved as my retry byte value, and subsequently also decided to use <code class="sourceCode z80"><span class="at">c</span></code> to store the sequence number to compare to its complement. Oops. I accepted that there’s not many registers on the Z180 and stored the retry byte in memory instead.</p>
-<h1 id="going-too-far-the-other-way">Going too far the other way</h1>
-<p>Now we come to the headline problem - the CRC validation is failing. The other problems would happen in emulation, if I’d exhaustively tested all possible code paths. My <code class="sourceCode z80"><span class="bu">djnz</span></code> emulation didn’t set flags. Yes, that’s right, I wrote assembly code that assumed one thing about an instruction, and code to emulate that instruction assuming something else. People are fallible, tests never exhaustively test all possible code paths, and trusting to discipline to catch problems is naive.</p>
-<p>But this problem was different: the bytes were being received correctly. I could send binary code and run it, which wouldn’t be possible if the transfer were corrupted. The CRC code works fine when testing. There’s only one answer left: the CRC code isn’t being called correctly.</p>
-<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>		<span class="bu">push</span>	<span class="at">hl</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">push</span>	<span class="at">bc</span></span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">bc</span>, <span class="bn">130</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">a</span>, (cmd)</span>
-<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>		<span class="bu">cp</span>	<span class="at">a</span>, YM<span class="bn">_</span>SOH</span>
-<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, <span class="bn">$</span>+<span class="bn">5</span></span>
-<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">bc</span>, <span class="bn">1026</span></span>
-<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a>		<span class="bu">ld</span>	<span class="at">de</span>, <span class="bn">1</span>*<span class="bn">100</span></span>
-<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	recv<span class="bn">_</span>wait</span>
-<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a>		<span class="bu">pop</span>	<span class="at">bc</span></span>
-<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a>		<span class="bu">pop</span>	<span class="at">hl</span></span></code></pre></div>
-<p>This little bit of code is responsible for receiving either 130 or 1026 bytes, the payload and its CRC, depending on whether it’s a SOH or STX command. I carefully preserve <code class="sourceCode z80"><span class="at">bc</span></code> because <code class="sourceCode z80"><span class="at">b</span></code> contains my retry counter and <code class="sourceCode z80"><span class="at">c</span></code> contains (hah!) my retry byte. Then I set up <code class="sourceCode z80"><span class="at">bc</span></code> to hold the size of the payload and CRC, and receive the data.</p>
-<p>Then I restore <code class="sourceCode z80"><span class="at">bc</span></code>.</p>
-<p>At this point in receiving the metadata packet <code class="sourceCode z80"><span class="at">bc</span></code> contains <code class="sourceCode z80"><span class="bn">$0a00</span></code>. There are still ten retries allowed, and the retry byte has been replaced by NUL. The payload length I calculated is gone.</p>
-<div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>		<span class="bu">jr</span>	z, retry</span>
-<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>		<span class="bu">call</span>	ym<span class="bn">_</span>crc		<span class="co">; CRC should be zero</span></span></code></pre></div>
-<p>Then I call the CRC code. This expects the data to checksum in <code class="sourceCode z80"><span class="at">hl</span></code> (check: I preserved <code class="sourceCode z80"><span class="at">hl</span></code> for exactly this reason) and the length of the data in <code class="sourceCode z80"><span class="at">bc</span></code> … but that’s not the length of the received data any more. It’s much, much bigger than the received data.</p>
-<p>The Y-modem 16-bit CRC isn’t the world’s best choice of checksum. It’s definitely an improvement over X-modem’s naive 8-bit checksum but it’s a long way short of a reliable hash. In this case one simple flaw plays out: <code class="sourceCode c">crc16<span class="op">(</span><span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">)</span> <span class="op">==</span> <span class="dv">0</span></code>.</p>
-<p>My emulator’s SRAM is initialised to zero. Real SRAM is initialised to the background noise of the universe. On my emulator, I checksum 2560 bytes and come up with the same answer I would if I only checksummed the first 130 or 1026 bytes: zero. On the real board the CRC computes over 130 or 1026 bytes of data, getting zero - and then goes on to incorporate the noise.</p>
-<p>Well - SRAM’s initial state isn’t actually noise. It’s the consequence of unstable states in (more-or-less) flip-flops resolving one way or the other, which usually comes down to microscopic manufacturing differences. As a result, I always get the <em>same</em> wrong value, because my SRAM on power-on always got the <em>same</em> uninitialised junk in it.</p>
-<p>Nifty.</p>
-<h1 id="fixing-it-all">Fixing it all</h1>
-<p>I wrote a <a href="https://github.com/codebje/scomm">simple program</a> to transmit a patch for <code>recv_packet</code>, then do a full Y-modem transfer of something bigger.</p>
-<p>The code for this, I called the <a href="https://github.com/codebje/isp-writer/blob/ymodem-patch/src/ispwriter.asm">in-system programming writer</a>.</p>
-<p>At ths point, I can patch the bad code to upload up to 52k of arbitrary code and run it. But it’s not too satisfying to just have a low effort boot monitor with a Y-modem upload for running new code, so rather than focusing on updating the Flash ROM itself the next task will be to upload an operating system.</p>]]></summary>
 </entry>
 
 </feed>

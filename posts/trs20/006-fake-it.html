@@ -9,6 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
     <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
     <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
+    <link rel="stylesheet" type="text/css" href="../../css/tex-gyre-pagella.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300,600|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
@@ -64,23 +65,23 @@
 <p><em>Note: this post contains a significant mistake that flows on to the next post. I’ve annotated the mistake in a subsequent edit, but have otherwise left it as-is.</em></p>
 <h2 id="will-they-blend">Will they blend?</h2>
 <p>At a physical level, there’s no particular problem with wiring up the STM32 to the Z180. The STM32 is 5V tolerant, so as long as voltage levels, current limits, and impedance requirements line up, I can wire the two up directly.</p>
-<p><span class="math display">\[\begin{array}{rrcll}
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtable><mtr><mtd columnalign="right"></mtd><mtd columnalign="right"><mtext mathvariant="normal">STM32</mtext></mtd><mtd columnalign="center"></mtd><mtd columnalign="left"><mtext mathvariant="normal">Z180</mtext></mtd><mtd columnalign="left"></mtd></mtr><mtr><mtd columnalign="right"><msub><mi>V</mi><mrow><mi>I</mi><mi>L</mi></mrow></msub></mtd><mtd columnalign="right"><mn>1</mn><mi>V</mi></mtd><mtd columnalign="center"><mo>≤</mo></mtd><mtd columnalign="left"><mn>0.45</mn><mi>V</mi></mtd><mtd columnalign="left"><msub><mi>V</mi><mrow><mi>O</mi><mi>L</mi></mrow></msub></mtd></mtr><mtr><mtd columnalign="right"><msub><mi>V</mi><mrow><mi>I</mi><mi>H</mi></mrow></msub></mtd><mtd columnalign="right"><mn>2.3</mn><mi>V</mi></mtd><mtd columnalign="center"><mo>≤</mo></mtd><mtd columnalign="left"><mn>2.4</mn><mi>V</mi></mtd><mtd columnalign="left"><msub><mi>V</mi><mrow><mi>O</mi><mi>H</mi></mrow></msub></mtd></mtr><mtr><mtd columnalign="right"><msub><mi>V</mi><mrow><mi>O</mi><mi>L</mi></mrow></msub></mtd><mtd columnalign="right"><mn>0.4</mn><mi>V</mi></mtd><mtd columnalign="center"><mo>≥</mo></mtd><mtd columnalign="left"><mn>0.8</mn><mi>V</mi></mtd><mtd columnalign="left"><msub><mi>V</mi><mrow><mi>I</mi><mi>L</mi></mrow></msub></mtd></mtr><mtr><mtd columnalign="right"><msub><mi>V</mi><mrow><mi>O</mi><mi>H</mi></mrow></msub></mtd><mtd columnalign="right"><mn>2.4</mn><mi>V</mi></mtd><mtd columnalign="center"><mo>≥</mo></mtd><mtd columnalign="left"><mn>2.0</mn><mi>V</mi></mtd><mtd columnalign="left"><msub><mi>V</mi><mrow><mi>I</mi><mi>H</mi></mrow></msub></mtd></mtr></mtable><annotation encoding="application/x-tex">\begin{array}{rrcll}
 &amp; \text{STM32} &amp; &amp; \text{Z180} &amp; \\\hline
 V_{IL} &amp;1V &amp;\leq&amp;  0.45V &amp;V_{OL} \\
 V_{IH} &amp;2.3V &amp;\leq&amp; 2.4V &amp;V_{OH} \\
 V_{OL} &amp;0.4V &amp;\geq &amp; 0.8V &amp;V_{IL} \\
 V_{OH} &amp;2.4V &amp;\geq &amp; 2.0V &amp;V_{IH} \\
 \end{array}
-\]</span></p>
+</annotation></semantics></math></p>
 <p>There’s a possible concern with the V<sub>IH</sub> for the STM32 at 2.31V, and the V<sub>OH</sub> of the Z180 at 2.4V. 100mV is not a lot of margin. The datasheet indicates that the Z180 will put out a voltage of V<sub>CC</sub>-1.2 if the output current is 20μA or less. The dynamic current consumption of the STM32 is calculated below, based on a pin capacitance on the Z180 of up to 12pF plus some stray capacitance.</p>
-<p><span class="math display">\[\begin{aligned}
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtable><mtr><mtd columnalign="right"><msub><mi>I</mi><mrow><mi>S</mi><mi>W</mi></mrow></msub></mtd><mtd columnalign="left"><mo>=</mo><msub><mi>C</mi><mi>L</mi></msub><mo>×</mo><msub><mi>V</mi><mrow><mi>D</mi><mi>D</mi></mrow></msub><mo>×</mo><msub><mi>F</mi><mrow><mi>S</mi><mi>W</mi></mrow></msub></mtd></mtr><mtr><mtd columnalign="right"></mtd><mtd columnalign="left"><mo>=</mo><mn>20</mn><mstyle mathvariant="normal"><mi>p</mi><mi>F</mi></mstyle><mo>×</mo><mn>3.3</mn><mstyle mathvariant="normal"><mi>V</mi></mstyle><mo>×</mo><mn>1</mn><mstyle mathvariant="normal"><mi>M</mi><mi>H</mi><mi>z</mi></mstyle></mtd></mtr><mtr><mtd columnalign="right"></mtd><mtd columnalign="left"><mo>=</mo><mn>20</mn><mo>×</mo><msup><mn>10</mn><mrow><mo>−</mo><mn>12</mn></mrow></msup><mo>×</mo><mn>3.3</mn><mo>×</mo><mn>1</mn><mo>×</mo><msup><mn>10</mn><mn>6</mn></msup></mtd></mtr><mtr><mtd columnalign="right"></mtd><mtd columnalign="left"><mo>=</mo><mn>20</mn><mo>×</mo><msup><mn>10</mn><mrow><mo>−</mo><mn>6</mn></mrow></msup><mo>×</mo><mn>3.3</mn></mtd></mtr><mtr><mtd columnalign="right"></mtd><mtd columnalign="left"><mo>=</mo><mn>60</mn><mo>×</mo><msup><mn>10</mn><mrow><mo>−</mo><mn>6</mn></mrow></msup></mtd></mtr><mtr><mtd columnalign="right"></mtd><mtd columnalign="left"><mo>=</mo><mn>60</mn><mtext mathvariant="normal">μA</mtext></mtd></mtr></mtable><annotation encoding="application/x-tex">\begin{aligned}
 I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
         &amp;= 20\mathrm{pF} \times 3.3\mathrm{V} \times 1\mathrm{MHz} \\
         &amp;= 20\times10^{-12} \times 3.3 \times 1\times10^6 \\
         &amp;= 20\times10^{-6} \times 3.3 \\
         &amp;= 60\times10^{-6} \\
         &amp;= 60\textrm{μA}
-\end{aligned}\]</span></p>
+\end{aligned}</annotation></semantics></math></p>
 <p>60μA means the high output voltage will be somewhere between 2.4V and 3.8V. There’s no curve provided, alas, but having a lower current than 200μA means the high level will be over 2.4V, and the circuit should behave correctly.</p>
 <figure>
 <img src="../../images/black-pill-schematic.png" alt="This might not be the same thing that I have, but it will be close to it." />
@@ -107,16 +108,16 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
 <figcaption aria-hidden="true">Image from STM32CubeMX, which makes all of this easier to work out.</figcaption>
 </figure>
 <p>Solving the clock tree puzzle means finding values for M, N, P, and Q in the PLL subsystem such that 84MHz can be fed into the system clock mux, and 48MHz can be fed into the USB clock. The high speed oscillator is divided by M, then multiplied by N. This value is divided by P to get the system clock, and by Q to get the USB clock. P is constrained to be 2, 4, 6, or 8, while Q is anything from 2 to 15.</p>
-<p><span class="math display">\[\begin{aligned}
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtable><mtr><mtd columnalign="right"><mrow><mo stretchy="true" form="prefix">(</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>25</mn><mi>M</mi><mi>H</mi><mi>z</mi><mi>/</mi><mi>M</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>×</mo><mi>N</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>/</mi><mi>P</mi></mtd><mtd columnalign="left"><mo>=</mo><mn>84</mn><mi>M</mi><mi>H</mi><mi>z</mi></mtd><mtd columnalign="right"><mtext mathvariant="normal">system clock</mtext></mtd></mtr><mtr><mtd columnalign="right"><mrow><mo stretchy="true" form="prefix">(</mo><mrow><mo stretchy="true" form="prefix">(</mo><mn>25</mn><mi>M</mi><mi>H</mi><mi>z</mi><mi>/</mi><mi>M</mi><mo stretchy="true" form="postfix">)</mo></mrow><mo>×</mo><mi>N</mi><mo stretchy="true" form="postfix">)</mo></mrow><mi>/</mi><mi>Q</mi></mtd><mtd columnalign="left"><mo>=</mo><mn>48</mn><mi>M</mi><mi>H</mi><mi>z</mi></mtd><mtd columnalign="right"><mtext mathvariant="normal">USB clock</mtext></mtd></mtr></mtable><annotation encoding="application/x-tex">\begin{aligned}
     ((25MHz / M) \times N) / P &amp;= 84MHz &amp; \text{system clock} \\
     ((25MHz / M) \times N) / Q &amp;= 48MHz &amp; \text{USB clock}
-\end{aligned}\]</span></p>
-<p>The trick, at least according to one <a href="https://stm32f4-discovery.net/2015/01/properly-set-clock-speed-stm32f4xx-devices/">tutorial</a>, is to start by ensuring <span class="math inline">\(M\)</span> matches your high speed oscillator so you feed a 1MHz signal into the PLL.</p>
-<p><span class="math display">\[\begin{aligned}
+\end{aligned}</annotation></semantics></math></p>
+<p>The trick, at least according to one <a href="https://stm32f4-discovery.net/2015/01/properly-set-clock-speed-stm32f4xx-devices/">tutorial</a>, is to start by ensuring <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math> matches your high speed oscillator so you feed a 1MHz signal into the PLL.</p>
+<p><math display="block" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mtable><mtr><mtd columnalign="right"><mi>N</mi><mi>/</mi><mi>P</mi></mtd><mtd columnalign="left"><mo>=</mo><mn>84</mn><mi>M</mi><mi>H</mi><mi>z</mi></mtd><mtd columnalign="right"><mtext mathvariant="normal">system clock</mtext></mtd></mtr><mtr><mtd columnalign="right"><mi>N</mi><mi>/</mi><mi>Q</mi></mtd><mtd columnalign="left"><mo>=</mo><mn>48</mn><mi>M</mi><mi>H</mi><mi>z</mi></mtd><mtd columnalign="right"><mtext mathvariant="normal">USB clock</mtext></mtd></mtr></mtable><annotation encoding="application/x-tex">\begin{aligned}
     N / P &amp;= 84MHz &amp; \text{system clock} \\
     N / Q &amp;= 48MHz &amp; \text{USB clock}
-\end{aligned}\]</span></p>
-<p>Now the constraints on <span class="math inline">\(P\)</span> limit the possibilities to finding a value for <span class="math inline">\(N\)</span> that can be divided by 2, 4, 6, or 8 to get 84MHz, and that can be divided by 2 to 15 to get 48MHz. <span class="math inline">\(N\)</span> will be one of 168, 336, 504, or 672. Since <span class="math inline">\(N\)</span> is constrained to be between 50 and 432, the choices are 168 or 336. Of those two, only 336 has no remainder when divided by 48, so the PLL settings are <span class="math inline">\(M\)</span> at 25, <span class="math inline">\(N\)</span> at 336, <span class="math inline">\(P\)</span> at 4, and <span class="math inline">\(Q\)</span> at 7. After that it’s just a matter of setting the prescalers and multipliers for the peripheral clocks to keep everything at 84MHz except for PCLK1, which maxes out at 42MHz instead.</p>
+\end{aligned}</annotation></semantics></math></p>
+<p>Now the constraints on <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>P</mi><annotation encoding="application/x-tex">P</annotation></semantics></math> limit the possibilities to finding a value for <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math> that can be divided by 2, 4, 6, or 8 to get 84MHz, and that can be divided by 2 to 15 to get 48MHz. <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math> will be one of 168, 336, 504, or 672. Since <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math> is constrained to be between 50 and 432, the choices are 168 or 336. Of those two, only 336 has no remainder when divided by 48, so the PLL settings are <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>M</mi><annotation encoding="application/x-tex">M</annotation></semantics></math> at 25, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>N</mi><annotation encoding="application/x-tex">N</annotation></semantics></math> at 336, <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>P</mi><annotation encoding="application/x-tex">P</annotation></semantics></math> at 4, and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>Q</mi><annotation encoding="application/x-tex">Q</annotation></semantics></math> at 7. After that it’s just a matter of setting the prescalers and multipliers for the peripheral clocks to keep everything at 84MHz except for PCLK1, which maxes out at 42MHz instead.</p>
 <p>All of this is communicated to the chip by writing to the Reset and Clock Control (RCC) registers, described in gory detail in the STM32F401xx reference manual (RM0368, pp. 103-139).</p>
 <ol type="1">
 <li><p>The HSE must be turned on. In the case of the black pill board, this is an external crystal, so the RCC Control Register (RCC_CR) will have bit 16 turned on. The software should then wait until bit 17 (HSE RDY) of RCC_CR is set by hardware.</p></li>
@@ -203,7 +204,7 @@ I_{SW}  &amp;= C_L \times V_{DD} \times F_{SW} \\
             }
         };
     </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <!-- script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script -->
   </body>
   <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

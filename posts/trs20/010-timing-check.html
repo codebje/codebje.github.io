@@ -9,6 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../../css/animation.css">
     <link rel="stylesheet" type="text/css" href="../../css/syntax.css">
     <link rel="stylesheet" type="text/css" href="../../css/saucecodepro-nerd-font-mono.css">
+    <link rel="stylesheet" type="text/css" href="../../css/tex-gyre-pagella.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300,600|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
@@ -70,7 +71,7 @@
 </figure>
 <p>A timing diagram’s value is in explaining how one signal’s change in state is related to another signal. In the above diagram, a table would give an upper or lower bound for the intervals marked <code>1</code> and <code>2</code>. An upper bound for interval <code>1</code> would specify the maximum time that the address lines will settle after the rising edge of T1. A lower bound for interval <code>2</code> would specify the minimum time that the address lines will be settled before /MREQ falls.</p>
 <h2 id="processor-timing-details-for-the-z180">Processor timing details for the Z180</h2>
-<p>For the Z180 processor, there’s a feast of timing diagrams to dine on. They get their own section of the User Manual, and are one of the few pieces of information that appear in both the User Manual and the specification document. They’re accompanied by large data tables specifying bounds for various durations in the diagram. Time value t<sub>CYC</sub> is the clock cycle time - the time between each rising edge. For the Z8L180-20 t<sub>CYC</sub> lies between 50ns and DC, reflecting that the maximum speed of the processor is 20MHz (<span class="math inline">\(\frac{1}{20e^6} = 50e^{-9}\)</span>), and there is no minimum speed: you can stop its clock entirely.</p>
+<p>For the Z180 processor, there’s a feast of timing diagrams to dine on. They get their own section of the User Manual, and are one of the few pieces of information that appear in both the User Manual and the specification document. They’re accompanied by large data tables specifying bounds for various durations in the diagram. Time value t<sub>CYC</sub> is the clock cycle time - the time between each rising edge. For the Z8L180-20 t<sub>CYC</sub> lies between 50ns and DC, reflecting that the maximum speed of the processor is 20MHz (<math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mfrac><mn>1</mn><mrow><mn>20</mn><msup><mi>e</mi><mn>6</mn></msup></mrow></mfrac><mo>=</mo><mn>50</mn><msup><mi>e</mi><mrow><mo>−</mo><mn>9</mn></mrow></msup></mrow><annotation encoding="application/x-tex">\frac{1}{20e^6} = 50e^{-9}</annotation></semantics></math>), and there is no minimum speed: you can stop its clock entirely.</p>
 <p>Some of these timing values tell me useful information for my board design - my clock should be able to satisfy not only the clock cycle time bounds, but also the high and low pulse width bounds, which are only specified as minimum values. The Z80180 expects that the low and high pulses are each at least 40ns long. The upper bound is determined by the actual clock cycle time and the other pulse time minimum - for a 100ns cycle, the maximum high or low pulse is 60ns. There’s also clock rise and fall times: signal levels don’t change instantaneously, and if they transition too slowly a CMOS input can oscillate between reading a high and a low, or if you’re lucky, just chew up relatively huge amounts of power.</p>
 <p>Others of these timing values tell me useful information for my component selection, when read in conjunction with a timing diagram. How fast does my SRAM have to be if I want to access it with no wait states? Well - in an opcode fetch cycle, the address pins will stabilise no more than t<sub>AD</sub> (30ns) after the first rising edge of the first clock cycle of the opcode fetch machine cycle, and no less than t<sub>AS</sub> (5ns) before /MREQ or /IORQ falls. In turn, /MREQ promises it will fall no later than t<sub>MED1</sub> (25ns) after the falling edge of that first clock cycle. Similarly, t<sub>RDD1</sub> (25ns) promises that /RD will fall at most that long after the falling edge as well. There’s nothing tying /RD and /MREQ together though, so there’s no commitment made as to which will fall first, or how much time will elapse between the two falling.</p>
 <p>It’s all a bit complicated. Perhaps a diagram would help…</p>
@@ -297,7 +298,7 @@
             }
         };
     </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <!-- script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script -->
   </body>
   <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>

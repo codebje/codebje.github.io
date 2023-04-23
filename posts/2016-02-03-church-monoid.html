@@ -9,6 +9,7 @@
     <link rel="stylesheet" type="text/css" href="../css/animation.css">
     <link rel="stylesheet" type="text/css" href="../css/syntax.css">
     <link rel="stylesheet" type="text/css" href="../css/saucecodepro-nerd-font-mono.css">
+    <link rel="stylesheet" type="text/css" href="../css/tex-gyre-pagella.css">
     <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300,600|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
     <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
     <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
@@ -70,9 +71,9 @@ give explicit type signatures to the three constructors.</p>
 <p>A Church encoding represents the interpretation of a data structure; for each
 construction in the type, the Church encoding will require a function to
 interpret that construction. Thus, the Church encoding of the above structure
-can be obtained by replacing <code>MonoidAST a</code> with a type variable <span class="math inline">\(r\)</span>, and
+can be obtained by replacing <code>MonoidAST a</code> with a type variable <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math>, and
 describing a function which takes one function for each of the ADT
-constructors, finally returning an <span class="math inline">\(r\)</span> :</p>
+constructors, finally returning an <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math> :</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode haskell"><code class="sourceCode haskell"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">newtype</span> <span class="dt">CEMonoid</span> a <span class="ot">=</span> <span class="dt">CEMonoid</span> {<span class="ot"> mrun ::</span></span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    <span class="kw">forall</span> r<span class="op">.</span>        <span class="co">-- ≡ MonoidAST</span></span>
 <span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    (a <span class="ot">-&gt;</span> r)         <span class="co">-- ≡ MEmbed</span></span>
@@ -81,7 +82,7 @@ constructors, finally returning an <span class="math inline">\(r\)</span> :</p>
 <span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>    <span class="ot">-&gt;</span> r }</span></code></pre></div>
 <p>The <code>mrun</code> function will take a Church encoded monoid and the functions for
 each interpretation, and produce a monoidal value. If we consider <code>CEMonoid  Int</code>, we might wish to take the sum monoid (<code>mrun _ id 0 (+)</code>) or the product
-monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <span class="math inline">\(a\)</span> and <span class="math inline">\(r\)</span> are not
+monoid (<code>mrun _ id 1 (*)</code>). Of special note here is that <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>a</mi><annotation encoding="application/x-tex">a</annotation></semantics></math> and <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>r</mi><annotation encoding="application/x-tex">r</annotation></semantics></math> are not
 necessarily the same type. We could execute a monoid which first transforms
 the integer value to something else, such as <code>mrun _ show "" (++)</code>.</p>
 <p>Now we have a way to execute a monoid, but not to construct one. We provide
@@ -476,7 +477,7 @@ font-weight: bold;
             }
         };
     </script>
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js"></script>
+    <!-- script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script -->
   </body>
   <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
 </html>
