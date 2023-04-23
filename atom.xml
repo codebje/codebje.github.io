@@ -234,7 +234,7 @@
 <span id="cb2-116"><a href="#cb2-116" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">C</span>               <span class="co">; row counter</span></span>
 <span id="cb2-117"><a href="#cb2-117" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, UP<span class="bn">_2</span></span>
 <span id="cb2-118"><a href="#cb2-118" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    PRINT32</span>
+<span id="cb2-119"><a href="#cb2-119" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">IY</span>, (MAX)</span>
 <span id="cb2-120"><a href="#cb2-120" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, (MAX+<span class="bn">2</span>)</span>
 <span id="cb2-121"><a href="#cb2-121" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    PRINT32</span>
 <span id="cb2-122"><a href="#cb2-122" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="st">&#39;\n&#39;</span></span>
