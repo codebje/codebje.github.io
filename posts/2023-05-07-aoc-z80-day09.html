@@ -1,0 +1,813 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width initial-scale=1">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <title>λbje - AOC 2022 - Z80 - Day 09</title>
+    <link rel="stylesheet" type="text/css" href="../css/main.css">
+    <link rel="stylesheet" type="text/css" href="../css/animation.css">
+    <link rel="stylesheet" type="text/css" href="../css/syntax.css">
+    <link rel="stylesheet" type="text/css" href="../css/saucecodepro-nerd-font-mono.css">
+    <link rel="stylesheet" type="text/css" href="../css/tex-gyre-pagella.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:400,700|Open+Sans:300,600|Source+Code+Pro:300,500&subset=latin,latin-ext" rel="stylesheet" type="text/css">
+    <link rel="stylesheet" href="//maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css">
+    <link rel="canonical" href="{{ page.url | replace:'index.html','' | prepend: site.baseurl | prepend: site.url }}">
+    <link rel="alternate" type="application/atom+xml" title="Typed Out" href="../atom.xml" />
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/d3/5.15.0/d3.min.js" type="text/javascript"></script>
+    
+    
+    <script defer src="../js/Z80.js" type="text/javascript"></script><script defer src="../js/z80asm.js" type="text/javascript"></script><script defer src="../js/z80lit.js" type="text/javascript"></script><script defer src="../js/aoc-22-09.js" type="text/javascript"></script>
+    
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="wrapper">
+        <a class="site-title" href="../">Typed out</a>
+
+        <nav class="site-nav">
+          <a href="#" class="menu-icon">
+            <svg viewBox="0 0 18 15">
+              <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"></path>
+              <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"></path>
+              <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"></path>
+            </svg>
+          </a>
+
+          <div class="trigger">
+            <a class="page-link" href="../about.html">About</a>
+            <a class="page-link" href="../archive.html">Archive</a>
+          </div>
+        </nav>
+
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="wrapper">
+        <header class="post-header">
+  
+    <img class="post-logo" src="../images/trs80.jpg">
+  
+  <h1 class="post-title">AOC 2022 - Z80 - Day 09</h1>
+  <p class="post-meta">May  7, 2023 • bje</p>
+</header>
+
+<article class="post-content">
+  <img class="post-hero" src="../images/banners/Nibbles_screenshot.png">
+
+  <div class="post-hero-note">A cropped screenshot of Nibbles, via <a href="https://en.wikipedia.org/wiki/File:Nibbles_screenshot.png">Wikipedia</a>.</div>
+
+
+  <p>On to Day 9 in the Z80 Advent of Code solution series, continuing the recent trend of adapting code written in 2022 but now with more exhaustive descriptions.</p>
+<!--more-->
+<p>The day 9 puzzle’s first star is pretty straightforward. A cursor moves horizontally or vertically, dragging a point behind it that may move horizontally, vertically, or diagonally, staying less than two units of distance away. A basic algorithm for this may look something like this:</p>
+<ol type="1">
+<li>Move cursor according to directions</li>
+<li>If the tail is more than one unit distance away in X or Y:
+<ol type="1">
+<li>Move to one unit distance away from that dimension</li>
+<li>Make the other dimension equal</li>
+</ol></li>
+</ol>
+<p>The trick of the day’s first star is that the challenge is to record the number of unique positions the point visits. Not much of a trick, really: chuck the coordinates in a set and the job is done. The only problem is that Z80 assembly does not have high level constructs like sets, so I’ll have to build something to do that job.</p>
+<p>The high level approach will be:</p>
+<ol type="1">
+<li>Initialise the head and tail to the same location</li>
+<li>While there are motions left to take:
+<ol type="1">
+<li>Get the motion direction and count</li>
+<li>Repeat
+<ol type="1">
+<li>Move the head</li>
+<li>Chase with the tail</li>
+<li>Record the tail’s position, discarding duplicates</li>
+</ol></li>
+<li>Until the motion count has reached zero</li>
+</ol></li>
+<li>Count the number of positions in the tail’s history</li>
+</ol>
+<p>Translating this into Z80 assembly is relatively straightforward, if perhaps a shade tedious. But then, “relatively straightforward if perhaps a shade tedious” is more or less the byline for assembly programming, so this is to be expected.</p>
+<div class="sourceCode" id="cb1"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DATA</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">START:</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">SP</span>, STACK</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    INIT</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="fu">INLOOP:</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (<span class="at">HL</span>)</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OR</span>      <span class="at">A</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, FINISH</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">B</span>, (<span class="at">HL</span>)</span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">; move the cursor B times in the A direction</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">MOVELOOP:</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    MOVE</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    CHASE</span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    RECORD</span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DJNZ</span>    MOVELOOP</span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>        <span class="co">; go back for more input</span></span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      INLOOP</span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a><span class="fu">FINISH:</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    RESULTS</span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span></code></pre></div>
+<p>There are a few undefined symbols in this block of code. It’s missing an implementation of <code>MOVE</code> and <code>CHASE</code> to do the cursor and tail movement, and <code>RESULTS</code> to print the number of unique tail positions, respectively. It’s also missing the input <code>DATA</code>.</p>
+<p>As usual, parsing the input is not the interesting part of the problem, so it will be pre-converted to a direction byte and a count byte and assembled. Here’s the sample input:</p>
+<div class="sourceCode" id="cb2"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">DATA:</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'R'</span>, <span class="bn">4</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'U'</span>, <span class="bn">4</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'L'</span>, <span class="bn">3</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'D'</span>, <span class="bn">1</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'R'</span>, <span class="bn">4</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'D'</span>, <span class="bn">1</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'L'</span>, <span class="bn">5</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'R'</span>, <span class="bn">2</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="bn">0</span></span></code></pre></div>
+<p>I don’t usually worry about errors in the input, but today for a change here’s a little error routine to print a complaint and terminate:</p>
+<div class="sourceCode" id="cb3"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ERROR:</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">1</span> + (ERRLEN * <span class="bn">256</span>)</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, ERRMSG</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OTIR</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">ERRMSG:</span> <span class="kw">DEFB</span>    <span class="st">'Invalid direction character'</span>, <span class="bn">10</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>.EQU    ERRLEN  <span class="bn">$</span> - ERRMSG</span></code></pre></div>
+<p>Moving the cursor is mostly about translating the character direction reference to an x/y offset. In <code>MOVE</code> I use <code class="sourceCode z80"><span class="bu">CPIR</span></code> to find the direction character and use the resulting index as an offset to a movement vector to add to the cursor’s position.</p>
+<div class="sourceCode" id="cb4"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>        <span class="co">; X, Y bytes</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">HEAD:</span>   <span class="kw">DEFB</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">TAIL:</span>   <span class="kw">DEFB</span>    <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   A       A direction character, L, R, U, or D</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:          cursor position updated</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a><span class="fu">MOVE:</span></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">AF</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">BC</span></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">HL</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">4</span></span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, M<span class="bn">_</span>DIRS</span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CPIR</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, ERROR</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">; BC will be 0, 1, 2, or 3</span></span>
+<span id="cb4-17"><a href="#cb4-17" aria-hidden="true" tabindex="-1"></a>        <span class="co">; corresponding respectively to L, R, U, and D</span></span>
+<span id="cb4-18"><a href="#cb4-18" aria-hidden="true" tabindex="-1"></a>        <span class="co">; so M_ADDS is in reverse order to M_DIRS</span></span>
+<span id="cb4-19"><a href="#cb4-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, M<span class="bn">_</span>ADDS</span>
+<span id="cb4-20"><a href="#cb4-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">HL</span>, <span class="at">BC</span></span>
+<span id="cb4-21"><a href="#cb4-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">HL</span>, <span class="at">BC</span></span>
+<span id="cb4-22"><a href="#cb4-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD)</span>
+<span id="cb4-23"><a href="#cb4-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">A</span>, (<span class="at">HL</span>)</span>
+<span id="cb4-24"><a href="#cb4-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (HEAD), <span class="at">A</span></span>
+<span id="cb4-25"><a href="#cb4-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span></span>
+<span id="cb4-26"><a href="#cb4-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD+<span class="bn">1</span>)</span>
+<span id="cb4-27"><a href="#cb4-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">A</span>, (<span class="at">HL</span>)</span>
+<span id="cb4-28"><a href="#cb4-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (HEAD+<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb4-29"><a href="#cb4-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-30"><a href="#cb4-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">HL</span></span>
+<span id="cb4-31"><a href="#cb4-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">BC</span></span>
+<span id="cb4-32"><a href="#cb4-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">AF</span></span>
+<span id="cb4-33"><a href="#cb4-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span>
+<span id="cb4-34"><a href="#cb4-34" aria-hidden="true" tabindex="-1"></a><span class="fu">M_DIRS:</span> <span class="kw">DEFB</span>    <span class="st">'LRUD'</span></span>
+<span id="cb4-35"><a href="#cb4-35" aria-hidden="true" tabindex="-1"></a>              <span class="co">; (0, 1), (0,-1), (1, 0), (-1,0)</span></span>
+<span id="cb4-36"><a href="#cb4-36" aria-hidden="true" tabindex="-1"></a><span class="fu">M_ADDS:</span> <span class="kw">DEFW</span>    <span class="bn">00100</span>H, <span class="bn">0</span>FF00H, <span class="bn">00001</span>H, <span class="bn">000</span>FFH</span></code></pre></div>
+<p>It’s about now that a little test suite is in order. The assertions below will be tested live and should get a little ‘OK’ beside them.</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode z80 execute"><code class="sourceCode z80"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">SP</span>, STACK</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="st">'R'</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    MOVE</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, (HEAD)</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ASSERT BC=0001h</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="st">'L'</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    MOVE</span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, (HEAD)</span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ASSERT BC=0000h</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="st">'U'</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    MOVE</span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, (HEAD)</span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ASSERT BC=0ff00h</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="st">'D'</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    MOVE</span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, (HEAD)</span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ASSERT BC=0000h</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span></code></pre></div>
+<p>And if all went well, I have the cursor moving about as expected based on the directions given. The range is only (-128, 127) in each dimension, and it’s quite possible a full puzzle input will exceed these bounds - if that happens the cursor will need to change to 16-bit values instead.</p>
+<p>With the cursor moving correctly it’s time to look at chasing it with the tail. It doesn’t matter whether I check X or Y first, so I am arbitrarily going to choose X. As a simplification I will also take it as a precondition that the tail is
+never more than two away from the head in either dimension.</p>
+<div class="sourceCode" id="cb6"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:           (HEAD) and (TAIL) values</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:          tail position updated</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">CHASE:</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">AF</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">BC</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">HL</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">; find difference between HEAD and TAIL in X dimension</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD)</span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, TAIL</span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SUB</span>     (<span class="at">HL</span>)</span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">; if A is 2 or -2, move X</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="bn">2</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, XNEQ2</span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">; set TAIL.X to HEAD.X - 1</span></span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD)</span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">A</span></span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">A</span></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      SETY</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="fu">XNEQ2:</span></span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      -<span class="bn">2</span></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, CHASEY</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a>        <span class="co">; set TAIL.X to HEAD.X + 1</span></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD)</span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">A</span></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">A</span></span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>        <span class="co">; fall through to SETY</span></span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="fu">SETY:</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a>        <span class="co">; make Y equal</span></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD+<span class="bn">1</span>)</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL+<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb6-34"><a href="#cb6-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      CHASERET</span>
+<span id="cb6-35"><a href="#cb6-35" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="fu">CHASEY:</span></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>        <span class="co">; find difference between HEAD and TAIL in Y dimension</span></span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD+<span class="bn">1</span>)</span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, TAIL+<span class="bn">1</span></span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SUB</span>     (<span class="at">HL</span>)</span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>        <span class="co">; if A is 2 or -2, move Y</span></span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="bn">2</span></span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, YNEQ2</span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>        <span class="co">; set TAIL.Y to HEAD.Y - 1</span></span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD+<span class="bn">1</span>)</span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">A</span></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL+<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      SETX</span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a><span class="fu">YNEQ2:</span></span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      -<span class="bn">2</span></span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, CHASERET</span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a>        <span class="co">; set TAIL.Y to HEAD.Y + 1</span></span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD+<span class="bn">1</span>)</span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">A</span></span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL+<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a>        <span class="co">; fall through to SETX</span></span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a><span class="fu">SETX:</span></span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>        <span class="co">; make X equal</span></span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD)</span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">A</span></span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a>        <span class="co">; fall through to CHASERET</span></span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a><span class="fu">CHASERET:</span></span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">HL</span></span>
+<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">BC</span></span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">AF</span></span>
+<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span></code></pre></div>
+<p>This is the sort of code that will be full of corner cases and logic bombs, so it’s best to do a sanity check of this code as well. I will use the examples from Advent of Code for this.</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode z80 execute"><code class="sourceCode z80"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">SP</span>, STACK</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">0102h</span>       <span class="co">; .....</span></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (HEAD), <span class="at">BC</span>      <span class="co">; ..H..</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">0301h</span>       <span class="co">; .....</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">BC</span>      <span class="co">; .T...</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    CHASE           <span class="co">; .....</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, (TAIL)</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ASSERT BC=0202h</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">0103h</span>       <span class="co">; .....</span></span>
+<span id="cb7-10"><a href="#cb7-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (HEAD), <span class="at">BC</span>      <span class="co">; .T.H.</span></span>
+<span id="cb7-11"><a href="#cb7-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">0101h</span>       <span class="co">; .....</span></span>
+<span id="cb7-12"><a href="#cb7-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">BC</span></span>
+<span id="cb7-13"><a href="#cb7-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    CHASE</span>
+<span id="cb7-14"><a href="#cb7-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, (TAIL)</span>
+<span id="cb7-15"><a href="#cb7-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ASSERT BC=0102h</span></span>
+<span id="cb7-16"><a href="#cb7-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span></code></pre></div>
+<p>With this looking reasonably good so far it’s time to see what this looks like in action. Each pixel in the canvas
+below represents one point in the puzzle’s coordinate space; it will be coloured red if it’s the cursor, green if it’s
+the tail, and black if it’s the memory of the tail. Click &lt;Play&gt; to begin.</p>
+<canvas id="run-sample" width="256" height="256" style="margin: 0 auto; display: block; border: 1px solid #181818;">
+</canvas>
+<div style="text-align: center">
+<p><button type="button" class="runner" data-target="run-sample" data-scale="16">Play</button>
+<!-- button type="button" class="stepper" data-target="run-sample" data-scale="16">Step</button --></p>
+</div>
+<p>The resulting diagram looks quite a lot like the day 9 sample input’s path. I’m pretty confident at this point that the movement code is fine.</p>
+<p>I have assumed so far that my puzzle input’s movements will be constrained to the range of a signed 8-bit integer in both dimensions. I don’t really know if that’s true, so before I go ahead and work out how to represent my tail position history I will verify this assumption. To do this I’ll need to feed my puzzle input as data instead of the sample input.</p>
+<p>My own puzzle input is magically available at <code class="sourceCode z80"><span class="bn">01000h</span></code>. The following code block executes the program using my input instead of the sample data:</p>
+<div class="sourceCode" id="cb8"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">INPUT:</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, <span class="bn">01000h</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      START</span></code></pre></div>
+<canvas id="run-input" width="256" height="256" style="margin: 0 auto; display: block; border: 1px solid #181818;">
+</canvas>
+<div style="text-align: center">
+<button type="button" class="runner" data-org="INPUT" data-multi="multi" data-target="run-input" data-scale="256">
+Play
+</button>
+</div>
+<p>At first glance this might send one to panic stations: it clearly underflows near the end of the path, wrapping from the top to the bottom. I don’t think all is lost, however, as the underflowed portion doesn’t overlap anything else. I could simply shift the starting point a little and avoid the problem entirely - or simply ignore it, as all the code written so far works as well for a toroidal surface as it does for a cartesian plane.</p>
+<p>There’s a couple of options for set representations. Fewer than 10% of total spaces are visited, so a sparse representation may be suitable: a sorted list would probably do just fine. Inserts would be <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>n</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">O(n)</annotation></semantics></math> due to the copying involved but <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>n</mi><annotation encoding="application/x-tex">n</annotation></semantics></math> is relatively small. There’s no space overhead at all, which is a very nice property for an algorithm used on a machine with a maximum of 64k memory. I don’t believe it’s possible to improve on the time complexity without sacrificing space, but using something like a bit field would take a fixed 8k of memory for <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mrow><mo stretchy="true" form="prefix">(</mo><mn>1</mn><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">O(1)</annotation></semantics></math> time, changing the total execution complexity from <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mrow><mo stretchy="true" form="prefix">(</mo><msup><mi>n</mi><mn>2</mn></msup><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">O(n^2)</annotation></semantics></math> to <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>O</mi><mrow><mo stretchy="true" form="prefix">(</mo><mi>n</mi><mo stretchy="true" form="postfix">)</mo></mrow></mrow><annotation encoding="application/x-tex">O(n)</annotation></semantics></math>.</p>
+<p>I’m going to go with the bit field. It only introduces one small concern: <code class="sourceCode z80"><span class="kw">DEFS</span></code> only demarcates memory for a purpose, it does not initialise it with anything. The <code>INIT</code> subroutine clears the bit field to zero. Failing to do this wouldn’t be the first time I’ve discovered code works fine in an emulator but fails on a real board because memory is not cleared to zero on reset.</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">COUNT:</span>  <span class="kw">DEFW</span>    <span class="bn">0</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="fu">INIT:</span></span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">BC</span></span>
+<span id="cb9-5"><a href="#cb9-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">DE</span></span>
+<span id="cb9-6"><a href="#cb9-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">HL</span></span>
+<span id="cb9-7"><a href="#cb9-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-8"><a href="#cb9-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">C</span>, <span class="bn">0</span></span>
+<span id="cb9-9"><a href="#cb9-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, BITS</span>
+<span id="cb9-10"><a href="#cb9-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">DE</span>, BITS+<span class="bn">1</span></span>
+<span id="cb9-11"><a href="#cb9-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">HL</span>), <span class="at">C</span></span>
+<span id="cb9-12"><a href="#cb9-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">256</span>*<span class="bn">256</span>/<span class="bn">8</span> - <span class="bn">1</span></span>
+<span id="cb9-13"><a href="#cb9-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LDIR</span></span>
+<span id="cb9-14"><a href="#cb9-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-15"><a href="#cb9-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">HL</span></span>
+<span id="cb9-16"><a href="#cb9-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">DE</span></span>
+<span id="cb9-17"><a href="#cb9-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">BC</span></span>
+<span id="cb9-18"><a href="#cb9-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span>
+<span id="cb9-19"><a href="#cb9-19" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-20"><a href="#cb9-20" aria-hidden="true" tabindex="-1"></a><span class="co">; in:   position in (TAIL) to record</span></span>
+<span id="cb9-21"><a href="#cb9-21" aria-hidden="true" tabindex="-1"></a><span class="co">; out:  (COUNT) has a tally of unique positions seen</span></span>
+<span id="cb9-22"><a href="#cb9-22" aria-hidden="true" tabindex="-1"></a><span class="fu">RECORD:</span></span>
+<span id="cb9-23"><a href="#cb9-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">AF</span></span>
+<span id="cb9-24"><a href="#cb9-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">BC</span></span>
+<span id="cb9-25"><a href="#cb9-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">HL</span></span>
+<span id="cb9-26"><a href="#cb9-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-27"><a href="#cb9-27" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ignore sign: unique value is all that matters</span></span>
+<span id="cb9-28"><a href="#cb9-28" aria-hidden="true" tabindex="-1"></a>        <span class="co">; the index into the bitfield is (x &lt;&lt; 5) + (y &gt;&gt; 3)</span></span>
+<span id="cb9-29"><a href="#cb9-29" aria-hidden="true" tabindex="-1"></a>        <span class="co">; BITS is aligned to the size of the bitfield using</span></span>
+<span id="cb9-30"><a href="#cb9-30" aria-hidden="true" tabindex="-1"></a>        <span class="co">; .ORG, so the expression below sets H to the high</span></span>
+<span id="cb9-31"><a href="#cb9-31" aria-hidden="true" tabindex="-1"></a>        <span class="co">; portion of the bitfield's address, shifted right</span></span>
+<span id="cb9-32"><a href="#cb9-32" aria-hidden="true" tabindex="-1"></a>        <span class="co">; by 5. After the shifts left, it will be correct.</span></span>
+<span id="cb9-33"><a href="#cb9-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">H</span>, BITS &gt;&gt; <span class="bn">13</span></span>
+<span id="cb9-34"><a href="#cb9-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (TAIL)</span>
+<span id="cb9-35"><a href="#cb9-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">L</span>, <span class="at">A</span></span>
+<span id="cb9-36"><a href="#cb9-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">HL</span>, <span class="at">HL</span>          <span class="co">; &lt;&lt; 1</span></span>
+<span id="cb9-37"><a href="#cb9-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">HL</span>, <span class="at">HL</span>          <span class="co">; &lt;&lt; 2</span></span>
+<span id="cb9-38"><a href="#cb9-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">HL</span>, <span class="at">HL</span>          <span class="co">; &lt;&lt; 3</span></span>
+<span id="cb9-39"><a href="#cb9-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">HL</span>, <span class="at">HL</span>          <span class="co">; &lt;&lt; 4</span></span>
+<span id="cb9-40"><a href="#cb9-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">HL</span>, <span class="at">HL</span>          <span class="co">; &lt;&lt; 5</span></span>
+<span id="cb9-41"><a href="#cb9-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">B</span>, <span class="bn">0</span></span>
+<span id="cb9-42"><a href="#cb9-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (TAIL+<span class="bn">1</span>)</span>
+<span id="cb9-43"><a href="#cb9-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">C</span>, <span class="at">A</span></span>
+<span id="cb9-44"><a href="#cb9-44" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SRL</span>     <span class="at">C</span>               <span class="co">; &gt;&gt; 1</span></span>
+<span id="cb9-45"><a href="#cb9-45" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SRL</span>     <span class="at">C</span>               <span class="co">; &gt;&gt; 2</span></span>
+<span id="cb9-46"><a href="#cb9-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SRL</span>     <span class="at">C</span>               <span class="co">; &gt;&gt; 3</span></span>
+<span id="cb9-47"><a href="#cb9-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">HL</span>, <span class="at">BC</span></span>
+<span id="cb9-48"><a href="#cb9-48" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-49"><a href="#cb9-49" aria-hidden="true" tabindex="-1"></a>        <span class="co">; I want to run BIT A &amp; 7, (HL)</span></span>
+<span id="cb9-50"><a href="#cb9-50" aria-hidden="true" tabindex="-1"></a>        <span class="co">; which is CB 46, CB 4E, CB 56, ...</span></span>
+<span id="cb9-51"><a href="#cb9-51" aria-hidden="true" tabindex="-1"></a>        <span class="co">; or CB (46 + A &lt;&lt; 3)</span></span>
+<span id="cb9-52"><a href="#cb9-52" aria-hidden="true" tabindex="-1"></a>        <span class="co">; so here's some self-modifying code</span></span>
+<span id="cb9-53"><a href="#cb9-53" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (TAIL+<span class="bn">1</span>)</span>
+<span id="cb9-54"><a href="#cb9-54" aria-hidden="true" tabindex="-1"></a>        <span class="bu">AND</span>     <span class="at">A</span>, <span class="bn">7</span></span>
+<span id="cb9-55"><a href="#cb9-55" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RLCA</span></span>
+<span id="cb9-56"><a href="#cb9-56" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RLCA</span></span>
+<span id="cb9-57"><a href="#cb9-57" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RLCA</span></span>
+<span id="cb9-58"><a href="#cb9-58" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">A</span>, <span class="bn">46h</span></span>
+<span id="cb9-59"><a href="#cb9-59" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="bu">BIT</span>+<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb9-60"><a href="#cb9-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-61"><a href="#cb9-61" aria-hidden="true" tabindex="-1"></a>        <span class="co">; and similarly SET n, (HL) being c6+n</span></span>
+<span id="cb9-62"><a href="#cb9-62" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OR</span>      <span class="at">A</span>, <span class="bn">80h</span></span>
+<span id="cb9-63"><a href="#cb9-63" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="bu">SET</span>+<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb9-64"><a href="#cb9-64" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-65"><a href="#cb9-65" aria-hidden="true" tabindex="-1"></a><span class="bu">BIT</span>:    <span class="bu">BIT</span>     <span class="bn">0</span>, (<span class="at">HL</span>)</span>
+<span id="cb9-66"><a href="#cb9-66" aria-hidden="true" tabindex="-1"></a><span class="bu">SET</span>:    <span class="bu">SET</span>     <span class="bn">0</span>, (<span class="at">HL</span>)</span>
+<span id="cb9-67"><a href="#cb9-67" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-68"><a href="#cb9-68" aria-hidden="true" tabindex="-1"></a>        <span class="co">; the BIT will have cleared ZF if the bit wasn't already set</span></span>
+<span id="cb9-69"><a href="#cb9-69" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, RECORDED</span>
+<span id="cb9-70"><a href="#cb9-70" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, (COUNT)</span>
+<span id="cb9-71"><a href="#cb9-71" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">BC</span></span>
+<span id="cb9-72"><a href="#cb9-72" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (COUNT), <span class="at">BC</span></span>
+<span id="cb9-73"><a href="#cb9-73" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-74"><a href="#cb9-74" aria-hidden="true" tabindex="-1"></a><span class="fu">RECORDED:</span></span>
+<span id="cb9-75"><a href="#cb9-75" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-76"><a href="#cb9-76" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">HL</span></span>
+<span id="cb9-77"><a href="#cb9-77" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">BC</span></span>
+<span id="cb9-78"><a href="#cb9-78" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">AF</span></span>
+<span id="cb9-79"><a href="#cb9-79" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span></code></pre></div>
+<p>Nothing too fancy, just one little thing in there: the Z80 has instructions to test and set bits indirectly at <code class="sourceCode z80">(<span class="at">HL</span>)</code>, just perfect for a bitfield - except the bit to test or set is wired into the opcode. There are three ways to manage this sort of thing. First, one could forgo the use of the bit instructions and just load the value into <code class="sourceCode z80"><span class="at">A</span></code> and use logical operations <code class="sourceCode z80"><span class="bu">OR</span></code> and <code class="sourceCode z80"><span class="bu">AND</span></code>. This is exactly what <code>clang</code> for the Z80 does, and it’s a pretty solid approach. Second, one could do a little jump table with all 8 variants written up, but this is a fair bit of mucking about.</p>
+<p>Third, one could modify the <code class="sourceCode z80"><span class="bu">BIT</span></code> and <code class="sourceCode z80"><span class="bu">SET</span></code> opcodes based on the value at hand. They both encode the same way, except <code class="sourceCode z80"><span class="bu">BIT</span></code> has bit 7 reset while <code class="sourceCode z80"><span class="bu">SET</span></code> has it, uh, set. A little bit of ALU time gets the right opcode value written into program memory.</p>
+<p>Self-modifying code was a very common trick on resource-constrained 8 bit machines, where it can shave off precious cycles or save precious bytes. It’s fallen out of favour for various reasons since, which are more than I should go into in this blog post and which have been gone into in more faithful detail elsewhere anyway.</p>
+<p>The following code is a re-hash of the print methods seen before.</p>
+<div class="sourceCode" id="cb10"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="co">; does not preserve any registers.</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">RESULTS:</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>        <span class="co">; track whether zero has been seen in E</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="st">'0'</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, (COUNT)</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">10000</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    DIGIT</span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">1000</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    DIGIT</span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">100</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    DIGIT</span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">10</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    DIGIT</span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a>        <span class="co">; always print the 1s</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="st">'!'</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">1</span></span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    DIGIT</span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a>        <span class="co">; newline</span></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="bn">10</span></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OUT</span>     (<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a><span class="co">; Prints a digit.</span></span>
+<span id="cb10-31"><a href="#cb10-31" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   HL      the number to test</span></span>
+<span id="cb10-32"><a href="#cb10-32" aria-hidden="true" tabindex="-1"></a><span class="co">;       BC      the digit to print, eg 10,000</span></span>
+<span id="cb10-33"><a href="#cb10-33" aria-hidden="true" tabindex="-1"></a><span class="co">;       E       '0' if zeros should be skipped</span></span>
+<span id="cb10-34"><a href="#cb10-34" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  HL      the number less BC*digit</span></span>
+<span id="cb10-35"><a href="#cb10-35" aria-hidden="true" tabindex="-1"></a><span class="co">;       E       '!' if either E or the digit was not '0'</span></span>
+<span id="cb10-36"><a href="#cb10-36" aria-hidden="true" tabindex="-1"></a><span class="co">;       A       the digit printed</span></span>
+<span id="cb10-37"><a href="#cb10-37" aria-hidden="true" tabindex="-1"></a><span class="fu">DIGIT:</span>  <span class="bu">LD</span>      <span class="at">A</span>, <span class="st">'0'</span> -<span class="bn">1</span></span>
+<span id="cb10-38"><a href="#cb10-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OR</span>      <span class="at">A</span>       <span class="co">; reset CF</span></span>
+<span id="cb10-39"><a href="#cb10-39" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-40"><a href="#cb10-40" aria-hidden="true" tabindex="-1"></a>        <span class="co">; keep subtracting the digit and increasing A</span></span>
+<span id="cb10-41"><a href="#cb10-41" aria-hidden="true" tabindex="-1"></a><span class="fu">SUBS:</span>   <span class="bu">INC</span>     <span class="at">A</span></span>
+<span id="cb10-42"><a href="#cb10-42" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SBC</span>     <span class="at">HL</span>, <span class="at">BC</span></span>
+<span id="cb10-43"><a href="#cb10-43" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NC, SUBS</span>
+<span id="cb10-44"><a href="#cb10-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-45"><a href="#cb10-45" aria-hidden="true" tabindex="-1"></a>        <span class="co">; add the digit back on after overflowing it</span></span>
+<span id="cb10-46"><a href="#cb10-46" aria-hidden="true" tabindex="-1"></a>        <span class="bu">ADD</span>     <span class="at">HL</span>, <span class="at">BC</span></span>
+<span id="cb10-47"><a href="#cb10-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-48"><a href="#cb10-48" aria-hidden="true" tabindex="-1"></a>        <span class="co">; if E is '0' and A is '0' print nothing</span></span>
+<span id="cb10-49"><a href="#cb10-49" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="at">A</span>, <span class="at">E</span></span>
+<span id="cb10-50"><a href="#cb10-50" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, NOPRINT</span>
+<span id="cb10-51"><a href="#cb10-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-52"><a href="#cb10-52" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, <span class="st">'!'</span></span>
+<span id="cb10-53"><a href="#cb10-53" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OUT</span>     (<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb10-54"><a href="#cb10-54" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-55"><a href="#cb10-55" aria-hidden="true" tabindex="-1"></a><span class="fu">NOPRINT:</span></span>
+<span id="cb10-56"><a href="#cb10-56" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span></code></pre></div>
+<p>The program’s output appears here; you can click &lt;Play&gt; for either the sample input or my puzzle input and see the result, as many times as you like.</p>
+<pre class="console"><code>CONSOLE OUTPUT:
+</code></pre>
+<p>The bitfield is defined at the end of the program, tucked out of the way, with the stack a similar size after it.
+Remember: the puzzle input is at <code class="sourceCode z80"><span class="bn">1000h</span></code> and shouldn’t be overwritten.</p>
+<div class="sourceCode" id="cb12"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>        .ORG    <span class="bn">04000h</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">BITS:</span>   <span class="kw">DEFS</span>    <span class="bn">256</span>*<span class="bn">256</span>/<span class="bn">8</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>.EQU    STACK   <span class="bn">$</span> + <span class="bn">02000h</span></span></code></pre></div>
+<hr />
+<p>The first star is now successfully solved. The second star, as usual, introduces a new wrinkle to the problem. Instead of a head and a tail there’s now a chain of ten points following each other around, all using the same rules for movement as the
+original tail point did.</p>
+<p>Adapting to these new rules shouldn’t be too much of a worry. The basic structure of the program remains the same - read the input, move the head (unchanged!), then chase (changed!), record (unchanged!), and print results (unchanged!).</p>
+<div class="sourceCode" id="cb13"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">STAR2:</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DATA</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="fu">START2:</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">SP</span>, STACK</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    INIT</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="fu">INLOOP2:</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (<span class="at">HL</span>)</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">OR</span>      <span class="at">A</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, FINISH2</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">B</span>, (<span class="at">HL</span>)</span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>        <span class="co">; move the cursor B times in the A direction</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="fu">MOVELOOP2:</span></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    MOVE</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    CHAIN</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    RECORD</span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DJNZ</span>    MOVELOOP2</span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a>        <span class="co">; go back for more input</span></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      INLOOP2</span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a><span class="fu">FINISH2:</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    RESULTS</span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span></code></pre></div>
+<p>The only thing that needs to change, in fact, is the bit that has <code>TAIL</code> catch up to <code>HEAD</code> - the new <code>CHAIN</code> needs to introduce 8 additional points, but will start with <code>HEAD</code> and finish with <code>TAIL</code>. Because I already have <code>CHASE</code> written I am going to re-use it, so I’ll store the other points in <code>POINTS</code> here and swap them through <code>HEAD</code> and <code>TAIL</code> as needed.</p>
+<div class="sourceCode" id="cb14"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">POINTS:</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFW</span>    <span class="bn">0</span>, <span class="bn">0</span>, <span class="bn">0</span>, <span class="bn">0</span>, <span class="bn">0</span>, <span class="bn">0</span>, <span class="bn">0</span>, <span class="bn">0</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   (HEAD) is the start of the chain</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="co">;       (TAIL) is the end of the chain</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a><span class="co">;       (POINTS) is the 8 intermediate values</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a><span class="fu">CHAIN:</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">BC</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">DE</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">HL</span></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">; hang onto these</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">DE</span>, (HEAD)</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">DE</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">DE</span>, (TAIL)</span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">DE</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, POINTS</span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    FOLLOW</span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    FOLLOW</span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    FOLLOW</span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    FOLLOW</span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    FOLLOW</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    FOLLOW</span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    FOLLOW</span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    FOLLOW</span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>        <span class="co">; move the original tail</span></span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">DE</span></span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">DE</span></span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    CHASE</span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>        <span class="co">; restore the original head</span></span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">DE</span></span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (HEAD), <span class="at">DE</span></span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">HL</span></span>
+<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">DE</span></span>
+<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">BC</span></span>
+<span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span>
+<span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:   HL      address of next point to move</span></span>
+<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a><span class="co">;       (HEAD)  point to follow</span></span>
+<span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:  HL      HL+2</span></span>
+<span id="cb14-45"><a href="#cb14-45" aria-hidden="true" tabindex="-1"></a><span class="co">;       (HEAD)  point that was moved</span></span>
+<span id="cb14-46"><a href="#cb14-46" aria-hidden="true" tabindex="-1"></a><span class="co">;       (TAIL)  point that was moved</span></span>
+<span id="cb14-47"><a href="#cb14-47" aria-hidden="true" tabindex="-1"></a><span class="co">;       (HL-2)  point that was moved</span></span>
+<span id="cb14-48"><a href="#cb14-48" aria-hidden="true" tabindex="-1"></a><span class="fu">FOLLOW:</span></span>
+<span id="cb14-49"><a href="#cb14-49" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">E</span>, (<span class="at">HL</span>)</span>
+<span id="cb14-50"><a href="#cb14-50" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span></span>
+<span id="cb14-51"><a href="#cb14-51" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">D</span>, (<span class="at">HL</span>)</span>
+<span id="cb14-52"><a href="#cb14-52" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">HL</span></span>
+<span id="cb14-53"><a href="#cb14-53" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">DE</span></span>
+<span id="cb14-54"><a href="#cb14-54" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    CHASE</span>
+<span id="cb14-55"><a href="#cb14-55" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">DE</span>, (TAIL)</span>
+<span id="cb14-56"><a href="#cb14-56" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">HL</span>), <span class="at">E</span></span>
+<span id="cb14-57"><a href="#cb14-57" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span></span>
+<span id="cb14-58"><a href="#cb14-58" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (<span class="at">HL</span>), <span class="at">D</span></span>
+<span id="cb14-59"><a href="#cb14-59" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">HL</span></span>
+<span id="cb14-60"><a href="#cb14-60" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (HEAD), <span class="at">DE</span></span>
+<span id="cb14-61"><a href="#cb14-61" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span></code></pre></div>
+<canvas id="run-sample-2" width="256" height="256" style="margin: 0 auto; display: block; border: 1px solid #181818;">
+</canvas>
+<div style="text-align: center">
+<button type="button" class="runner" data-org="STAR2" data-target="run-sample-2" data-scale="32" data-chain="chain">
+Play
+</button>
+</div>
+<p>As expected the head goes waving all over the place but the tail never moves. There’s another set of sample data for star 2, because the tail never moves for the original data, and I’m going to try that because I’m suspicious that it can’t be so easy.</p>
+<div class="sourceCode" id="cb15"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">SAMPLE2:</span></span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, DATA2</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      START2</span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">DATA2:</span></span>
+<span id="cb15-5"><a href="#cb15-5" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'R'</span>, <span class="bn">5</span></span>
+<span id="cb15-6"><a href="#cb15-6" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'U'</span>, <span class="bn">8</span></span>
+<span id="cb15-7"><a href="#cb15-7" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'L'</span>, <span class="bn">8</span></span>
+<span id="cb15-8"><a href="#cb15-8" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'D'</span>, <span class="bn">3</span></span>
+<span id="cb15-9"><a href="#cb15-9" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'R'</span>, <span class="bn">17</span></span>
+<span id="cb15-10"><a href="#cb15-10" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'D'</span>, <span class="bn">10</span></span>
+<span id="cb15-11"><a href="#cb15-11" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'L'</span>, <span class="bn">25</span></span>
+<span id="cb15-12"><a href="#cb15-12" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="st">'U'</span>, <span class="bn">20</span></span>
+<span id="cb15-13"><a href="#cb15-13" aria-hidden="true" tabindex="-1"></a>        <span class="kw">DEFB</span>    <span class="bn">0</span></span></code></pre></div>
+<canvas id="run-sample-3" width="256" height="256" style="margin: 0 auto; display: block; border: 1px solid #181818;">
+</canvas>
+<div style="text-align: center">
+<button type="button" class="runner" data-org="SAMPLE2" data-target="run-sample-3" data-scale="32" data-chain="chain">
+Play
+</button>
+</div>
+<p>Surprisingly this actually seems to produce the right answer (and image), so the only thing left to do is load up the full input data and give it a whirl.</p>
+<div class="sourceCode" id="cb16"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">INPUT2:</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, <span class="bn">01000h</span></span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      START2</span></code></pre></div>
+<canvas id="run-input-2" width="256" height="256" style="margin: 0 auto; display: block; border: 1px solid #181818;">
+</canvas>
+<div style="text-align: center">
+<button type="button" class="runner" data-org="INPUT2" data-target="run-input-2" data-scale="256" data-chain="chain" data-multi="multi">
+Play
+</button>
+</div>
+<p>At this point the end of the rope is jumping around a lot, and it doesn’t look right. Something must be going wrong in my point movement: every point should always be touching the next point along the chain, and every point should only ever be moving one unit vertically, horizontally, or diagonally. If a point ever jumps two spots at once it will “break” the rope.</p>
+<pre><code>..........    ......H...    ......H...    ......H...
+......H...    ..........    ......1...    .....21...
+.....1....    .....1....    ..........    ..........
+....2.....    ....2.....    ....2.....    ..........
+.9..3..... -&gt; .9..3..... -&gt; .9..3..... -&gt; .9..3.....
+.87654....    .87654....    .87654....    .87654....
+ Starting        UP 1       1 follows     2 follows</code></pre>
+<p>This is the last little sequence of the moment my rope breaks. It happens because point 2 winds up two away from point 1 in both the X and Y dimensions at once, which violates my assumption that the distance between two points is always less than two. I look at X first, it’s two away so I move it to one away. I then took a shortcut and said that if the point got pulled in the X direction I could just set Y to the same value as the pulling point - but that’s not true here, instead, it should move one closer to the pulling point.</p>
+<p>This means a bit more complex code in <code>CHASE</code>. Instead of just yanking the point to match Y (or X) I need to move either -1, 0, or 1 towards that value. If it’s equal, I don’t move. If it’s less, I move 1. If it’s more, I move -1. Don’t forget: comparing signed numbers on the Z80 is harder than just looking at the carry flag - you need to compare both the sign and the parity flags.</p>
+<div class="sourceCode" id="cb18"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="co">; IN:           (HEAD) and (TAIL) values</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="co">; OUT:          tail position updated</span></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a><span class="fu">CHASE_2:</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">AF</span></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">BC</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">PUSH</span>    <span class="at">HL</span></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">; find difference between HEAD and TAIL in X dimension</span></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD)</span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, TAIL</span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SUB</span>     (<span class="at">HL</span>)</span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a>        <span class="co">; if A is 2 or -2, move X</span></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="bn">2</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, XNEQ2<span class="bn">_2</span></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">; set TAIL.X to HEAD.X - 1</span></span>
+<span id="cb18-16"><a href="#cb18-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD)</span>
+<span id="cb18-17"><a href="#cb18-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">A</span></span>
+<span id="cb18-18"><a href="#cb18-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">A</span></span>
+<span id="cb18-19"><a href="#cb18-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      SETY<span class="bn">_2</span></span>
+<span id="cb18-20"><a href="#cb18-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-21"><a href="#cb18-21" aria-hidden="true" tabindex="-1"></a><span class="fu">XNEQ2_2:</span></span>
+<span id="cb18-22"><a href="#cb18-22" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      -<span class="bn">2</span></span>
+<span id="cb18-23"><a href="#cb18-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, CHASEY<span class="bn">_2</span></span>
+<span id="cb18-24"><a href="#cb18-24" aria-hidden="true" tabindex="-1"></a>        <span class="co">; set TAIL.X to HEAD.X + 1</span></span>
+<span id="cb18-25"><a href="#cb18-25" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD)</span>
+<span id="cb18-26"><a href="#cb18-26" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">A</span></span>
+<span id="cb18-27"><a href="#cb18-27" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">A</span></span>
+<span id="cb18-28"><a href="#cb18-28" aria-hidden="true" tabindex="-1"></a>        <span class="co">; fall through to SETY_2</span></span>
+<span id="cb18-29"><a href="#cb18-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-30"><a href="#cb18-30" aria-hidden="true" tabindex="-1"></a><span class="fu">SETY_2:</span></span>
+<span id="cb18-31"><a href="#cb18-31" aria-hidden="true" tabindex="-1"></a>        <span class="co">; compare Y</span></span>
+<span id="cb18-32"><a href="#cb18-32" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (TAIL+<span class="bn">1</span>)</span>
+<span id="cb18-33"><a href="#cb18-33" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, HEAD+<span class="bn">1</span></span>
+<span id="cb18-34"><a href="#cb18-34" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SUB</span>     (<span class="at">HL</span>)</span>
+<span id="cb18-35"><a href="#cb18-35" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, TAIL+<span class="bn">1</span></span>
+<span id="cb18-36"><a href="#cb18-36" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, CHASERET<span class="bn">_2</span>   <span class="co">; Yh = Yt</span></span>
+<span id="cb18-37"><a href="#cb18-37" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      PO, NXOR<span class="bn">_</span>Y</span>
+<span id="cb18-38"><a href="#cb18-38" aria-hidden="true" tabindex="-1"></a>        <span class="bu">XOR</span>     <span class="bn">80h</span></span>
+<span id="cb18-39"><a href="#cb18-39" aria-hidden="true" tabindex="-1"></a><span class="fu">NXOR_Y:</span> <span class="bu">JP</span>      M, INCY<span class="bn">_2</span>       <span class="co">; Yh &gt; Yt</span></span>
+<span id="cb18-40"><a href="#cb18-40" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     (<span class="at">HL</span>)</span>
+<span id="cb18-41"><a href="#cb18-41" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      CHASERET<span class="bn">_2</span></span>
+<span id="cb18-42"><a href="#cb18-42" aria-hidden="true" tabindex="-1"></a><span class="fu">INCY_2:</span> <span class="bu">INC</span>     (<span class="at">HL</span>)</span>
+<span id="cb18-43"><a href="#cb18-43" aria-hidden="true" tabindex="-1"></a>        <span class="co">; fall through to CHASERET_2</span></span>
+<span id="cb18-44"><a href="#cb18-44" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-45"><a href="#cb18-45" aria-hidden="true" tabindex="-1"></a><span class="fu">CHASEY_2:</span></span>
+<span id="cb18-46"><a href="#cb18-46" aria-hidden="true" tabindex="-1"></a>        <span class="co">; find difference between HEAD and TAIL in Y dimension</span></span>
+<span id="cb18-47"><a href="#cb18-47" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD+<span class="bn">1</span>)</span>
+<span id="cb18-48"><a href="#cb18-48" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, TAIL+<span class="bn">1</span></span>
+<span id="cb18-49"><a href="#cb18-49" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SUB</span>     (<span class="at">HL</span>)</span>
+<span id="cb18-50"><a href="#cb18-50" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-51"><a href="#cb18-51" aria-hidden="true" tabindex="-1"></a>        <span class="co">; if A is 2 or -2, move Y</span></span>
+<span id="cb18-52"><a href="#cb18-52" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      <span class="bn">2</span></span>
+<span id="cb18-53"><a href="#cb18-53" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, YNEQ2<span class="bn">_2</span></span>
+<span id="cb18-54"><a href="#cb18-54" aria-hidden="true" tabindex="-1"></a>        <span class="co">; set TAIL.Y to HEAD.Y - 1</span></span>
+<span id="cb18-55"><a href="#cb18-55" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD+<span class="bn">1</span>)</span>
+<span id="cb18-56"><a href="#cb18-56" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     <span class="at">A</span></span>
+<span id="cb18-57"><a href="#cb18-57" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL+<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb18-58"><a href="#cb18-58" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      SETX<span class="bn">_2</span></span>
+<span id="cb18-59"><a href="#cb18-59" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-60"><a href="#cb18-60" aria-hidden="true" tabindex="-1"></a><span class="fu">YNEQ2_2:</span></span>
+<span id="cb18-61"><a href="#cb18-61" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CP</span>      -<span class="bn">2</span></span>
+<span id="cb18-62"><a href="#cb18-62" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      NZ, CHASERET<span class="bn">_2</span></span>
+<span id="cb18-63"><a href="#cb18-63" aria-hidden="true" tabindex="-1"></a>        <span class="co">; set TAIL.Y to HEAD.Y + 1</span></span>
+<span id="cb18-64"><a href="#cb18-64" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (HEAD+<span class="bn">1</span>)</span>
+<span id="cb18-65"><a href="#cb18-65" aria-hidden="true" tabindex="-1"></a>        <span class="bu">INC</span>     <span class="at">A</span></span>
+<span id="cb18-66"><a href="#cb18-66" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL+<span class="bn">1</span>), <span class="at">A</span></span>
+<span id="cb18-67"><a href="#cb18-67" aria-hidden="true" tabindex="-1"></a>        <span class="co">; fall through to SETX_2</span></span>
+<span id="cb18-68"><a href="#cb18-68" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-69"><a href="#cb18-69" aria-hidden="true" tabindex="-1"></a><span class="fu">SETX_2:</span></span>
+<span id="cb18-70"><a href="#cb18-70" aria-hidden="true" tabindex="-1"></a>        <span class="co">; compare X</span></span>
+<span id="cb18-71"><a href="#cb18-71" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, (TAIL)</span>
+<span id="cb18-72"><a href="#cb18-72" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, HEAD</span>
+<span id="cb18-73"><a href="#cb18-73" aria-hidden="true" tabindex="-1"></a>        <span class="bu">SUB</span>     (<span class="at">HL</span>)</span>
+<span id="cb18-74"><a href="#cb18-74" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, TAIL</span>
+<span id="cb18-75"><a href="#cb18-75" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      Z, CHASERET<span class="bn">_2</span>   <span class="co">; Xh = Xt</span></span>
+<span id="cb18-76"><a href="#cb18-76" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      PO, NXOR<span class="bn">_</span>X</span>
+<span id="cb18-77"><a href="#cb18-77" aria-hidden="true" tabindex="-1"></a>        <span class="bu">XOR</span>     <span class="bn">80h</span></span>
+<span id="cb18-78"><a href="#cb18-78" aria-hidden="true" tabindex="-1"></a><span class="fu">NXOR_X:</span> <span class="bu">JP</span>      M, INCX<span class="bn">_2</span>       <span class="co">; Xh &gt; Xt</span></span>
+<span id="cb18-79"><a href="#cb18-79" aria-hidden="true" tabindex="-1"></a>        <span class="bu">DEC</span>     (<span class="at">HL</span>)</span>
+<span id="cb18-80"><a href="#cb18-80" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JR</span>      CHASERET<span class="bn">_2</span></span>
+<span id="cb18-81"><a href="#cb18-81" aria-hidden="true" tabindex="-1"></a><span class="fu">INCX_2:</span> <span class="bu">INC</span>     (<span class="at">HL</span>)</span>
+<span id="cb18-82"><a href="#cb18-82" aria-hidden="true" tabindex="-1"></a>        <span class="co">; fall through to CHASERET_2</span></span>
+<span id="cb18-83"><a href="#cb18-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-84"><a href="#cb18-84" aria-hidden="true" tabindex="-1"></a><span class="fu">CHASERET_2:</span></span>
+<span id="cb18-85"><a href="#cb18-85" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">HL</span></span>
+<span id="cb18-86"><a href="#cb18-86" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">BC</span></span>
+<span id="cb18-87"><a href="#cb18-87" aria-hidden="true" tabindex="-1"></a>        <span class="bu">POP</span>     <span class="at">AF</span></span>
+<span id="cb18-88"><a href="#cb18-88" aria-hidden="true" tabindex="-1"></a>        <span class="bu">RET</span></span></code></pre></div>
+<p>I want to test this one against the problematic inputs and the original ones:</p>
+<div class="sourceCode" id="cb19"><pre class="sourceCode z80 execute"><code class="sourceCode z80"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">SP</span>, STACK</span>
+<span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">0103h</span>       <span class="co">; .....</span></span>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (HEAD), <span class="at">BC</span>      <span class="co">; ...H.</span></span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">0301h</span>       <span class="co">; ..*..</span></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">BC</span>      <span class="co">; .T...</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    CHASE<span class="bn">_2</span>         <span class="co">; .....</span></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, (TAIL)</span>
+<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ASSERT BC=0202h</span></span>
+<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">0102h</span>       <span class="co">; .....</span></span>
+<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (HEAD), <span class="at">BC</span>      <span class="co">; ..H..</span></span>
+<span id="cb19-11"><a href="#cb19-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">0301h</span>       <span class="co">; ..*..</span></span>
+<span id="cb19-12"><a href="#cb19-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">BC</span>      <span class="co">; .T...</span></span>
+<span id="cb19-13"><a href="#cb19-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    CHASE<span class="bn">_2</span>         <span class="co">; .....</span></span>
+<span id="cb19-14"><a href="#cb19-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, (TAIL)</span>
+<span id="cb19-15"><a href="#cb19-15" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ASSERT BC=0202h</span></span>
+<span id="cb19-16"><a href="#cb19-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">0103h</span>       <span class="co">; .....</span></span>
+<span id="cb19-17"><a href="#cb19-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (HEAD), <span class="at">BC</span>      <span class="co">; .T*H.</span></span>
+<span id="cb19-18"><a href="#cb19-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">0101h</span>       <span class="co">; .....</span></span>
+<span id="cb19-19"><a href="#cb19-19" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">BC</span></span>
+<span id="cb19-20"><a href="#cb19-20" aria-hidden="true" tabindex="-1"></a>        <span class="bu">CALL</span>    CHASE<span class="bn">_2</span></span>
+<span id="cb19-21"><a href="#cb19-21" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, (TAIL)</span>
+<span id="cb19-22"><a href="#cb19-22" aria-hidden="true" tabindex="-1"></a>        <span class="co">; ASSERT BC=0102h</span></span>
+<span id="cb19-23"><a href="#cb19-23" aria-hidden="true" tabindex="-1"></a>        <span class="bu">HALT</span></span></code></pre></div>
+<p>With the way I have set up the Z80 assembler and emulator for this page I can’t redefine symbols as I go. The whole page is assembled in two passes, then executions merely pick an entry point and run to <code class="sourceCode z80"><span class="bu">HALT</span></code> or a timeout. That might mean I’d need to rewrite <code>CHAIN</code> to call <code>CHASE_2</code> and the main loop to call the new <code>CHAIN_2</code> but that’s a lot of repetitive nonsense I can skip by overwriting <code>CHASE</code> to jump to <code>CHASE_2</code> instead.</p>
+<div class="sourceCode" id="cb20"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">INPUT3:</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="bn">0c3h</span>         <span class="co">; JP</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, CHASE<span class="bn">_2</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (CHASE), <span class="at">A</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (CHASE+<span class="bn">1</span>), <span class="at">BC</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, <span class="bn">01000h</span></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      START2</span></code></pre></div>
+<canvas id="run-input-3" width="256" height="256" style="margin: 0 auto; display: block; border: 1px solid #181818;">
+</canvas>
+<div style="text-align: center">
+<button type="button" class="runner" data-org="INPUT3" data-target="run-input-3" data-scale="256" data-chain="chain" data-multi="multi">
+Play
+</button>
+</div>
+<p>With this change in place everything is fine up until the wrap-around, where the Y dimension shifts from -128 to 127 during an UP. As I said earlier, an easy fix for the wrap-around <em>for my particular input</em> is to just shift the starting position a little, so I’m going to do that. A more general solution is more bits for coordinates, but that would break my bitfield set quickly. The goal is, as always, to solve the puzzle for my own input. Generality is a bonus, not a goal.</p>
+<div class="sourceCode" id="cb21"><pre class="sourceCode z80"><code class="sourceCode z80"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">INPUT4:</span></span>
+<span id="cb21-2"><a href="#cb21-2" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">A</span>, <span class="bn">0c3h</span>         <span class="co">; JP</span></span>
+<span id="cb21-3"><a href="#cb21-3" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, CHASE<span class="bn">_2</span></span>
+<span id="cb21-4"><a href="#cb21-4" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (CHASE), <span class="at">A</span></span>
+<span id="cb21-5"><a href="#cb21-5" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (CHASE+<span class="bn">1</span>), <span class="at">BC</span></span>
+<span id="cb21-6"><a href="#cb21-6" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">BC</span>, <span class="bn">2000h</span></span>
+<span id="cb21-7"><a href="#cb21-7" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (HEAD), <span class="at">BC</span></span>
+<span id="cb21-8"><a href="#cb21-8" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (TAIL), <span class="at">BC</span></span>
+<span id="cb21-9"><a href="#cb21-9" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (POINTS), <span class="at">BC</span></span>
+<span id="cb21-10"><a href="#cb21-10" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (POINTS+<span class="bn">2</span>), <span class="at">BC</span></span>
+<span id="cb21-11"><a href="#cb21-11" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (POINTS+<span class="bn">4</span>), <span class="at">BC</span></span>
+<span id="cb21-12"><a href="#cb21-12" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (POINTS+<span class="bn">6</span>), <span class="at">BC</span></span>
+<span id="cb21-13"><a href="#cb21-13" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (POINTS+<span class="bn">8</span>), <span class="at">BC</span></span>
+<span id="cb21-14"><a href="#cb21-14" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (POINTS+<span class="bn">10</span>), <span class="at">BC</span></span>
+<span id="cb21-15"><a href="#cb21-15" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (POINTS+<span class="bn">12</span>), <span class="at">BC</span></span>
+<span id="cb21-16"><a href="#cb21-16" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      (POINTS+<span class="bn">14</span>), <span class="at">BC</span></span>
+<span id="cb21-17"><a href="#cb21-17" aria-hidden="true" tabindex="-1"></a>        <span class="bu">LD</span>      <span class="at">HL</span>, <span class="bn">01000h</span></span>
+<span id="cb21-18"><a href="#cb21-18" aria-hidden="true" tabindex="-1"></a>        <span class="bu">JP</span>      START2</span></code></pre></div>
+<p>I have included the solver for star 1 here to show the two images side by side. You can race them, if you’re so inclined. You might even be able to get them to interfere with each others’ output if you time it exactly right.</p>
+<div style="width:100%; display: flex;">
+<div style="flex: 1 1; text-align: center">
+<b>Star 1</b>
+<canvas id="run-input-a" width="256" height="256" style="margin: 0 auto; display: block; border: 1px solid #181818;">
+</canvas>
+<div style="text-align: center">
+<button type="button" class="runner" data-org="INPUT" data-multi="multi" data-target="run-input-a" data-scale="256">
+Play
+</button>
+</div>
+</div>
+<div style="flex: 1 1; text-align: center">
+<b>Star 2</b>
+<canvas id="run-input-4" width="256" height="256" style="margin: 0 auto; display: block; border: 1px solid #181818;">
+</canvas>
+<div style="text-align: center">
+<button type="button" class="runner" data-org="INPUT4" data-target="run-input-4" data-scale="256" data-chain="chain" data-multi="multi">
+Play
+</button>
+</div>
+</div>
+</div>
+<p>Here’s the console repeated from above so you don’t have to scroll.</p>
+<pre class="console"><code>CONSOLE OUTPUT:
+</code></pre>
+<h2 id="the-series">The series</h2>
+<blockquote>
+<p><a href="2023-01-15-aoc-z80-day01.html">Day 1</a> | <a href="2023-01-29-aoc-z80-day02.html">Day 2</a> | <a href="2023-02-13-aoc-z80-day03.html">Day 3</a> | <a href="2023-02-26-aoc-z80-day04.html">Day 4</a> | <a href="2023-03-12-aoc-z80-day05.html">Day 5</a> |
+<a href="2023-03-26-aoc-z80-day06.html">Day 6</a> | <a href="2023-04-09-aoc-z80-day07.html">Day 7</a> | <a href="2023-04-23-aoc-z80-day08.html">Day 8</a> | <strong>Day 9</strong> | Day 10 |
+Day 11 | Day 12 | Day 13 | Day 14 | Day 15 |
+Day 16 | Day 17 | Day 18 | Day 19 | Day 20 |
+Day 21 | Day 22 | Day 23 | Day 24 | Day 25 |</p>
+</blockquote>
+</article>
+
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+      <div class="wrapper">
+
+        <div class="footer-wrapper">
+          <div class="social-media-list">
+            <a href="http://twitter.com/codebje" title="codebje on Twitter" target="_blank"><i class="fa fa-twitter fa-2x"></i></a>
+            <a href="http://linkedin.com/in/codebje" title="codebje on LinkedIn" target="_blank"><i class="fa fa-linkedin fa-2x"></i></a>
+            <a href="http://github.com/codebje" title="codebje on Github" target="_blank"><i class="fa fa-github fa-2x"></i></a>
+          </div>
+          <div class="license">
+            <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-sa/4.0/80x15.png" /></a><br />This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by-sa/4.0/">Creative Commons Attribution-ShareAlike 4.0 International License</a>.
+          </div>
+
+        </div>
+
+      </div>
+
+    </footer>
+
+    <script>
+        MathJax = {
+            chtml: {
+                matchFontHeight: false,
+            }
+        };
+    </script>
+    <!-- script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js"></script -->
+  </body>
+  <script src="https://code.jquery.com/jquery-3.6.2.min.js" integrity="sha256-2krYZKh//PcchRtd+H+VyyQoZ/e3EcrkxhM8ycwASPA=" crossorigin="anonymous"></script>
+</html>
